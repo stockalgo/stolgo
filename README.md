@@ -13,10 +13,11 @@ pip install stolgo
 ## Usage
 
 ```python
-import stolgo
+from stolgo.nse_data import NseData()
 
-stolgo.NseData() # returns 'NseData object'. can be use to get nse data.
+nd = NseData() # returns 'NseData object'. can be use to get nse data.
 
+nd.get_option_chain_excel(symbol,expiry_data,filepath) #dumps option chain to file_path
 ```
 
 ## Contributing
