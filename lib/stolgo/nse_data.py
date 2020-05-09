@@ -1,6 +1,6 @@
-import sys
 import os
 import requests
+
 from datetime import datetime
 import pandas as pd
 from pandas import ExcelWriter
