@@ -5,14 +5,34 @@ from datetime import datetime
 import pandas as pd
 from pandas import ExcelWriter
 from requests.exceptions import HTTPError
+from bs4 import BeautifulSoup
 
 from stolgo.nse_urls import NseUrls
+from stolgo.helper import request_url
 
 class NseData:
     def __init__(self):
         self.__nse_urls = NseUrls()
         self.__headers = {'User-Agent': "Mozilla/5.0"}
     
+    def get_oc_exp_dates(self,symbol):
+        """get current  available expiry dates
+
+        Arguments:
+            symbol {[string]} -- symbol name
+        """
+        try:
+            base_oc_url = self.__nse_urls.get_option_chain_url(symbol)
+            page = request_url(base_oc_url,headers=self.__headers)
+            soup = BeautifulSoup(page.text,'lxml')
+            table = soup.find("select",{"id":"date"})
+            expiry_out = table.find_all("option")
+            expiry_dates = [exp_date.get("value") for exp_date in expiry_out][1:]
+            return expiry_dates
+
+        except Exception as err:
+            raise Exception("something went wrong while reading nse URL :", str(err))
+
     def get_option_chain_df(self, symbol, expiry_date,dayfirst=False):
         """ This fucntion fetches option chain data and returns 
             in the form of pandas data frame
@@ -24,14 +44,11 @@ class NseData:
         """
         try:
             oc_url = self.__nse_urls.get_option_chain_url(symbol, expiry_date,dayfirst)
-            oc_page = requests.get(oc_url, headers = self.__headers)
             # If the response was successful, no Exception will be raised
-            oc_page.raise_for_status()
-            
-        except HTTPError as http_err:
-            raise Exception("HTTP error occurred while fetching nse url :", str(http_err))
+            oc_page = request_url(oc_url, headers = self.__headers)
+
         except Exception as err:
-             raise Exception("something went wrong :", str(err))
+             raise Exception("Error occured while connecting NSE :", str(err))
         else:
             try:
                 dfs = pd.read_html(oc_page.text)

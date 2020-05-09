@@ -14,10 +14,13 @@ class NseUrls:
                                     "part_oi":'%d-%b-%Y'
                                 } 
                                      
-    def get_option_chain_url(self, symbol, expiry_date,dayfirst=False):
+    def get_option_chain_url(self, symbol, expiry_date=None,dayfirst=False):
         try:
-            expiry_date = get_formated_date(expiry_date,self.nse_date_formats["opt_chain"],dayfirst).upper()
-            complete_url =  self.__OPTION_CHAIN_BASE_URL + symbol + "&date=" + expiry_date
-            return complete_url
+            if expiry_date:
+                expiry_date = get_formated_date(expiry_date,self.nse_date_formats["opt_chain"],dayfirst).upper()
+                complete_url =  self.__OPTION_CHAIN_BASE_URL + symbol + "&date=" + expiry_date
+                return complete_url
+            else:
+                return self.__OPTION_CHAIN_BASE_URL + symbol
         except Exception as err:
             raise Exception("Error occured while getting OC url, Error: ",str(err))
