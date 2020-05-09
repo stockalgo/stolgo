@@ -1,26 +1,29 @@
-import requests
-import pandas as pd
+import sys
 import os
-from stolgo.nse_urls import NseUrls
-from pandas import ExcelWriter
+import requests
 from datetime import datetime
+import pandas as pd
+from pandas import ExcelWriter
 from requests.exceptions import HTTPError
+
+from stolgo.nse_urls import NseUrls
 
 class NseData:
     def __init__(self):
         self.__nse_urls = NseUrls()
         self.__headers = {'User-Agent': "Mozilla/5.0"}
     
-    def get_option_chain_df(self, symbol, expiry_date):
+    def get_option_chain_df(self, symbol, expiry_date,dayfirst=False):
         """ This fucntion fetches option chain data and returns 
             in the form of pandas data frame
 
         Arguments:
             symbol {[string]} -- [stock symbol]
             expiry_date {[string]} -- [expiry date]
+            dayfirst{[bool]} -- [to consider date first, european style DD/MM/YYYY]
         """
         try:
-            oc_url = self.__nse_urls.get_option_chain_url(symbol, expiry_date)
+            oc_url = self.__nse_urls.get_option_chain_url(symbol, expiry_date,dayfirst)
             oc_page = requests.get(oc_url, headers = self.__headers)
             # If the response was successful, no Exception will be raised
             oc_page.raise_for_status()
@@ -59,19 +62,20 @@ class NseData:
         except Exception as err:
             print("Error while naming file. Error: ", str(err))
     
-    def get_option_chain_excel(self, symbol, expiry_date, file_path = None, is_use_default_name = True):
+    def get_option_chain_excel(self, symbol, expiry_date,dayfirst=False,file_path = None, is_use_default_name = True):
         """This fucntion fetches option chain data and returns 
             in the form of excel (.xlsx)
         Arguments:
             symbol {[string]} -- [stock symbol]
             expiry_date {[string]} -- [expiry date]
-
+            dayfirst{[bool]} -- [to consider date first, european style DD/MM/YYYY]
+            
         Keyword Arguments:
             file_path {[string]} -- [filepath or folder path] (default: {None})
             is_use_default_name {bool} -- [to set file name ] (default: {True})
         """
         try:
-            df = self.get_option_chain_df(symbol, expiry_date)
+            df = self.get_option_chain_df(symbol, expiry_date,dayfirst)
             file_name = symbol + "_" + expiry_date 
             excel_path = self.__get_file_path(file_name, file_path, is_use_default_name)
             
@@ -80,5 +84,3 @@ class NseData:
             writer.save()
         except Exception as err:
             raise Exception("Error occured while getting excel :", str(err))
-        
-        
