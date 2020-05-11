@@ -1,14 +1,17 @@
 import os
 import requests
+import concurrent.futures
+import threading
+import io
 
-from datetime import datetime
+from datetime import datetime,timedelta
 import pandas as pd
 from pandas import ExcelWriter
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 
 from stolgo.nse_urls import NseUrls
-from stolgo.helper import request_url
+from stolgo.helper import request_url, get_formated_date
 
 class NseData:
     def __init__(self):
@@ -101,3 +104,97 @@ class NseData:
             writer.save()
         except Exception as err:
             raise Exception("Error occured while getting excel :", str(err))
+    
+    def __join_part_oi_dfs(self,df_join,df_joiner):
+        """ will apens joiner to join
+
+        Arguments:
+            df_join {[dict]} -- [Dictionary of participants]
+            df_joiner {[dict]} -- [Dictionary of participants]
+        """
+        for client in df_join:
+            df_join[client] = df_join[client].append(df_joiner[client]).sort_index()
+            
+    def get_part_oi_df(self,start=None,end=None,periods=None,dayfirst=False,workers=None):
+        """Return dictionary of participants containing data frames
+
+        Keyword Arguments:
+            start {[string]} -- [start time ] (default: {None})
+            end {[string]} -- [end time] (default: {None})
+            periods {[interger]} -- [number of days] (default: {None})
+            dayfirst {bool} -- [True if date in DD/MM/YYY format] (default: {False})
+            workers {[integer]} -- [Number of threads for requesting nse] (default: {None})
+
+        Returns:
+            [dictionary] -- [dict of participants containing dataframes]
+        """
+        #format date just in case
+        if start:
+            start = get_formated_date(start,dayfirst=dayfirst)
+        if end:
+            end = get_formated_date(end,dayfirst=dayfirst)
+        
+        #get urls for these days
+        dates = pd.date_range(start=start,end=end, periods=periods,freq='B')
+        print(dates)
+        url_date = [(self.__nse_urls.get_participant_oi_url(date),date) for date in dates]#
+        
+        oi_clm = self.__nse_urls.part_oi_clm
+
+        #lets preinitialize, better readability
+        oi_dfs = {  "Client":pd.DataFrame(columns=oi_clm,index=dates),
+                    "DII":pd.DataFrame(columns=oi_clm,index=dates),
+                    "FII":pd.DataFrame(columns=oi_clm,index=dates),
+                    "Pro":pd.DataFrame(columns=oi_clm,index=dates),
+                    "TOTAL":pd.DataFrame(columns=oi_clm,index=dates)
+                    }
+        
+        if not workers:
+            workers = os.cpu_count() * 2
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            responses = {executor.submit(request_url, url,self.__headers): (url,date) for url,date in url_date}
+            for res in concurrent.futures.as_completed(responses):
+                url,date = responses[res]
+                try:
+                    csv = res.result()
+                except Exception as exc:
+                    #might be holiday
+                    pass
+                else:
+                    df = pd.read_csv(io.StringIO(csv.content.decode('utf-8')))
+                    #drop the first header
+                    df_header = df.iloc[0]
+                    #is there any implace way?
+                    df = df[1:]
+                    df.columns = df_header
+                    df.set_index('Client Type',inplace=True)
+                    #lets us create data frome for all client type
+                    oi_dfs['Client'].loc[date] = df.loc['Client']
+                    oi_dfs['FII'].loc[date] = df.loc['FII']
+                    oi_dfs['DII'].loc[date] = df.loc['DII']
+                    oi_dfs['Pro'].loc[date] = df.loc['Pro']
+                    oi_dfs['TOTAL'].loc[date] = df.loc['TOTAL']
+        
+        #remove nan row
+        for client in oi_dfs:
+            oi_dfs[client].dropna(inplace=True)
+        
+        #if holiday occured in business day, lets retrive more data equivalent to holdidays. 
+        if oi_dfs['Client'].shape[0] < periods:
+            new_periods = periods - oi_dfs['Client'].shape[0]
+            #if only start, find till today 
+            if start and (not end):
+                s_from = oi_dfs['Client'].index[-1] + timedelta(1)
+                e_till = None
+            #if not start, can go to past
+            elif(end and (not start)):
+                s_from = None
+                e_till = oi_dfs['Client'].index[0] - timedelta(1)
+            #if start and end, no need to change
+            else:
+                return oi_dfs
+            oi_dfs_new = self.get_part_oi_df(start = s_from,end = e_till,periods = new_periods)
+            self.__join_part_oi_dfs(oi_dfs,oi_dfs_new)
+        
+        return oi_dfs
