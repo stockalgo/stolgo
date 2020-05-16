@@ -18,12 +18,3 @@ def get_formated_date(date,format=None,dayfirst=False):
             
     except Exception as err:
         raise Exception("Error occured while formatting date, Error: ",str(err))
-
-def request_url(url,headers):
-    try:
-        page = requests.get(url,headers=headers)
-        # If the response was successful, no Exception will be raised
-        page.raise_for_status()
-        return page
-    except HTTPError as http_err:
-        raise Exception("HTTP error occurred while fetching url :", str(http_err))

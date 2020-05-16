@@ -19,7 +19,9 @@ class NseUrls:
                                     "opt_chain":'%d%b%Y',
                                     "part_oi":'%d-%b-%Y'
                                 }
-        
+
+        #browser like header to avoid error 403
+        self.header = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"}
         #paticipant wise OI
         self.part_oi_clm = ['Future Index Long', 'Future Index Short', 'Future Stock Long',
                             'Future Stock Short\t', 'Option Index Call Long',
@@ -47,4 +49,3 @@ class NseUrls:
             return url
         except Exception as err:
             raise Exception("Error occured ehilr getting participant OI. ", str(err))
-    
