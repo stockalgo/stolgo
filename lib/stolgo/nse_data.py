@@ -10,7 +10,6 @@ from pandas import ExcelWriter
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 
-
 from stolgo.nse_urls import NseUrls
 from stolgo.helper import get_formated_date
 from stolgo.request import RequestUrl
@@ -114,15 +113,24 @@ class NseData:
             raise Exception("Error occured while getting excel :", str(err))
     
     def __join_part_oi_dfs(self,df_join,df_joiner):
-        """ will apens joiner to join
+        """ will append joiner to join
 
         Arguments:
             df_join {[dict]} -- [Dictionary of participants]
             df_joiner {[dict]} -- [Dictionary of participants]
         """
         for client in df_join:
-            df_join[client] = df_join[client].append(df_joiner[client]).sort_index()
-            
+            df_join[client] = self.__join_dfs(df_join[client],df_joiner[client]).sort_index()
+    
+    def __join_dfs(self,join,joiner):
+        """will append joiner to join
+
+        Arguments:
+            join {[dataframe]} -- [will get appended]
+            joiner {[dataframe]} -- [df which will be appended in join df]
+        """
+        return join.append(joiner)
+
     def get_part_oi_df(self,start=None,end=None,periods=None,dayfirst=False,workers=None):
         """Return dictionary of participants containing data frames
 
@@ -216,3 +224,55 @@ class NseData:
 
         except Exception as err:
             raise Exception("Error occured while getting part_oi :", str(err))
+
+    def get_data(self,symbol,series="EQ",start=None,end=None,periods=None,dayfirst=False):
+        """get_data API retuns stock data
+
+        Arguments:
+            symbol {[string]} -- [stock symbol as per nse]
+
+        Keyword Arguments:
+            series {str} -- [segment type] (default: {"EQ"})
+            start {[string]} -- [start date] (default: {None})
+            end {[string]} -- [end date] (default: {None})
+            periods {[integer]} -- [number of days] (default: {None})
+            dayfirst {bool} -- [True if date in DD/MM/YYY format, date first then month] (default: {False})
+        """
+        try:
+            data_url = self.__nse_urls.get_stock_data_url\
+                                                        (
+                                                        symbol.upper(),series=series,start=start,
+                                                        end=end,periods=periods,dayfirst=dayfirst
+                                                        )
+
+            csv = self.__request.get(data_url,headers=self.__headers)
+            dfs = pd.read_csv(io.StringIO(csv.content.decode('utf-8')))
+            dfs.set_index('Date ',inplace=True)
+            # Converting the index as date
+            dfs.index = pd.to_datetime(dfs.index)
+
+            if dfs.shape[0] < periods:
+                new_periods = periods - dfs.shape[0]
+                try:
+                    #if only start, find till today 
+                    if start and (not end):
+                        s_from = dfs.index[0] + timedelta(1)
+                        e_till = None
+                    #if not start, can go to past
+                    elif(end and (not start)):
+                        s_from = None
+                        e_till = dfs.index[-1] - timedelta(1)
+                    #if start and end, no need to change
+                    else:
+                        return dfs
+                except IndexError as err:
+                    raise Exception("NSE Access error.")
+                except Exception as exc:
+                    raise Exception("Stock data error: ",str(exc))
+                dfs_new = self.get_data(symbol,series,start = s_from,end = e_till,periods = new_periods)
+                dfs = self.__join_dfs(dfs,dfs_new).sort_index(ascending=False)
+                
+            return dfs
+
+        except Exception as err:
+            raise Exception("Error occured while stock data :", str(err))
