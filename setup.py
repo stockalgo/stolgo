@@ -5,7 +5,7 @@ with open("README.md", 'r') as f:
 
 setup(
    name='stolgo',
-   version='0.1.2',
+   version='0.1.2.post1',
    description='Utilities for the analysis of financial data',
    license="MIT",
    long_description_content_type='text/markdown',
@@ -37,6 +37,6 @@ setup(
       'Programming Language :: Python :: 3.6',
       'Programming Language :: Python :: 3.8',
         ],
-    download_url = "https://github.com/stockalgo/stolgo/archive/v_02.tar.gz",
+    download_url = "https://github.com/stockalgo/stolgo/archive/v_0_1_2.tar.gz",
     keywords = ['ALGORITHM', 'NSE', 'STOCK','FINANCE',"DERIVATIVE","NSEDATA"]
 )
