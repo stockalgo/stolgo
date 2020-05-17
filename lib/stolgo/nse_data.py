@@ -1,7 +1,6 @@
 import os
 import requests
 import concurrent.futures
-import threading
 import io
 
 from datetime import datetime,timedelta
@@ -44,7 +43,7 @@ class NseData:
             raise Exception("something went wrong while reading nse URL :", str(err))
 
     def get_option_chain_df(self, symbol, expiry_date,dayfirst=False):
-        """ This fucntion fetches option chain data and returns 
+        """ This function fetches option chain data and returns 
             in the form of pandas data frame
 
         Arguments:
