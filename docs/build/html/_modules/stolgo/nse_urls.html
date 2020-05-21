@@ -1,0 +1,291 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>stolgo.nse_urls &mdash; stolgo 0.1.2 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> stolgo
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">stolgo</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">stolgo</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>stolgo.nse_urls</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for stolgo.nse_urls</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span><span class="n">date</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+<span class="kn">from</span> <span class="nn">stolgo.helper</span> <span class="kn">import</span> <span class="n">get_formated_date</span><span class="p">,</span><span class="n">get_formated_dateframe</span>
+
+<div class="viewcode-block" id="NseUrls"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_urls.NseUrls">[docs]</a><span class="k">class</span> <span class="nc">NseUrls</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__OPTION_CHAIN_BASE_URL</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;https://www1.nseindia.com/live_market/dynaContent/&quot;</span>\
+                                     <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;live_watch/option_chain/optionKeys.jsp?symbol=&quot;</span>
+        <span class="c1">#In EnocodedURI</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__PARTICIPANT_OI_PRE_URL</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;https://www.nseindia.com/api/reports?archives=%5B%7B%22name&quot;</span>\
+                                    <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%22%</span><span class="s2">3A</span><span class="si">%22F</span><span class="s2">%26O%20-%20Participant%20wise%20Trading%20Volumes(csv)&quot;</span>\
+                                    <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%22%</span><span class="s2">2C%22type</span><span class="si">%22%</span><span class="s2">3A</span><span class="si">%22a</span><span class="s2">rchives</span><span class="si">%22%</span><span class="s2">2C</span><span class="si">%22c</span><span class="s2">ategory</span><span class="si">%22%</span><span class="s2">3A</span><span class="si">%22d</span><span class="s2">erivatives&quot;</span>\
+                                    <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;</span><span class="si">%22%</span><span class="s2">2C</span><span class="si">%22s</span><span class="s2">ection</span><span class="si">%22%</span><span class="s2">3A</span><span class="si">%22e</span><span class="s2">quity</span><span class="si">%22%</span><span class="s2">7D%5D&amp;date=&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__PARTICIPANT_OI_POST_URL</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;&amp;type=equity&amp;mode=single&quot;</span>
+                                     
+        <span class="c1">#Dictionary contains nse date formats for urls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span> <span class="o">=</span> <span class="p">{</span>
+                                    <span class="s2">&quot;opt_chain&quot;</span><span class="p">:</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">%b%Y&#39;</span><span class="p">,</span>
+                                    <span class="s2">&quot;part_oi&quot;</span><span class="p">:</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">-%b-%Y&#39;</span><span class="p">,</span>
+                                    <span class="s2">&quot;stock_data&quot;</span><span class="p">:</span><span class="s1">&#39;</span><span class="si">%d</span><span class="s1">-%m-%Y&#39;</span>
+                                <span class="p">}</span>
+
+        <span class="c1">#browser like header to avoid error 403</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;User-Agent&#39;</span><span class="p">:</span> <span class="s2">&quot;Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36&quot;</span><span class="p">}</span>
+        <span class="c1">#paticipant wise OI</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">part_oi_clm</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;Future Index Long&#39;</span><span class="p">,</span> <span class="s1">&#39;Future Index Short&#39;</span><span class="p">,</span> <span class="s1">&#39;Future Stock Long&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Future Stock Short</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;Option Index Call Long&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Option Index Put Long&#39;</span><span class="p">,</span> <span class="s1">&#39;Option Index Call Short&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Option Index Put Short&#39;</span><span class="p">,</span> <span class="s1">&#39;Option Stock Call Long&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Option Stock Put Long&#39;</span><span class="p">,</span> <span class="s1">&#39;Option Stock Call Short&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Option Stock Put Short&#39;</span><span class="p">,</span> <span class="s1">&#39;Total Long Contracts</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span>
+                            <span class="s1">&#39;Total Short Contracts&#39;</span><span class="p">]</span>
+        
+        <span class="c1">#stock data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__HIST_DATA_PRE_URL</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;https://www.nseindia.com/api/historical/cm/equity?symbol=&quot;</span>
+                                     
+<div class="viewcode-block" id="NseUrls.get_option_chain_url"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_urls.NseUrls.get_option_chain_url">[docs]</a>    <span class="k">def</span> <span class="nf">get_option_chain_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">symbol</span><span class="p">,</span><span class="n">expiry_date</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">expiry_date</span><span class="p">:</span>
+                <span class="n">expiry_date</span> <span class="o">=</span> <span class="n">get_formated_date</span><span class="p">(</span><span class="n">expiry_date</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;opt_chain&quot;</span><span class="p">],</span><span class="n">dayfirst</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                <span class="n">complete_url</span> <span class="o">=</span>  <span class="bp">self</span><span class="o">.</span><span class="n">__OPTION_CHAIN_BASE_URL</span> <span class="o">+</span> <span class="n">symbol</span> <span class="o">+</span> <span class="s2">&quot;&amp;date=&quot;</span> <span class="o">+</span> <span class="n">expiry_date</span>
+                <span class="k">return</span> <span class="n">complete_url</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__OPTION_CHAIN_BASE_URL</span> <span class="o">+</span> <span class="n">symbol</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while getting OC url, Error: &quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+        
+<div class="viewcode-block" id="NseUrls.get_participant_oi_url"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_urls.NseUrls.get_participant_oi_url">[docs]</a>    <span class="k">def</span> <span class="nf">get_participant_oi_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">date</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">date</span> <span class="o">=</span> <span class="n">get_formated_date</span><span class="p">(</span><span class="n">date</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;part_oi&quot;</span><span class="p">],</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span><span class="p">)</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__PARTICIPANT_OI_PRE_URL</span> <span class="o">+</span> <span class="n">date</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">__PARTICIPANT_OI_POST_URL</span>
+            <span class="k">return</span> <span class="n">url</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while getting participant OI. &quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+    
+<div class="viewcode-block" id="NseUrls.get_stock_data_url"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_urls.NseUrls.get_stock_data_url">[docs]</a>    <span class="k">def</span> <span class="nf">get_stock_data_url</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">symbol</span><span class="p">,</span><span class="n">series</span><span class="o">=</span><span class="s2">&quot;EQ&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">periods</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+
+            <span class="c1">#Step 1: format date </span>
+            <span class="k">if</span> <span class="n">start</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">get_formated_dateframe</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">],</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">end</span><span class="p">:</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="n">get_formated_dateframe</span><span class="p">(</span><span class="n">end</span><span class="p">,</span><span class="nb">format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">],</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span><span class="p">)</span>
+            
+            <span class="c1">#Step 2: date range with peroids</span>
+            <span class="c1">#if only start, find till today </span>
+            <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">end</span><span class="p">):</span>
+                <span class="n">s_from</span> <span class="o">=</span> <span class="n">start</span>
+                <span class="k">if</span> <span class="n">periods</span><span class="p">:</span>
+                    <span class="n">e_till</span> <span class="o">=</span> <span class="n">s_from</span> <span class="o">+</span> <span class="n">pd</span><span class="o">.</span><span class="n">offsets</span><span class="o">.</span><span class="n">BDay</span><span class="p">(</span><span class="n">periods</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">e_till</span> <span class="o">=</span> <span class="n">get_formated_dateframe</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">])</span>
+            <span class="c1">#if not start, can go to past</span>
+            <span class="k">elif</span><span class="p">(</span><span class="n">end</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">start</span><span class="p">)):</span>
+                <span class="n">e_till</span> <span class="o">=</span> <span class="n">end</span>
+                <span class="k">if</span> <span class="n">periods</span><span class="p">:</span>
+                    <span class="n">s_from</span> <span class="o">=</span> <span class="n">e_till</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">offsets</span><span class="o">.</span><span class="n">BDay</span><span class="p">(</span><span class="n">periods</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># last one year data</span>
+                    <span class="n">s_from</span> <span class="o">=</span> <span class="n">e_till</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">offsets</span><span class="o">.</span><span class="n">BDay</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
+            <span class="c1">#if start and end, no need to change</span>
+            <span class="k">elif</span><span class="p">(</span><span class="n">start</span> <span class="ow">and</span> <span class="n">end</span><span class="p">):</span>
+                <span class="n">s_from</span> <span class="o">=</span> <span class="n">start</span>
+                <span class="n">e_till</span> <span class="o">=</span> <span class="n">end</span>
+            <span class="c1"># if no stat/end and periods given, we get past data of periods</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">e_till</span> <span class="o">=</span> <span class="n">get_formated_dateframe</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">])</span>
+                <span class="k">if</span><span class="p">(</span><span class="n">periods</span><span class="p">):</span>
+                    <span class="n">s_from</span> <span class="o">=</span> <span class="n">e_till</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">offsets</span><span class="o">.</span><span class="n">BDay</span><span class="p">(</span><span class="n">periods</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># last one year data</span>
+                    <span class="n">s_from</span> <span class="o">=</span> <span class="n">e_till</span> <span class="o">-</span> <span class="n">pd</span><span class="o">.</span><span class="n">offsets</span><span class="o">.</span><span class="n">BDay</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
+
+            <span class="c1">#step3: Build url</span>
+            <span class="n">s_from</span> <span class="o">=</span> <span class="n">s_from</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">])</span>
+            <span class="n">e_till</span> <span class="o">=</span> <span class="n">e_till</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nse_date_formats</span><span class="p">[</span><span class="s2">&quot;stock_data&quot;</span><span class="p">])</span>
+            <span class="n">url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__HIST_DATA_PRE_URL</span> <span class="o">+</span> <span class="n">symbol</span> <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;&amp;series=[%22&quot;</span> <span class="o">+</span> <span class="n">series</span><span class="o">+</span>\
+                    <span class="sa">r</span><span class="s2">&quot;%22]&amp;from=&quot;</span> <span class="o">+</span> <span class="n">s_from</span> <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;&amp;to=&quot;</span> <span class="o">+</span> <span class="n">e_till</span> <span class="o">+</span> <span class="sa">r</span><span class="s2">&quot;&amp;csv=true&quot;</span>
+            <span class="k">return</span> <span class="n">url</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while getting stock data URL. &quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, stolgo developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

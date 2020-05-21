@@ -1,0 +1,500 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>stolgo.nse_data &mdash; stolgo 0.1.2 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+        <script src="../../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> stolgo
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">stolgo</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">stolgo</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>stolgo.nse_data</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for stolgo.nse_data</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">concurrent.futures</span>
+<span class="kn">import</span> <span class="nn">io</span>
+
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span><span class="n">timedelta</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">pandas</span> <span class="kn">import</span> <span class="n">ExcelWriter</span>
+<span class="kn">from</span> <span class="nn">requests.exceptions</span> <span class="kn">import</span> <span class="n">HTTPError</span>
+<span class="kn">from</span> <span class="nn">bs4</span> <span class="kn">import</span> <span class="n">BeautifulSoup</span>
+
+<span class="kn">from</span> <span class="nn">stolgo.nse_urls</span> <span class="kn">import</span> <span class="n">NseUrls</span>
+<span class="kn">from</span> <span class="nn">stolgo.helper</span> <span class="kn">import</span> <span class="n">get_formated_date</span>
+<span class="kn">from</span> <span class="nn">stolgo.request</span> <span class="kn">import</span> <span class="n">RequestUrl</span>
+
+<span class="c1">#default params for url connection </span>
+<span class="n">DEFAULT_TIMEOUT</span> <span class="o">=</span> <span class="mi">5</span> <span class="c1"># seconds</span>
+<span class="n">MAX_RETRIES</span> <span class="o">=</span> <span class="mi">2</span>
+
+<div class="viewcode-block" id="NseData"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData">[docs]</a><span class="k">class</span> <span class="nc">NseData</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">timeout</span><span class="o">=</span><span class="n">DEFAULT_TIMEOUT</span><span class="p">,</span><span class="n">max_retries</span><span class="o">=</span><span class="n">MAX_RETRIES</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span> <span class="o">=</span> <span class="n">NseUrls</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">header</span>
+        <span class="c1">#create request</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__request</span> <span class="o">=</span> <span class="n">RequestUrl</span><span class="p">()</span>
+
+<div class="viewcode-block" id="NseData.get_oc_exp_dates"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData.get_oc_exp_dates">[docs]</a>    <span class="k">def</span> <span class="nf">get_oc_exp_dates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">symbol</span><span class="p">):</span>
+        
+        <span class="sd">&quot;&quot;&quot;get current  available expiry dates</span>
+
+<span class="sd">        :raises Exception: NSE connection related</span>
+<span class="sd">        :return: expiry dates</span>
+<span class="sd">        :rtype: list</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">base_oc_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">get_option_chain_url</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
+            <span class="n">page</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">base_oc_url</span><span class="p">,</span><span class="n">headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__headers</span><span class="p">)</span>
+            <span class="n">soup</span> <span class="o">=</span> <span class="n">BeautifulSoup</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">text</span><span class="p">,</span><span class="s1">&#39;lxml&#39;</span><span class="p">)</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">soup</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;select&quot;</span><span class="p">,{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span><span class="s2">&quot;date&quot;</span><span class="p">})</span>
+            <span class="n">expiry_out</span> <span class="o">=</span> <span class="n">table</span><span class="o">.</span><span class="n">find_all</span><span class="p">(</span><span class="s2">&quot;option&quot;</span><span class="p">)</span>
+            <span class="n">expiry_dates</span> <span class="o">=</span> <span class="p">[</span><span class="n">exp_date</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;value&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">exp_date</span> <span class="ow">in</span> <span class="n">expiry_out</span><span class="p">][</span><span class="mi">1</span><span class="p">:]</span>
+            <span class="k">return</span> <span class="n">expiry_dates</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;something went wrong while reading nse URL :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="NseData.get_option_chain_df"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData.get_option_chain_df">[docs]</a>    <span class="k">def</span> <span class="nf">get_option_chain_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">expiry_date</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot; This function fetches option chain data from NSE and returns in pandas.DataFrame</span>
+
+<span class="sd">        :param symbol: stock/index symbol</span>
+<span class="sd">        :type symbol: string</span>
+<span class="sd">        :param expiry_date: expiry date (all date formats accepted)</span>
+<span class="sd">        :type expiry_date: string</span>
+<span class="sd">        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False</span>
+<span class="sd">        :type dayfirst: bool, optional</span>
+<span class="sd">        :raises Exception: NSE connection related</span>
+<span class="sd">        :raises Exception: In html parsing</span>
+<span class="sd">        :return: option chain</span>
+<span class="sd">        :rtype: pandas.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">oc_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">get_option_chain_url</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">expiry_date</span><span class="p">,</span><span class="n">dayfirst</span><span class="p">)</span>
+            <span class="c1"># If the response was successful, no Exception will be raised</span>
+            <span class="n">oc_page</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">oc_url</span><span class="p">,</span> <span class="n">headers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__headers</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+             <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while connecting NSE :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dfs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_html</span><span class="p">(</span><span class="n">oc_page</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">dfs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while reading html :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+    
+    <span class="k">def</span> <span class="nf">__get_file_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">file_path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">is_use_default_name</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;[summary]</span>
+
+<span class="sd">        :param file_name: file name </span>
+<span class="sd">        :type file_name: string</span>
+<span class="sd">        :param file_path: file directory or file path , defaults to None</span>
+<span class="sd">        :type file_path: string, optional</span>
+<span class="sd">        :param is_use_default_name: to get filename in current timestamp, defaults to True</span>
+<span class="sd">        :type is_use_default_name: bool, optional</span>
+<span class="sd">        :return: file path</span>
+<span class="sd">        :rtype: string</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">file_path</span><span class="p">:</span>
+                <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">()</span>
+            
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+                <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">is_use_default_name</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">file_path</span>
+                <span class="c1"># if need to use default file path, we get parent path</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+                    
+            <span class="c1"># datetime object containing current date and time</span>
+            <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="c1"># dd/mm/YY H:M:S</span>
+            <span class="n">dt_string</span> <span class="o">=</span> <span class="n">now</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2">_%B_%H_%M&quot;</span><span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">file_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">dt_string</span> <span class="o">+</span> <span class="s2">&quot;.xlsx&quot;</span>
+            
+            <span class="n">excel_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">excel_path</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Error while naming file. Error: &quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span>
+    
+<div class="viewcode-block" id="NseData.get_option_chain_excel"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData.get_option_chain_excel">[docs]</a>    <span class="k">def</span> <span class="nf">get_option_chain_excel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">expiry_date</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">file_path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">is_use_default_name</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fetches NSE option chain data and returns in the form of excel (.xlsx)</span>
+
+<span class="sd">        :param symbol: stock/index symbol</span>
+<span class="sd">        :type symbol: string</span>
+<span class="sd">        :param expiry_date: expiry date (all date formats accepted)</span>
+<span class="sd">        :type expiry_date: string</span>
+<span class="sd">        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False</span>
+<span class="sd">        :type dayfirst: bool, optional</span>
+<span class="sd">        :param file_path: file/folder path, defaults to None</span>
+<span class="sd">        :type file_path: string, optional</span>
+<span class="sd">        :param is_use_default_name:  to get filename as current timestamp, defaults to True</span>
+<span class="sd">        :type is_use_default_name: bool, optional</span>
+<span class="sd">        :raises Exception:  NSE connection related</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_option_chain_df</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span> <span class="n">expiry_date</span><span class="p">,</span><span class="n">dayfirst</span><span class="p">)</span>
+            <span class="n">file_name</span> <span class="o">=</span> <span class="n">symbol</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">expiry_date</span> 
+            <span class="n">excel_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_file_path</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="n">file_path</span><span class="p">,</span> <span class="n">is_use_default_name</span><span class="p">)</span>
+            
+            <span class="n">writer</span> <span class="o">=</span> <span class="n">ExcelWriter</span><span class="p">(</span><span class="n">excel_path</span><span class="p">)</span>
+            <span class="n">df</span><span class="o">.</span><span class="n">to_excel</span><span class="p">(</span><span class="n">writer</span><span class="p">,</span> <span class="n">file_name</span><span class="p">)</span>
+            <span class="n">writer</span><span class="o">.</span><span class="n">save</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while getting excel :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+    
+    <span class="k">def</span> <span class="nf">__join_part_oi_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">df_join</span><span class="p">,</span><span class="n">df_joiner</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;will append joiner to join for oi_dfs</span>
+
+<span class="sd">        :param df_join: Dictionary of participants</span>
+<span class="sd">        :type df_join: dict</span>
+<span class="sd">        :param df_joiner: Dictionary of participants</span>
+<span class="sd">        :type df_joiner: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="n">df_join</span><span class="p">:</span>
+            <span class="n">df_join</span><span class="p">[</span><span class="n">client</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__join_dfs</span><span class="p">(</span><span class="n">df_join</span><span class="p">[</span><span class="n">client</span><span class="p">],</span><span class="n">df_joiner</span><span class="p">[</span><span class="n">client</span><span class="p">])</span><span class="o">.</span><span class="n">sort_index</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">__join_dfs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">join</span><span class="p">,</span><span class="n">joiner</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;will append joiner to join for oi_dfs</span>
+
+<span class="sd">        :param join: df which will be appended</span>
+<span class="sd">        :type join: pandas.DataFrame</span>
+<span class="sd">        :param joiner: df which we want to append</span>
+<span class="sd">        :type joiner: pandas.DataFrame</span>
+<span class="sd">        :return: merged data frame</span>
+<span class="sd">        :rtype: pandas.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">return</span> <span class="n">join</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">joiner</span><span class="p">)</span>
+
+<div class="viewcode-block" id="NseData.get_part_oi_df"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData.get_part_oi_df">[docs]</a>    <span class="k">def</span> <span class="nf">get_part_oi_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">periods</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span><span class="n">workers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return dictionary of participants containing data frames</span>
+
+<span class="sd">        :param start: start date , defaults to None</span>
+<span class="sd">        :type start: string, optional</span>
+<span class="sd">        :param end: end date, defaults to None</span>
+<span class="sd">        :type end: string, optional</span>
+<span class="sd">        :param periods: number of days, defaults to None</span>
+<span class="sd">        :type periods: interger, optional</span>
+<span class="sd">        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False</span>
+<span class="sd">        :type dayfirst: bool, optional</span>
+<span class="sd">        :param workers: Number of threads for requesting nse, defaults to None</span>
+<span class="sd">        :type workers: interger, optional</span>
+<span class="sd">        :raises Exception: NSE Connection/Request overload</span>
+<span class="sd">        :return: participant wise open interest</span>
+<span class="sd">        :rtype: pandas.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1">#format date just in case</span>
+            <span class="k">if</span> <span class="n">start</span><span class="p">:</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">get_formated_date</span><span class="p">(</span><span class="n">start</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">end</span><span class="p">:</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="n">get_formated_date</span><span class="p">(</span><span class="n">end</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span><span class="p">)</span>
+            
+            <span class="c1">#get urls for these days</span>
+            <span class="n">dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="n">periods</span><span class="p">,</span><span class="n">freq</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">)</span>
+            <span class="n">url_date</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">get_participant_oi_url</span><span class="p">(</span><span class="n">date</span><span class="p">),</span><span class="n">date</span><span class="p">)</span> <span class="k">for</span> <span class="n">date</span> <span class="ow">in</span> <span class="n">dates</span><span class="p">]</span><span class="c1">#</span>
+            
+            <span class="n">oi_clm</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">part_oi_clm</span>
+            <span class="c1">#lets preinitialize, better readability</span>
+            <span class="n">oi_dfs</span> <span class="o">=</span> <span class="p">{</span>  <span class="s2">&quot;Client&quot;</span><span class="p">:</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">oi_clm</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">dates</span><span class="p">),</span>
+                        <span class="s2">&quot;DII&quot;</span><span class="p">:</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">oi_clm</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">dates</span><span class="p">),</span>
+                        <span class="s2">&quot;FII&quot;</span><span class="p">:</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">oi_clm</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">dates</span><span class="p">),</span>
+                        <span class="s2">&quot;Pro&quot;</span><span class="p">:</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">oi_clm</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">dates</span><span class="p">),</span>
+                        <span class="s2">&quot;TOTAL&quot;</span><span class="p">:</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">oi_clm</span><span class="p">,</span><span class="n">index</span><span class="o">=</span><span class="n">dates</span><span class="p">)</span>
+                        <span class="p">}</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">workers</span><span class="p">:</span>
+                <span class="n">workers</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span> <span class="o">*</span> <span class="mi">2</span>
+            
+            
+            <span class="k">with</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+                <span class="n">responses</span> <span class="o">=</span> <span class="p">{</span><span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__request</span><span class="o">.</span><span class="n">get</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">__headers</span><span class="p">):</span> <span class="p">(</span><span class="n">url</span><span class="p">,</span><span class="n">date</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span><span class="p">,</span><span class="n">date</span> <span class="ow">in</span> <span class="n">url_date</span><span class="p">}</span>
+                <span class="k">for</span> <span class="n">res</span> <span class="ow">in</span> <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">as_completed</span><span class="p">(</span><span class="n">responses</span><span class="p">):</span>
+                    <span class="n">url</span><span class="p">,</span><span class="n">date</span> <span class="o">=</span> <span class="n">responses</span><span class="p">[</span><span class="n">res</span><span class="p">]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">csv</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                        <span class="c1">#might be holiday</span>
+                        <span class="k">pass</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">csv</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)))</span>
+                        <span class="c1">#drop the first header</span>
+                        <span class="n">df_header</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="c1">#is there any implace way?</span>
+                        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                        <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">df_header</span>
+                        <span class="n">df</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;Client Type&#39;</span><span class="p">,</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                        <span class="c1">#lets us create data frome for all client type</span>
+                        <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">date</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span>
+                        <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;FII&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">date</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;FII&#39;</span><span class="p">]</span>
+                        <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;DII&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">date</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;DII&#39;</span><span class="p">]</span>
+                        <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Pro&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">date</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;Pro&#39;</span><span class="p">]</span>
+                        <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;TOTAL&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">date</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;TOTAL&#39;</span><span class="p">]</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="c1">#remove nan row</span>
+                <span class="k">for</span> <span class="n">client</span> <span class="ow">in</span> <span class="n">oi_dfs</span><span class="p">:</span>
+                    <span class="n">oi_dfs</span><span class="p">[</span><span class="n">client</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                
+                <span class="c1">#if holiday occured in business day, lets retrive more data equivalent to holdidays. </span>
+                <span class="k">if</span> <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">periods</span><span class="p">:</span>
+                    <span class="n">new_periods</span> <span class="o">=</span> <span class="n">periods</span> <span class="o">-</span> <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="c1">#if only start, find till today </span>
+                        <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">end</span><span class="p">):</span>
+                            <span class="n">s_from</span> <span class="o">=</span> <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                            <span class="n">e_till</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="c1">#if not start, can go to past</span>
+                        <span class="k">elif</span><span class="p">(</span><span class="n">end</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">start</span><span class="p">)):</span>
+                            <span class="n">s_from</span> <span class="o">=</span> <span class="kc">None</span>
+                            <span class="n">e_till</span> <span class="o">=</span> <span class="n">oi_dfs</span><span class="p">[</span><span class="s1">&#39;Client&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                        <span class="c1">#if start and end, no need to change</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">return</span> <span class="n">oi_dfs</span>
+                    <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;NSE Access error.size down/clean cookies to resolve the issue.&quot;</span><span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;participant OI error: &quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+
+                    <span class="n">oi_dfs_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_part_oi_df</span><span class="p">(</span><span class="n">start</span> <span class="o">=</span> <span class="n">s_from</span><span class="p">,</span><span class="n">end</span> <span class="o">=</span> <span class="n">e_till</span><span class="p">,</span><span class="n">periods</span> <span class="o">=</span> <span class="n">new_periods</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__join_part_oi_dfs</span><span class="p">(</span><span class="n">oi_dfs</span><span class="p">,</span><span class="n">oi_dfs_new</span><span class="p">)</span>
+                
+                <span class="k">return</span> <span class="n">oi_dfs</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while getting part_oi :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="NseData.get_data"><a class="viewcode-back" href="../../stolgo.html#stolgo.nse_data.NseData.get_data">[docs]</a>    <span class="k">def</span> <span class="nf">get_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">symbol</span><span class="p">,</span><span class="n">series</span><span class="o">=</span><span class="s2">&quot;EQ&quot;</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">periods</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;To get NSE stock data</span>
+
+<span class="sd">        :param symbol: stock symbol</span>
+<span class="sd">        :type symbol: string</span>
+<span class="sd">        :param series: segment, defaults to &quot;EQ&quot;</span>
+<span class="sd">        :type series: string, optional</span>
+<span class="sd">        :param start: start date, defaults to None</span>
+<span class="sd">        :type start: string, optional</span>
+<span class="sd">        :param end: end date, defaults to None</span>
+<span class="sd">        :type end: string, optional</span>
+<span class="sd">        :param periods: number of days, defaults to None</span>
+<span class="sd">        :type periods: interger, optional</span>
+<span class="sd">        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False</span>
+<span class="sd">        :type dayfirst: bool, optional</span>
+<span class="sd">        :raises Exception: NSE Connection Related</span>
+<span class="sd">        :return: stock data</span>
+<span class="sd">        :rtype: pandas.DataFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">data_url</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__nse_urls</span><span class="o">.</span><span class="n">get_stock_data_url</span>\
+                                                        <span class="p">(</span>
+                                                        <span class="n">symbol</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span><span class="n">series</span><span class="o">=</span><span class="n">series</span><span class="p">,</span><span class="n">start</span><span class="o">=</span><span class="n">start</span><span class="p">,</span>
+                                                        <span class="n">end</span><span class="o">=</span><span class="n">end</span><span class="p">,</span><span class="n">periods</span><span class="o">=</span><span class="n">periods</span><span class="p">,</span><span class="n">dayfirst</span><span class="o">=</span><span class="n">dayfirst</span>
+                                                        <span class="p">)</span>
+
+            <span class="n">csv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__request</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">data_url</span><span class="p">,</span><span class="n">headers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__headers</span><span class="p">)</span>
+            <span class="n">dfs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">StringIO</span><span class="p">(</span><span class="n">csv</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)))</span>
+            <span class="n">dfs</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;Date &#39;</span><span class="p">,</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Converting the index as date</span>
+            <span class="n">dfs</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">dfs</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">dfs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">periods</span><span class="p">:</span>
+                <span class="n">new_periods</span> <span class="o">=</span> <span class="n">periods</span> <span class="o">-</span> <span class="n">dfs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="c1">#if only start, find till today </span>
+                    <span class="k">if</span> <span class="n">start</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">end</span><span class="p">):</span>
+                        <span class="n">s_from</span> <span class="o">=</span> <span class="n">dfs</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                        <span class="n">e_till</span> <span class="o">=</span> <span class="kc">None</span>
+                    <span class="c1">#if not start, can go to past</span>
+                    <span class="k">elif</span><span class="p">(</span><span class="n">end</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="n">start</span><span class="p">)):</span>
+                        <span class="n">s_from</span> <span class="o">=</span> <span class="kc">None</span>
+                        <span class="n">e_till</span> <span class="o">=</span> <span class="n">dfs</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+                    <span class="c1">#if start and end, no need to change</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">return</span> <span class="n">dfs</span>
+                <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;NSE Access error.&quot;</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Stock data error: &quot;</span><span class="p">,</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+                <span class="n">dfs_new</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data</span><span class="p">(</span><span class="n">symbol</span><span class="p">,</span><span class="n">series</span><span class="p">,</span><span class="n">start</span> <span class="o">=</span> <span class="n">s_from</span><span class="p">,</span><span class="n">end</span> <span class="o">=</span> <span class="n">e_till</span><span class="p">,</span><span class="n">periods</span> <span class="o">=</span> <span class="n">new_periods</span><span class="p">)</span>
+                <span class="n">dfs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__join_dfs</span><span class="p">(</span><span class="n">dfs</span><span class="p">,</span><span class="n">dfs_new</span><span class="p">)</span><span class="o">.</span><span class="n">sort_index</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                
+            <span class="k">return</span> <span class="n">dfs</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Error occured while stock data :&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">))</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2020, stolgo developers
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

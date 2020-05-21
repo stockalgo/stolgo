@@ -25,11 +25,13 @@ class NseData:
         self.__request = RequestUrl()
 
     def get_oc_exp_dates(self,symbol):
+        
         """get current  available expiry dates
 
-        Arguments:
-            symbol {[string]} -- symbol name
-        """
+        :raises Exception: NSE connection related
+        :return: expiry dates
+        :rtype: list
+        """        
         try:
             base_oc_url = self.__nse_urls.get_option_chain_url(symbol)
             page = self.__request.get(base_oc_url,headers=self.__headers)
@@ -43,13 +45,18 @@ class NseData:
             raise Exception("something went wrong while reading nse URL :", str(err))
 
     def get_option_chain_df(self, symbol, expiry_date,dayfirst=False):
-        """ This function fetches option chain data and returns 
-            in the form of pandas data frame
+        """ This function fetches option chain data from NSE and returns in pandas.DataFrame
 
-        Arguments:
-            symbol {[string]} -- [stock symbol]
-            expiry_date {[string]} -- [expiry date]
-            dayfirst{[bool]} -- [to consider date first, european style DD/MM/YYYY]
+        :param symbol: stock/index symbol
+        :type symbol: string
+        :param expiry_date: expiry date (all date formats accepted)
+        :type expiry_date: string
+        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
+        :type dayfirst: bool, optional
+        :raises Exception: NSE connection related
+        :raises Exception: In html parsing
+        :return: option chain
+        :rtype: pandas.DataFrame
         """
         try:
             oc_url = self.__nse_urls.get_option_chain_url(symbol, expiry_date,dayfirst)
@@ -66,6 +73,17 @@ class NseData:
                 raise Exception("Error occured while reading html :", str(err))
     
     def __get_file_path(self, file_name, file_path = None, is_use_default_name = True):
+        """[summary]
+
+        :param file_name: file name 
+        :type file_name: string
+        :param file_path: file directory or file path , defaults to None
+        :type file_path: string, optional
+        :param is_use_default_name: to get filename in current timestamp, defaults to True
+        :type is_use_default_name: bool, optional
+        :return: file path
+        :rtype: string
+        """
         try:
             if not file_path:
                 file_path = os.getcwd()
@@ -89,17 +107,20 @@ class NseData:
             print("Error while naming file. Error: ", str(err))
     
     def get_option_chain_excel(self, symbol, expiry_date,dayfirst=False,file_path = None, is_use_default_name = True):
-        """This fucntion fetches option chain data and returns 
-            in the form of excel (.xlsx)
-        Arguments:
-            symbol {[string]} -- [stock symbol]
-            expiry_date {[string]} -- [expiry date]
-            dayfirst{[bool]} -- [to consider date first, european style DD/MM/YYYY]
-            
-        Keyword Arguments:
-            file_path {[string]} -- [filepath or folder path] (default: {None})
-            is_use_default_name {bool} -- [to set file name ] (default: {True})
-        """
+        """Fetches NSE option chain data and returns in the form of excel (.xlsx)
+
+        :param symbol: stock/index symbol
+        :type symbol: string
+        :param expiry_date: expiry date (all date formats accepted)
+        :type expiry_date: string
+        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
+        :type dayfirst: bool, optional
+        :param file_path: file/folder path, defaults to None
+        :type file_path: string, optional
+        :param is_use_default_name:  to get filename as current timestamp, defaults to True
+        :type is_use_default_name: bool, optional
+        :raises Exception:  NSE connection related
+        """        
         try:
             df = self.get_option_chain_df(symbol, expiry_date,dayfirst)
             file_name = symbol + "_" + expiry_date 
@@ -112,37 +133,45 @@ class NseData:
             raise Exception("Error occured while getting excel :", str(err))
     
     def __join_part_oi_dfs(self,df_join,df_joiner):
-        """ will append joiner to join
+        """will append joiner to join for oi_dfs
 
-        Arguments:
-            df_join {[dict]} -- [Dictionary of participants]
-            df_joiner {[dict]} -- [Dictionary of participants]
-        """
+        :param df_join: Dictionary of participants
+        :type df_join: dict
+        :param df_joiner: Dictionary of participants
+        :type df_joiner: dict
+        """        
         for client in df_join:
             df_join[client] = self.__join_dfs(df_join[client],df_joiner[client]).sort_index()
     
     def __join_dfs(self,join,joiner):
-        """will append joiner to join
+        """will append joiner to join for oi_dfs
 
-        Arguments:
-            join {[dataframe]} -- [will get appended]
-            joiner {[dataframe]} -- [df which will be appended in join df]
-        """
+        :param join: df which will be appended
+        :type join: pandas.DataFrame
+        :param joiner: df which we want to append
+        :type joiner: pandas.DataFrame
+        :return: merged data frame
+        :rtype: pandas.DataFrame
+        """        
         return join.append(joiner)
 
     def get_part_oi_df(self,start=None,end=None,periods=None,dayfirst=False,workers=None):
         """Return dictionary of participants containing data frames
 
-        Keyword Arguments:
-            start {[string]} -- [start time ] (default: {None})
-            end {[string]} -- [end time] (default: {None})
-            periods {[interger]} -- [number of days] (default: {None})
-            dayfirst {bool} -- [True if date in DD/MM/YYY format] (default: {False})
-            workers {[integer]} -- [Number of threads for requesting nse] (default: {None})
-
-        Returns:
-            [dictionary] -- [dict of participants containing dataframes]
-        """
+        :param start: start date , defaults to None
+        :type start: string, optional
+        :param end: end date, defaults to None
+        :type end: string, optional
+        :param periods: number of days, defaults to None
+        :type periods: interger, optional
+        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
+        :type dayfirst: bool, optional
+        :param workers: Number of threads for requesting nse, defaults to None
+        :type workers: interger, optional
+        :raises Exception: NSE Connection/Request overload
+        :return: participant wise open interest
+        :rtype: pandas.DataFrame
+        """        
         try:
             #format date just in case
             if start:
@@ -225,18 +254,24 @@ class NseData:
             raise Exception("Error occured while getting part_oi :", str(err))
 
     def get_data(self,symbol,series="EQ",start=None,end=None,periods=None,dayfirst=False):
-        """get_data API retuns stock data
+        """To get NSE stock data
 
-        Arguments:
-            symbol {[string]} -- [stock symbol as per nse]
-
-        Keyword Arguments:
-            series {str} -- [segment type] (default: {"EQ"})
-            start {[string]} -- [start date] (default: {None})
-            end {[string]} -- [end date] (default: {None})
-            periods {[integer]} -- [number of days] (default: {None})
-            dayfirst {bool} -- [True if date in DD/MM/YYY format, date first then month] (default: {False})
-        """
+        :param symbol: stock symbol
+        :type symbol: string
+        :param series: segment, defaults to "EQ"
+        :type series: string, optional
+        :param start: start date, defaults to None
+        :type start: string, optional
+        :param end: end date, defaults to None
+        :type end: string, optional
+        :param periods: number of days, defaults to None
+        :type periods: interger, optional
+        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
+        :type dayfirst: bool, optional
+        :raises Exception: NSE Connection Related
+        :return: stock data
+        :rtype: pandas.DataFrame
+        """        
         try:
             data_url = self.__nse_urls.get_stock_data_url\
                                                         (
