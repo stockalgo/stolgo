@@ -43,11 +43,14 @@ class NseUrls:
         self.__HIST_VIX_DATA_URL = r"https://www1.nseindia.com/products/dynaContent/equities/indices/hist_vix_data.jsp?&fromDate="
         self.INDEX_DATA_CLM = ["Date","Open","High","Low","Close","Shares Traded","Turnover( Rs. Cr)"]
         self.VIX_DATA_CLM = ["Date","Open","High","Low","Close","Prev. Close","Change","% Change"]
+        self.is_index = lambda symbol : True if "NIFTY" in symbol or "INDIA VIX" == symbol else False
 
     def get_option_chain_url(self,symbol,expiry_date=None,dayfirst=False):
         try:
             if expiry_date:
                 expiry_date = get_formated_date(expiry_date,self.nse_date_formats["opt_chain"],dayfirst).upper()
+                if expiry_date.startswith('0'):
+                    expiry_date = expiry_date[1:]
                 complete_url =  self.__OPTION_CHAIN_BASE_URL + symbol + "&date=" + expiry_date
                 return complete_url
             else:

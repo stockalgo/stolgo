@@ -26,7 +26,6 @@ class NseData:
         self.__headers = self.__nse_urls.header
         #create request
         self.__request = RequestUrl()
-        self.__is_index = lambda symbol : True if "NIFTY" in symbol or "INDIA VIX" == symbol else False
 
     def get_indices(self):
         """To get list of NSE indices
@@ -64,7 +63,7 @@ class NseData:
         except Exception as err:
             raise Exception("something went wrong while reading nse URL :", str(err))
 
-    def get_option_chain_df(self, symbol, expiry_date,dayfirst=False):
+    def get_option_chain_df(self, symbol, expiry_date=None,dayfirst=False):
         """ This function fetches option chain data from NSE and returns in pandas.DataFrame
 
         :param symbol: stock/index symbol
@@ -79,6 +78,9 @@ class NseData:
         :rtype: pandas.DataFrame
         """
         try:
+            if not expiry_date:
+                expiry_date = self.get_oc_exp_dates(symbol)[0]
+
             oc_url = self.__nse_urls.get_option_chain_url(symbol, expiry_date,dayfirst)
             # If the response was successful, no Exception will be raised
             oc_page = self.__request.get(oc_url, headers = self.__headers)
@@ -351,7 +353,7 @@ class NseData:
                 raise ValueError("End should grater than start.")
 
             data_limit = None
-            if self.__is_index(symbol):
+            if self.__nse_urls.is_index(symbol):
                 data_limit = INDEX_DATA_LIMIT
             else:
                 data_limit = STOCK_DATA_LIMIT
@@ -386,7 +388,7 @@ class NseData:
             #if it is index, wee need to read table
             # Why the heck, We are doing so much handling? Is there any other way?
             # Suggestions are welcome. ping me on github
-            if self.__is_index(symbol):
+            if self.__nse_urls.is_index(symbol):
                 dfs = self.__parse_indexdata(csv.text,symbol)
             else:
                 dfs = pd.read_csv(io.StringIO(csv.content.decode('utf-8')))
