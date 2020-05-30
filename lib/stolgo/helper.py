@@ -23,6 +23,7 @@ def get_formated_dateframe(date=None,format=None,dayfirst=False):
     return pd.to_datetime(get_formated_date(date,format,dayfirst),format=format)
 
 def get_date_offset(periods=None,start=None,end=None,freq="B"):
+    #use to get start date and end date
     if start:
         if not periods:
             return get_formated_date()
@@ -57,8 +58,8 @@ def get_date_range(start=None,end=None,periods=None,format=None,dayfirst=False,f
         e_till = end
     # if no stat/end and periods given, we get last 1 years of data
     else:
-        s_from = get_date_offset(end=end,periods=periods,freq=freq)
         e_till = get_formated_dateframe()
+        s_from = get_date_offset(end=e_till,periods=periods,freq=freq)
 
     #Step 3: Format to input date format
     s_from = get_formated_dateframe(date=s_from,format=format)

@@ -18,6 +18,7 @@ from stolgo.request import RequestUrl
 DEFAULT_TIMEOUT = 5 # seconds
 MAX_RETRIES = 2
 INDEX_DATA_LIMIT = 99
+STOCK_DATA_LIMIT = 240
 
 class NseData:
     def __init__(self,timeout=DEFAULT_TIMEOUT,max_retries=MAX_RETRIES):
@@ -304,6 +305,7 @@ class NseData:
         if periods and (dfs.shape[0] < periods):
             new_periods = periods - dfs.shape[0]
             try:
+                s_from = e_till = None
                 #if only start, find till today
                 if start and (not end):
                     s_from = dfs.index[0] + timedelta(1)
@@ -312,9 +314,6 @@ class NseData:
                 elif(end and (not start)):
                     s_from = None
                     e_till = dfs.index[-1] - timedelta(1)
-                #if start and end, no need to change
-                else:
-                    return dfs
             except IndexError as err:
                 raise Exception("NSE Access error.")
             except Exception as exc:
@@ -351,25 +350,30 @@ class NseData:
             if s_from > e_till:
                 raise ValueError("End should grater than start.")
 
+            data_limit = None
             if self.__is_index(symbol):
-                data_days = e_till - s_from
-                if (data_days.days) > INDEX_DATA_LIMIT:
-                    date_ranges = self.__get_datarange_intv(s_from,e_till,INDEX_DATA_LIMIT)
-                    workers = len(date_ranges)
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                        responses = [executor.submit(self.get_data, symbol=symbol,start=start_,end=end_,dayfirst=dayfirst)\
-                                        for start_,end_ in date_ranges]
-                        dfs = []
-                        for res in concurrent.futures.as_completed(responses):
-                            try:
-                                df = res.result()
-                                dfs.append(df)
-                            except Exception as exc:
-                                #might be holiday/no record
-                                pass
-                        all_dfs = pd.concat(dfs).sort_index(ascending=False)
-                        adjusted_dfs = self.__get_data_adjusted(all_dfs,symbol,start=start,end=end,periods=periods)
-                        return adjusted_dfs
+                data_limit = INDEX_DATA_LIMIT
+            else:
+                data_limit = STOCK_DATA_LIMIT
+
+            data_days = e_till - s_from
+            if (data_days.days) > data_limit:
+                date_ranges = self.__get_datarange_intv(s_from,e_till,data_limit)
+                workers = len(date_ranges)
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+                    responses = [executor.submit(self.get_data, symbol=symbol,start=start_,end=end_,dayfirst=dayfirst)\
+                                    for start_,end_ in date_ranges]
+                    dfs = []
+                    for res in concurrent.futures.as_completed(responses):
+                        try:
+                            df = res.result()
+                            dfs.append(df)
+                        except Exception as exc:
+                            #might be holiday/no record
+                            pass
+                    all_dfs = pd.concat(dfs).sort_index(ascending=False)
+                    adjusted_dfs = self.__get_data_adjusted(all_dfs,symbol,start=start,end=end,periods=periods)
+                    return adjusted_dfs
 
             data_url = self.__nse_urls.get_stock_data_url\
                                                         (
