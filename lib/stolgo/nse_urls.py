@@ -63,30 +63,26 @@ class NseUrls:
         except Exception as err:
             raise Exception("Error occured while getting participant OI. ", str(err))
 
-    def get_stock_data_url(self,symbol,series="EQ",start=None,end=None,periods=None,dayfirst=False):
+    def get_stock_data_url(self,symbol,start,end,series="EQ",dayfirst=False):
         try:
-            #Step1: get the date range
-            s_from = get_date_range(start=start,end=end,periods=periods,dayfirst=dayfirst)["start"]
-            e_till = get_date_range(start=start,end=end,periods=periods,dayfirst=dayfirst)["end"]
-
             #Step2: Build url
             url = None
             if "INDIA VIX" == symbol:
-                s_from = s_from.strftime(self.nse_date_formats["vix_data"])
-                e_till = e_till.strftime(self.nse_date_formats["vix_data"])
-                url = self.__HIST_VIX_DATA_URL + s_from + "&toDate=" + e_till
+                start = start.strftime(self.nse_date_formats["vix_data"])
+                end = end.strftime(self.nse_date_formats["vix_data"])
+                url = self.__HIST_VIX_DATA_URL + start + "&toDate=" + end
             else:
                 #time format is same for index data and nifty data
-                s_from = s_from.strftime(self.nse_date_formats["stock_data"])
-                e_till = e_till.strftime(self.nse_date_formats["stock_data"])
+                start = start.strftime(self.nse_date_formats["stock_data"])
+                end = end.strftime(self.nse_date_formats["stock_data"])
 
                 if "NIFTY" in symbol:
                     symbol = symbol.replace(' ',"%20").upper()
                     url = self.__HIST_INDEX_DATA_URL + symbol + "&fromDate=" +\
-                            s_from + "&toDate=" + e_till
+                            start + "&toDate=" + end
                 else:
                     url = self.__HIST_DATA_PRE_URL + symbol + r"&series=[%22" + series+\
-                        r"%22]&from=" + s_from + r"&to=" + e_till + r"&csv=true"
+                        r"%22]&from=" + start + r"&to=" + end + r"&csv=true"
             return url
 
         except Exception as err:

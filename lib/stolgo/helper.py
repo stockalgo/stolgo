@@ -64,4 +64,4 @@ def get_date_range(start=None,end=None,periods=None,format=None,dayfirst=False,f
     s_from = get_formated_dateframe(date=s_from,format=format)
     e_till = get_formated_dateframe(date=e_till,format=format)
 
-    return {"start":s_from,"end":e_till}
+    return s_from,e_till
