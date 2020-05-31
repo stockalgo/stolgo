@@ -9,6 +9,7 @@ import pandas as pd
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 
+
 from stolgo.nse_urls import NseUrls
 from stolgo.helper import get_formated_date,get_date_range
 from stolgo.request import RequestUrl
@@ -20,6 +21,9 @@ INDEX_DATA_LIMIT = 99
 STOCK_DATA_LIMIT = 240
 #default to last three month
 PART_OI_DAYS = 22*3
+
+#to disable pandas warning
+pd.set_option('mode.chained_assignment', None)
 
 class NseData:
     def __init__(self,timeout=DEFAULT_TIMEOUT,max_retries=MAX_RETRIES):
@@ -327,8 +331,12 @@ class NseData:
                 raise Exception("NSE Access error.")
             except Exception as exc:
                 raise Exception("Stock data error: ",str(exc))
-            dfs_new = self.get_data(symbol,series,start = s_from,end = e_till,periods = new_periods)
-            dfs = self.__join_dfs(dfs,dfs_new).sort_index(ascending=False)
+            try:
+                dfs_new = self.get_data(symbol,series,start = s_from,end = e_till,periods = new_periods)
+                dfs = self.__join_dfs(dfs,dfs_new).sort_index(ascending=False)
+            except Exception as exc:
+                #data may not be available
+                pass
         return dfs
 
 
