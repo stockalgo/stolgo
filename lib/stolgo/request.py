@@ -2,7 +2,7 @@ import subprocess
 
 import requests
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util import Retry
 
 DEFAULT_TIMEOUT = 5 # seconds
 MAX_RETRIES = 2
@@ -65,12 +65,13 @@ class RequestUrl:
 
 
     def get_session(self,timeout=DEFAULT_TIMEOUT,max_retries=MAX_RETRIES):
-        retry = Retry(
+        #backoff_factor allows us to change how long the processes will sleep between failed requests
+        retries = Retry(
                     total=max_retries,
                     backoff_factor=1,
                     status_forcelist=[429, 500, 502, 503, 504],
                     )
-        adapter = TimeoutHTTPAdapter(max_retries=max_retries,timeout=timeout)
+        adapter = TimeoutHTTPAdapter(max_retries=retries ,timeout=timeout)
         session = requests.Session()
         session.mount("https://", adapter)
         session.mount("http://", adapter)

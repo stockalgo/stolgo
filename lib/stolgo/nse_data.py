@@ -6,7 +6,6 @@ import math
 
 from datetime import datetime,timedelta
 import pandas as pd
-from pandas import ExcelWriter
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 
@@ -19,6 +18,8 @@ DEFAULT_TIMEOUT = 5 # seconds
 MAX_RETRIES = 2
 INDEX_DATA_LIMIT = 99
 STOCK_DATA_LIMIT = 240
+#default to last three month
+PART_OI_DAYS = 22*3
 
 class NseData:
     def __init__(self,timeout=DEFAULT_TIMEOUT,max_retries=MAX_RETRIES):
@@ -68,7 +69,7 @@ class NseData:
 
         :param symbol: stock/index symbol
         :type symbol: string
-        :param expiry_date: expiry date (all date formats accepted)
+        :param expiry_date: expiry date (all date formats accepted), defaults to next near
         :type expiry_date: string
         :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
         :type dayfirst: bool, optional
@@ -128,12 +129,12 @@ class NseData:
         except Exception as err:
             print("Error while naming file. Error: ", str(err))
 
-    def get_option_chain_excel(self, symbol, expiry_date,dayfirst=False,file_path = None, is_use_default_name = True):
+    def get_option_chain_excel(self, symbol, expiry_date=None,dayfirst=False,file_path = None, is_use_default_name = True):
         """Fetches NSE option chain data and returns in the form of excel (.xlsx)
 
         :param symbol: stock/index symbol
         :type symbol: string
-        :param expiry_date: expiry date (all date formats accepted)
+        :param expiry_date: expiry date (all date formats accepted), defaults to next near
         :type expiry_date: string
         :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
         :type dayfirst: bool, optional
@@ -144,13 +145,14 @@ class NseData:
         :raises Exception:  NSE connection related
         """
         try:
+            if not expiry_date:
+                expiry_date = self.get_oc_exp_dates(symbol)[0]
+
             df = self.get_option_chain_df(symbol, expiry_date,dayfirst)
             file_name = symbol + "_" + expiry_date
             excel_path = self.__get_file_path(file_name, file_path, is_use_default_name)
 
-            writer = ExcelWriter(excel_path)
-            df.to_excel(writer, file_name)
-            writer.save()
+            df.to_excel(excel_path, file_name)
         except Exception as err:
             raise Exception("Error occurred while getting excel :", str(err))
 
@@ -201,6 +203,11 @@ class NseData:
             if end:
                 end = get_formated_date(end,dayfirst=dayfirst)
 
+            #if both none, we set end to today
+            if not start and not end:
+                end = get_formated_date()
+                if not periods:
+                    periods = PART_OI_DAYS
             #get urls for these days
             dates = pd.date_range(start=start,end=end, periods=periods,freq='B')
             url_date = [(self.__nse_urls.get_participant_oi_url(date),date) for date in dates]#
@@ -218,9 +225,9 @@ class NseData:
                 workers = os.cpu_count() * 2
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-                responses = {executor.submit(self.__request.get, url,self.__headers): (url,date) for url,date in url_date}
+                responses = {executor.submit(self.__request.get, url,self.__headers): date for url,date in url_date}
                 for res in concurrent.futures.as_completed(responses):
-                    url,date = responses[res]
+                    date = responses[res]
                     try:
                         csv = res.result()
                     except Exception as exc:
@@ -380,7 +387,7 @@ class NseData:
             data_url = self.__nse_urls.get_stock_data_url\
                                                         (
                                                         symbol.upper(),series=series,start=s_from,
-                                                        end=e_till,dayfirst=dayfirst
+                                                        end=e_till
                                                         )
 
             csv = self.__request.get(data_url,headers=self.__headers)

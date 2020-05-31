@@ -7,7 +7,7 @@ class NseUrls:
     def __init__(self):
         self.__OPTION_CHAIN_BASE_URL = r"https://www1.nseindia.com/live_market/dynaContent/"\
                                      + r"live_watch/option_chain/optionKeys.jsp?symbol="
-        #In EnocodedURI
+        #In EncodedURI
         self.__PARTICIPANT_OI_PRE_URL = r"https://www.nseindia.com/api/reports?archives=%5B%7B%22name"\
                                     + r"%22%3A%22F%26O%20-%20Participant%20wise%20Trading%20Volumes(csv)"\
                                     + r"%22%2C%22type%22%3A%22archives%22%2C%22category%22%3A%22derivatives"\
@@ -25,7 +25,7 @@ class NseUrls:
 
         #browser like header to avoid error 403
         self.header = {'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"}
-        #paticipant wise OI
+        #participant wise OI
         self.PART_OI_CLM = ['Future Index Long', 'Future Index Short', 'Future Stock Long',
                             'Future Stock Short\t', 'Option Index Call Long',
                             'Option Index Put Long', 'Option Index Call Short',
