@@ -313,7 +313,7 @@ class NseData:
                     s_from = dfs.index[0] + timedelta(1)
                     e_till = None
                 #if not start, can go to past
-                elif(end and (not start)):
+                elif((end and (not start)) or periods):
                     s_from = None
                     e_till = dfs.index[-1] - timedelta(1)
             except IndexError as err:
