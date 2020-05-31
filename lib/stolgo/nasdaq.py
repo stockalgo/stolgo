@@ -47,6 +47,8 @@ class NasdaqUrls:
             raise Exception("Error occurred in URL constructions ", str(err))
 
 class Nasdaq:
+    """Nasdaq class to get data from nasdaq
+    """
     def __init__(self,timeout=DEFAULT_TIMEOUT,max_retries=MAX_RETRIES,cloud_mode=False):
         if cloud_mode:
             self.requests = Curl(timeout,max_retries)
@@ -92,6 +94,23 @@ class Nasdaq:
         return join.append(joiner)
 
     def get_data(self,symbol,start=None,end=None,periods=None,dayfirst=False):
+        """get_data API to fetch data from nasdaq
+
+        :param symbol: stock symbol
+        :type symbol: string
+        :param start: start date, defaults to None
+        :type start: string, optional
+        :param end: end date, defaults to None
+        :type end: string, optional
+        :param periods: number of days, defaults to None
+        :type periods: integer, optional
+        :param dayfirst: True if date format is european style DD/MM/YYYY, defaults to False
+        :type dayfirst: bool, optional
+        :raises ValueError: for invalid inputs
+        :raises Exception: incase if no data found
+        :return: stock data
+        :rtype: pandas.DataFrame
+        """
         try:
             #Step1: get the date range
             s_from,e_till = get_date_range(start=start,end=end,periods=periods,dayfirst=dayfirst)
