@@ -25,7 +25,7 @@ class NseData:
         self.__nse_urls = NseUrls()
         self.__headers = self.__nse_urls.header
         #create request
-        self.__request = RequestUrl()
+        self.__request = RequestUrl(timeout,max_retries)
 
     def get_indices(self):
         """To get list of NSE indices
@@ -86,13 +86,13 @@ class NseData:
             oc_page = self.__request.get(oc_url, headers = self.__headers)
 
         except Exception as err:
-             raise Exception("Error occured while connecting NSE :", str(err))
+             raise Exception("Error occurred while connecting NSE :", str(err))
         else:
             try:
                 dfs = pd.read_html(oc_page.text)
                 return dfs[1]
             except Exception as err:
-                raise Exception("Error occured while reading html :", str(err))
+                raise Exception("Error occurred while reading html :", str(err))
 
     def __get_file_path(self, file_name, file_path = None, is_use_default_name = True):
         """[summary]
@@ -152,7 +152,7 @@ class NseData:
             df.to_excel(writer, file_name)
             writer.save()
         except Exception as err:
-            raise Exception("Error occured while getting excel :", str(err))
+            raise Exception("Error occurred while getting excel :", str(err))
 
     def __join_part_oi_dfs(self,df_join,df_joiner):
         """will append joiner to join for oi_dfs
@@ -246,7 +246,7 @@ class NseData:
                 for client in oi_dfs:
                     oi_dfs[client].dropna(inplace=True)
 
-                #if holiday occured in business day, lets retrive more data equivalent to holdidays.
+                #if holiday occurred in business day, lets retrive more data equivalent to holdidays.
                 if oi_dfs['Client'].shape[0] < periods:
                     new_periods = periods - oi_dfs['Client'].shape[0]
                     try:
@@ -272,7 +272,7 @@ class NseData:
                 return oi_dfs
 
         except Exception as err:
-            raise Exception("Error occured while getting part_oi :", str(err))
+            raise Exception("Error occurred while getting part_oi :", str(err))
 
     def __parse_indexdata(self,res_txt,symbol):
         dfs = pd.read_html(res_txt)[0]
@@ -399,4 +399,4 @@ class NseData:
             return dfs
 
         except Exception as err:
-            raise Exception("Error occured while fetching stock data :", str(err))
+            raise Exception("Error occurred while fetching stock data :", str(err))

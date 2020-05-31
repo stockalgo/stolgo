@@ -17,7 +17,7 @@ def get_formated_date(date=None,format=None,dayfirst=False):
         return date_time.strftime(format)
 
     except Exception as err:
-        raise Exception("Error occured while formatting date, Error: ",str(err))
+        raise Exception("Error occurred while formatting date, Error: ",str(err))
 
 def get_formated_dateframe(date=None,format=None,dayfirst=False):
     return pd.to_datetime(get_formated_date(date,format,dayfirst),format=format)

@@ -56,7 +56,7 @@ class NseUrls:
             else:
                 return self.__OPTION_CHAIN_BASE_URL + symbol
         except Exception as err:
-            raise Exception("Error occured while getting OC url, Error: ",str(err))
+            raise Exception("Error occurred while getting OC url, Error: ",str(err))
 
     def get_participant_oi_url(self,date,dayfirst=False):
         try:
@@ -64,11 +64,10 @@ class NseUrls:
             url = self.__PARTICIPANT_OI_PRE_URL + date + self.__PARTICIPANT_OI_POST_URL
             return url
         except Exception as err:
-            raise Exception("Error occured while getting participant OI. ", str(err))
+            raise Exception("Error occurred while getting participant OI. ", str(err))
 
-    def get_stock_data_url(self,symbol,start,end,series="EQ",dayfirst=False):
+    def get_stock_data_url(self,symbol,start,end,series="EQ"):
         try:
-            #Step2: Build url
             url = None
             if "INDIA VIX" == symbol:
                 start = start.strftime(self.nse_date_formats["vix_data"])
