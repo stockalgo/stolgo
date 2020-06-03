@@ -2,6 +2,13 @@
 
 stolgo is a Python library for dealing with financial data such as stocks, derivatives, commodities, and cryptocurrencies.
 
+
+
+# Please Note: We have removed NSE API. As per NSE
+  **You may not conduct any systematic or automated data collection activities (including scraping, data mining, data extraction and data harvesting) on or in relation to our website without our express written consent.**
+  
+# For data feed, We will be add APIs for brokers in our future releases.
+
 ## Installation
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stolgo.
