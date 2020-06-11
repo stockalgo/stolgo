@@ -2,8 +2,15 @@ from datetime import date as dt
 import pandas as pd
 import requests
 
+import stolgo.common
+
 #default periods
 DEFAULT_DAYS = 250
+
+
+def is_ind_index(symbol):
+    is_it =  symbol in stolgo.common.IND_INDICES
+    return is_it
 
 def get_formated_date(date=None,format=None,dayfirst=False):
     """string date to format date
@@ -14,6 +21,8 @@ def get_formated_date(date=None,format=None,dayfirst=False):
         date_time = pd.to_datetime(date,dayfirst=dayfirst)
         if not format:
             format='%m/%d/%Y'
+            format += ' %H:%M:%S'
+
         return date_time.strftime(format)
 
     except Exception as err:
@@ -41,7 +50,7 @@ def get_date_range(start=None,end=None,periods=None,format=None,dayfirst=False,f
     if end:
         end = get_formated_dateframe(end,dayfirst=dayfirst)
 
-    #Step 2: date range with peroids
+    #Step 2: date range with periods
     if (not periods) and (not start):
         periods = DEFAULT_DAYS
     #if only start, find till today

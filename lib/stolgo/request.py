@@ -77,13 +77,21 @@ class RequestUrl:
         session.mount("http://", adapter)
         return session
 
-    def get(self,url,headers=None):
+    def get(self,*args,**kwargs):
         try:
-            page = self.session.get(url,headers=headers)
+            page = self.session.get(*args, **kwargs)
             # If the response was successful, no Exception will be raised
             page.raise_for_status()
             return page
         except requests.HTTPError as http_err:
             raise Exception("HTTP error occurred while fetching url :", str(http_err.response.content))
 
+    def post(self,*args,**kwargs):
+        try:
+            page = self.session.post(*args, **kwargs)
+            # If the response was successful, no Exception will be raised
+            page.raise_for_status()
+            return page
+        except requests.HTTPError as http_err:
+            raise Exception("HTTP error occurred while fetching url :", str(http_err.response.content))
 
