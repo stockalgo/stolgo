@@ -3,7 +3,7 @@ import json
 from datetime import datetime,date
 import pandas as pd
 
-from stolgo.helper import get_formated_date,get_date_range,is_ind_index
+from stolgo.helper import get_formated_date,get_date_range,is_ind_index,get_data_resample
 from stolgo.request import RequestUrl
 
 #default params for url connection
@@ -43,7 +43,7 @@ class SamcoUrl:
                         }
 
     def __build_url(self,symbol,start,end,url,date_format):
-        symbol = symbol.upper()
+        symbol = symbol.upper().replace(" ","%20")
         start = start.strftime(date_format).replace(" ","%20").replace(":","%3A")
         end = end.strftime(date_format).replace(" ","%20").replace(":","%3A")
         url_build = url + symbol + "&fromDate=" + start + "&toDate=" + end
@@ -97,7 +97,10 @@ class Samco:
         try:
             url = self.urls.get_hist_data_url(symbol,start,end)
             res = self.__request.get(url,headers=self.urls.DATA_HEADER)
-            hist_data_dict =  json.loads(res.text).get("historicalCandleData")
+            json_key = "historicalCandleData"
+            if is_ind_index(symbol):
+                json_key = "indexCandleData"
+            hist_data_dict =  json.loads(res.text).get(json_key)
             dfs = pd.json_normalize(hist_data_dict)
             dfs.set_index("date",inplace=True)
             # Converting the index as date
@@ -111,7 +114,10 @@ class Samco:
         try:
             url = self.urls.get_intra_data_url(symbol,start,end)
             res = self.__request.get(url,headers=self.urls.DATA_HEADER)
-            intra_data =  json.loads(res.text).get("intradayCandleData")
+            json_key = "intradayCandleData"
+            if is_ind_index(symbol):
+                json_key = "indexIntraDayCandleData"
+            intra_data =  json.loads(res.text).get(json_key)
             dfs = pd.DataFrame(intra_data)
             dfs.set_index("dateTime",inplace=True)
             # Converting the index as date
@@ -119,6 +125,16 @@ class Samco:
             return dfs
         except Exception as err:
             raise Exception("Error occurred for historical data: ",str(err))
+
+    def __finetune_df(self,df):
+        """drop dataframe out of range time
+
+        :param df: input dataframe
+        :type df: pd.DataFrame
+        """
+        drop_index = (df.between_time("07:00","09:00",include_end=False) + \
+                        df.between_time("15:30","17:00",include_start=False)).index
+        df.drop(drop_index,inplace=True)
 
     def get_data(self,symbol,start=None,end=None,periods=None,interval="1D",dayfirst=False):
         """Samco getData API for intraday/Historical data
@@ -149,13 +165,22 @@ class Samco:
             symbol = symbol.upper()
             interval = interval.upper()
 
+            time_frame  = pd.Timedelta(interval)
             #if interval is 1 day, Use historical data API
-            if interval == "1D":
+            day_time_frame = pd.Timedelta("1D")
+            min_time_frame = pd.Timedelta("1M")
+            if time_frame >= day_time_frame:
                 dfs = self.__get_hist_data(symbol,s_from,e_till)
-                return dfs
-
-            if interval == "1M":
+                dfs = dfs.apply(pd.to_numeric)
+                if time_frame != day_time_frame:
+                    dfs = get_data_resample(dfs,interval)
+            else:
                 dfs = self.__get_intra_data(symbol,s_from,e_till)
+                dfs = dfs.apply(pd.to_numeric)
+                if time_frame != min_time_frame:
+                    dfs = get_data_resample(dfs,interval)
+
+            if not dfs.empty:
                 return dfs
 
         except Exception as err:

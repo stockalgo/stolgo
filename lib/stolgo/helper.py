@@ -75,3 +75,8 @@ def get_date_range(start=None,end=None,periods=None,format=None,dayfirst=False,f
     e_till = get_formated_dateframe(date=e_till,format=format)
 
     return s_from,e_till
+
+def get_data_resample(dfs,time):
+    dfs.columns = dfs.columns.str.title()
+    ohlc_dict = {'Open':'first', 'High':'max', 'Low':'min', 'Close': 'last','Volume':'sum'}
+    return dfs.resample(time,convention="end").agg(ohlc_dict).dropna()
