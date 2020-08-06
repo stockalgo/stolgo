@@ -31,6 +31,9 @@ class SamcoUrl:
         self.INTRA_INDEX_URL = "https://api.stocknote.com/intraday/indexCandleData?indexName="
         self.INTRA_STK_URL = "https://api.stocknote.com/intraday/candleData?symbolName="
 
+        #option chain url
+        self.OPTION_CHAIN_URL = "https://api.stocknote.com/option/optionChain"
+
         self.date_format = {
                             "HIST":"%Y-%m-%d",
                             "INTRA":"%Y-%m-%d %H:%M:%S"
@@ -185,3 +188,8 @@ class Samco:
 
         except Exception as err:
             raise Exception("Error occurred while fetching data :", str(err))
+
+    def get_optionchain(self,symbol):
+        params={'searchSymbolName': symbol}
+        res = self.__request.get(self.urls.OPTION_CHAIN_URL,headers=self.urls.DATA_HEADER,params = params)
+        return res.json()
