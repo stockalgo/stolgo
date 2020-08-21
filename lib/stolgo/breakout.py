@@ -59,3 +59,27 @@ class Breakout:
             return False
         except Exception as err:
             raise Exception(str(err))
+
+    def is_breaking_down(self,dfs,periods=None,percentage=None):
+        """check if last candle is breaking down or not
+
+        :param dfs: input candles
+        :type dfs: pandas dataframe
+        :param periods: Number of candles, defaults to None
+        :type periods: integer, optional
+        :param percentage: range of consolidation in percentage,, defaults to None
+        :type percentage: float, optional
+        :raises Exception: data error
+        :return: is_breaking_down
+        :rtype: bool
+        """
+        try:
+            if(self.is_consolidating(dfs[:-1],periods,percentage)):
+                last_close = dfs[-1:]
+                recent_dfs = dfs[-1*periods:-1]
+                if(recent_dfs['Close'].min()>last_close['Close'].values[0]):
+                    return True
+            return False
+        except Exception as err:
+            raise Exception(str(err))
+
