@@ -3,14 +3,10 @@ from stolgo.exception import BadDataError
 class CandleStick:
 
     def is_bearish_candle(self,candle):
-        if candle["Close"] <  candle["Open"]:
-            return True
-        return False
+        return candle["Close"] <  candle["Open"]:
 
     def is_bullish_candle(self,candle):
-        if candle["Close"] > candle["Open"]:
-            return True
-        return False
+        return candle["Close"] > candle["Open"]:
 
     def is_bullish_engulfing(self,candles,pos=-1):
         if candles.shape[0] < 2:
