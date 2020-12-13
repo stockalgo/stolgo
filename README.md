@@ -1,5 +1,5 @@
 
-![alt text](https://raw.githubusercontent.com/stockalgo/stolgo/master/stolgo.svg)
+<p align="center"> <img src="https://raw.githubusercontent.com/stockalgo/stolgo/master/stolgo.svg"> </p>
 
 stolgo is a Python library for dealing with financial data such as stocks, derivatives, commodities, and cryptocurrencies.
 
