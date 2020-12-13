@@ -1,4 +1,5 @@
-# stolgo
+
+![alt text](https://raw.githubusercontent.com/stockalgo/stolgo/master/stolgo.svg)
 
 stolgo is a Python library for dealing with financial data such as stocks, derivatives, commodities, and cryptocurrencies.
 
