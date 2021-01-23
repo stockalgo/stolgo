@@ -10,34 +10,17 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stolgo.
 ```bash
 pip install stolgo
 ```
-
-# Please Note: We have removed NSE API. As per NSE
-  **You may not conduct any systematic or automated data collection activities (including scraping, data mining, data extraction and data harvesting) on or in relation to our website without our express written consent.**
   
-# For data feed, We will be add APIs for brokers in our future releases.
+# For data feed, Stolgo uses [bandl.io](https://bandl.io), Where by just calling get_date API, You can get data from your favourite broker or directly from exchange website or yahoo finance.
 
 ## Usage
 
-### To import NSE Data Module
+### Get the data, for example using yahoo finance module form [bandl](https://bandl.io)
 ```python
-from stolgo.nse_data import NseData()
-nd = NseData() # returns 'NseData object'. can be use to get nse data.
-```
-#### To get Option chain data
-```python
-expiry_dates = nd.get_oc_exp_dates(symbol) #return available expiry dates
-nd.get_option_chain_excel(symbol,expiry_date,filepath) #dumps option chain to file_path
-# or get in pandas dateframe
-bn_df = nd.get_option_chain_df(symbol, expiry_date,dayfirst=False) #returns option chain in pandas data frame.
-```
-#### To get stock historical data.
-```python
-data_frame = nd.get_data(symbol,series="EQ",start=None,end=None,periods=None,dayfirst=False) #returns historical data in pandas data frames
-```
-
-#### To get FII/DII data.
-```python
-part_oi_df = nd.get_part_oi_df(start=None,end=None,periods=None,dayfirst=False,workers=None)
+from bandl.yfinance import Yfinance
+testObj = Yfinance() # returns 'Yfinance class object'.
+#to get indian stock data
+dfs = testObj.get_data("SBIN",start="21-Jan-2020") #retruns data from 21Jan 2020 to till today
 ```
 
 ## Contributing
