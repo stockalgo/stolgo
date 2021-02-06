@@ -24,14 +24,14 @@ pip install stolgo
 pip install bandl
 ```
 
-## Example: Get Indian (NSE/BSE) stock data using Yahoo finance
+### Example: Get Indian (NSE/BSE) stock data using Yahoo finance
 ```python
 from bandl.yfinance import Yfinance
 testObj = Yfinance() # returns 'Yfinance class object'.
 dfs = testObj.get_data("SBIN",start="21-Jan-2020") #retruns data from 21Jan 2020 to till today
 ```
 
-## Example: Get the data of Apple (US Stock) from Nasdaq
+### Example: Get the data of Apple (US Stock) from Nasdaq
 ```python
 from bandl.nasdaq import Nasdaq
 testObj = Nasdaq() # returns 'Nasdaq class object'.
@@ -58,6 +58,10 @@ breakout_test = Breakout()
 is_be = breakout_test.is_breaking_out(dfs,periods=None,percentage=None) #periods:Number of candles,percentage: range of consolidation in percentage
 ```
 
+## Todo
+- Add unittest
+- Add more features such as Support Resistance, momemtum, etc.
+- Add Event-Driven Backtester
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
