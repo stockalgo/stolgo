@@ -1,7 +1,11 @@
 
 <p align="center"><a href="http://stolgo.com" target="_blank"><img src="https://raw.githubusercontent.com/stockalgo/stolgo/master/stolgo.svg"></a> </p>
 
-stolgo is a Python library for dealing with financial data such as stocks, derivatives, commodities, and cryptocurrencies.
+Stolgo is Price Action Trading Analysis Library. Whenever the price reaches resistance during an upward trend, more sellers will enter the market and enter their sell trades. This is a simple price action rule. But How to automate this rule? How to write backtest for this? Stolgo provides APIs for Price Action Trading.
+
+## Why Stolgo?
+There are many libraries to backtest technical indicators (such as moving average crossover, MACD, RSI, etc.) base strategies, But What about the Price Action Trading?
+A Price Action Trader uses support/resistance, candlestick pattern, trend, breakout, and other parameters based on price. You can use Stolgo to backtest your price action trading rules.
 
 ## Installation
 
@@ -16,12 +20,44 @@ pip install stolgo
 ## Usage
 
 ### Get the data, for example using yahoo finance module form [bandl](https://bandl.io)
+```bash
+pip install bandl
+```
+
+## Example: Get Indian (NSE/BSE) stock data using Yahoo finance
 ```python
 from bandl.yfinance import Yfinance
 testObj = Yfinance() # returns 'Yfinance class object'.
-#to get indian stock data
 dfs = testObj.get_data("SBIN",start="21-Jan-2020") #retruns data from 21Jan 2020 to till today
 ```
+
+## Example: Get the data of Apple (US Stock) from Nasdaq
+```python
+from bandl.nasdaq import Nasdaq
+testObj = Nasdaq() # returns 'Nasdaq class object'.
+dfs = testObj.get_data("AAPL",periods=90) # returns last 90 days data
+```
+
+### check for bullish engulfing pattern
+```python
+from stolgo.candlestick import CandleStick
+candle_test = CandleStick()
+is_be = candle_test.is_bullish_engulfing(dfs)
+```
+### check for an inverted hammer candle pattern
+```python
+from stolgo.candlestick import CandleStick
+candle_test = CandleStick()
+is_it = candle_test.is_inverse_hammer_candle(dfs)
+```
+
+### check for breakout
+```python
+from stolgo.breakout import Breakout
+breakout_test = Breakout()
+is_be = breakout_test.is_breaking_out(dfs,periods=None,percentage=None) #periods:Number of candles,percentage: range of consolidation in percentage
+```
+
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
