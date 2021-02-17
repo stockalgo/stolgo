@@ -14,8 +14,8 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install stolgo.
 ```bash
 pip install stolgo
 ```
-  
-# For data feed, Stolgo uses [bandl.io](https://bandl.io), Where by just calling get_date API, You can get data from your favourite broker or directly from exchange website or yahoo finance.
+ 
+# For data feed, Stolgo uses [bandl.io](https://bandl.io) <a href="https://github.com/stockalgo/bandl" target="_blank"><img src="https://img.icons8.com/ios-glyphs/30/000000/github.png"/></a>, Where by just calling get_data API, You can get data from your favourite broker, directly from exchange website or yahoo finance.
 
 ## Usage
 
