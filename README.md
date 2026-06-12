@@ -30,11 +30,12 @@ Write your logic once. Point it at market data or a CSV. Get metrics and charts.
 
 | Strength | What you get |
 |----------|----------------|
-| **Simple surface** | `Strategy` + `Context` + `Backtest(...).run()` — no boilerplate engine |
-| **Price-action first** | Express rules on open/high/low/close; see `examples/btc_consolidation_breakout.py` |
+| **Price-action first** | Write `pa.crosses_above(pa.resistance(21))` — readable rules, not indicator soup |
+| **Composable** | Combine levels, relations, candles, and streaks with `&` `\|` `~` `.then()` |
+| **Trade in one line** | `trade.long(ctx, rr=(1, 2), stop="candle_low")` — stops, targets, sizing handled |
+| **Presets** | `pa.preset.consolidation_breakout(7)` and friends — proven setups, zero wiring |
 | **Honest simulation** | Event loop with configurable fill timing (`next_open` or `close`), commission, slippage |
-| **No look-ahead** | `ctx.data` only exposes history up to the current bar |
-| **Vector or event style** | Precompute `entries`/`exits` masks *or* implement `on_bar` — same engine |
+| **No look-ahead** | `ctx.data` only exposes history up to the current bar; MTF levels align safely |
 | **Data your way** | **[bandl](https://bandl.io)** for crypto/equity OHLCV, or **`load()`** for CSV/Parquet |
 | **Built-in analytics** | Sharpe, drawdown, hit rate, profit factor, HTML tearsheet |
 
@@ -56,27 +57,139 @@ Optional extras: `pip install stolgo[numba]` for faster sweeps.
 
 ---
 
-## Quickstart
+## Price action in 30 seconds
 
-Two imports. One strategy. One backtest.
+This is the heart of stolgo. Describe a setup the way you'd say it out loud, attach a
+risk/reward bracket, and backtest it. One import: `import stolgo.pa as pa`.
 
 ```python
 from datetime import datetime, timedelta, timezone
 
-from stolgo import Backtest, Bandl, Context, Strategy, load
-from stolgo.signals import sma
+import stolgo.pa as pa
+from stolgo import Backtest, Bandl, Context, Strategy, trade
 
-# --- Data: pick one ---
+# 1. Describe the edge in plain price-action language
+entry = pa.crosses_above(pa.resistance(21))      # close breaks the 21-bar high
 
-# Option A: bandl (crypto, equity, multiple venues — see bandl.io)
+# 2. Trade it with a 1:2 risk/reward bracket, stop under the signal candle
+class Breakout(Strategy):
+    bracket = None
+
+    def on_bar(self, ctx: Context) -> None:
+        if not ctx.position.flat:                        # in a trade → manage exit
+            if trade.bracket_hit(ctx, self.bracket):     # stop or target touched
+                trade.close(ctx)
+                self.bracket = None
+        elif entry(ctx):                                 # flat + breakout → enter
+            self.bracket = trade.long(ctx, rr=(1, 2), stop="candle_low", qty=0.05)
+
+# 3. Run it on real data
 end = datetime.now(timezone.utc)
-start = end - timedelta(days=365)
-df = Bandl().history("BTCUSDT", "1d", start, end)
+df = Bandl().history("BTCUSDT", "1h", end - timedelta(days=365), end)
+result = Backtest(Breakout(), df, fill_on="close").run()
+print(result.summary())
+result.report.to_html("tearsheet.html")
+```
 
-# Option B: local file (CSV or Parquet, auto-normalized to UTC OHLCV)
-# df = load("ohlcv.csv", symbol="BTCUSDT")
+That's a complete, look-ahead-safe breakout backtest with stops, targets, fees, and a
+shareable tearsheet — no indicators required.
 
-# --- Strategy ---
+---
+
+## The price-action vocabulary
+
+Everything below is a flat attribute on `pa`. Mix and match with `&` (and), `|` (or),
+`~` (not), and `.then()` (sequence) to build any setup.
+
+**Levels** — a price line per bar
+
+```python
+pa.resistance(20)        pa.support(20)         # rolling highs / lows
+pa.range_high(7)         pa.range_low(7)        # consolidation box edges
+pa.donchian_high(20)     pa.donchian_low(20)
+pa.vwap()                pa.prev_day_high()     pa.prev_day_low()
+pa.swing_high(5)         pa.swing_low(5)        pa.pivot_point()
+pa.level(42_000)                                # a fixed price
+pa.resistance(21, tf="1d")                      # daily level on intraday bars (MTF)
+```
+
+**Relations** — turn a level into a true/false rule
+
+```python
+pa.above(lvl)            pa.below(lvl)
+pa.crosses_above(lvl)    pa.crosses_below(lvl)   # breakouts / breakdowns
+pa.rejected_at(lvl)      pa.recovered_at(lvl)    # failed break / reclaim
+pa.near(lvl, pct=0.005)  pa.touched(lvl)
+```
+
+**Patterns** — candles, streaks, structure, momentum
+
+```python
+pa.bullish_engulfing()   pa.bearish_engulfing()  pa.hammer()   pa.doji()
+pa.streak.green(3)       pa.streak.red(3)         pa.first_red_day()
+pa.consolidation(days=7) pa.breakout_up(7)        pa.breakout_down(7)
+pa.run_up(min_pct=2.0)   pa.parabolic_up()        pa.giant_uptrend()
+```
+
+**Compose** them into the setup you actually trade
+
+```python
+# 7-day box, then close breaks the box high
+entry = pa.consolidation(days=7) & pa.crosses_above(pa.range_high(7))
+
+# three green candles, then a bearish engulfing → fade it
+fade = pa.streak.green(3).then(pa.bearish_engulfing())
+
+# break above 21-day daily resistance, but only near VWAP
+intraday = pa.crosses_above(pa.resistance(21, tf="1d")) & pa.near(pa.vwap())
+```
+
+---
+
+## Trade it: risk/reward brackets (`stolgo.trade`)
+
+`stolgo.trade` turns a signal into an order with a stop and target — no manual SL/TP math.
+
+```python
+from stolgo import trade
+
+trade.long(ctx,  rr=(1, 2), stop="candle_low",  qty=0.05)   # target = 2× risk
+trade.short(ctx, rr=(1, 3), stop="candle_high", qty=0.05)
+trade.bracket_hit(ctx, bracket)   # -> "stop", "target", or None on this bar
+trade.close(ctx)                  # flatten (longs sell, shorts cover)
+```
+
+Size by fixed `qty`, or risk a fixed fraction of equity per trade with
+`size_risk_pct=0.01`.
+
+---
+
+## Presets: battle-tested setups in one line
+
+Don't want to wire rules yourself? `pa.preset.*` returns ready-made rules.
+
+```python
+import stolgo.pa as pa
+
+pa.preset.scalp_green_fade(min_green=3)        # fade a green run on a reversal candle
+pa.preset.consolidation_breakout(days=7)       # classic box breakout
+pa.preset.breakout_intraday(days=7)            # daily S/R, intraday trigger → (long, short)
+pa.preset.failed_break_intraday(days=7)        # fade failed breaks of daily S/R
+pa.preset.parabolic_short(min_pct=2.0)         # short the first red day after a parabola
+```
+
+See **[docs/PA.md](docs/PA.md)** for the full grammar, multi-timeframe levels, and every
+rule. Runnable bots live under [`examples/pa/`](examples/pa/).
+
+---
+
+## Not just price action
+
+Prefer indicators or vector signals? The same engine runs those too.
+
+```python
+from stolgo import Backtest, Context, Strategy, load
+from stolgo.signals import sma
 
 class Trend(Strategy):
     def on_start(self, ctx: Context) -> None:
@@ -88,32 +201,9 @@ class Trend(Strategy):
         elif not ctx.position.flat and ctx.data.close[-1] < self._sma[ctx.i]:
             ctx.close()
 
-# --- Run ---
-
-result = Backtest(Trend(), df, cash=100_000, commission=0.001).run()
-print(result.summary())
-result.report.to_html("tearsheet.html")
+df = load("ohlcv.csv", symbol="BTCUSDT")
+print(Backtest(Trend(), df, cash=100_000, commission=0.001).run().summary())
 ```
-
----
-
-## Price action (`stolgo.pa`)
-
-Composable levels and rules on OHLCV — flat import, no sub-packages in user code:
-
-```python
-import stolgo.pa as pa
-from stolgo import trade, Backtest, Context, Strategy
-
-entry = pa.consolidation(days=7) & pa.crosses_above(pa.range_high(7))
-
-class Bot(Strategy):
-    def on_bar(self, ctx: Context) -> None:
-        if ctx.position.flat and entry(ctx):
-            trade.long(ctx, rr=(1, 4), stop="candle_low")
-```
-
-See **[docs/PA.md](docs/PA.md)** for the full grammar, presets (`pa.preset.*`), and multi-timeframe levels. Example bots live under `examples/pa/`.
 
 ---
 
@@ -155,6 +245,8 @@ Already have pandas OHLCV? Pass it directly to `Backtest` as long as it has a UT
 
 | Import | Purpose |
 |--------|---------|
+| `stolgo.pa` | **Price-action toolkit**: levels, relations, patterns, presets |
+| `trade` | Risk/reward brackets: `trade.long`, `trade.short`, `trade.bracket_hit`, `trade.close` |
 | `Backtest` | High-level runner → `RunResult` |
 | `Strategy` | Base class: `on_start`, `on_bar`, `on_fill`, `on_end` |
 | `Context` | Per-bar API: `ctx.data`, `ctx.position`, `ctx.buy` / `ctx.close` |
@@ -170,10 +262,22 @@ Advanced: `Engine`, `RunConfig`, `Pipeline` (cross-sectional), `stolgo.report.ex
 
 ## Examples
 
+**Price action (`stolgo.pa` + `trade`)** — start here:
+
+| Script | Setup |
+|--------|-------|
+| [`examples/pa/btc_21d_sr_intraday.py`](examples/pa/btc_21d_sr_intraday.py) | Break of 21-day daily support/resistance on intraday bars (long + short) |
+| [`examples/pa/btc_consolidation_pa.py`](examples/pa/btc_consolidation_pa.py) | 7-day consolidation breakout with a 1:4 bracket |
+| [`examples/pa/scalp_green_fade.py`](examples/pa/scalp_green_fade.py) | Fade a green streak on a reversal candle |
+| [`examples/pa/intraday_breakout.py`](examples/pa/intraday_breakout.py) | `pa.preset.breakout_intraday` long/short |
+| [`examples/pa/failed_break.py`](examples/pa/failed_break.py) | Fade failed breaks of daily S/R |
+| [`examples/pa/parabolic_short.py`](examples/pa/parabolic_short.py) | Short the first red day after a parabolic run |
+
+**Indicators & vector signals:**
+
 | Script | Demonstrates |
 |--------|----------------|
 | [`examples/trend_breakout_backtest.py`](examples/trend_breakout_backtest.py) | SMA trend, signals, tearsheet |
-| [`examples/btc_consolidation_breakout.py`](examples/btc_consolidation_breakout.py) | 7-day consolidation breakout, SL/TP, bandl BTCUSDT |
 | [`examples/vector_momentum_backtest.py`](examples/vector_momentum_backtest.py) | Vector `entries` / `exits` (no `on_bar` body) |
 | [`examples/parameter_sweep.py`](examples/parameter_sweep.py) | 100-combo parameter sweep |
 
