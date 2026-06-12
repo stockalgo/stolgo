@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/**/*.egg-info/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+.cursor/settings.json
+
+# Secrets (never commit)
+.env
+.env.*
+*.pem
+credentials.json
+secrets.json
+
+# Backtest & report artifacts (regenerate locally)
+stolgo_*_output/
+*_tearsheet.html
+stolgo_tearsheet.html
+vector_momentum_tearsheet.html
+
+# Data caches
+.cache/
+*.parquet
+!tests/fixtures/**
+
+# Jupyter
+.ipynb_checkpoints/
