@@ -1,0 +1,47 @@
+[project]
+name = "stolgo"
+version = "0.2.0"
+description = "Lightweight quant-grade backtesting for price-action and factor strategies"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "pydantic>=2.0",
+    "bandl>=0.3",
+    "plotly>=5.0",
+]
+
+[project.optional-dependencies]
+numba = ["numba>=0.58"]
+polars = ["polars>=0.20"]
+kaleido = ["kaleido>=0.2"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+    "pyarrow>=14.0",
+]
+
+[project.scripts]
+stolgo = "stolgo.cli.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: hits real bandl/network (not run in CI)",
+    "benchmark: optional perf regression",
+]
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["lib"]

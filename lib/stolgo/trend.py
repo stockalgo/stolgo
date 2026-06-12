@@ -1,85 +1,62 @@
+"""Legacy trend API — use ``stolgo.pa`` instead."""
+
+from __future__ import annotations
+
+import warnings
+
 import pandas as pd
-import sys
+
+import stolgo.pa as pa
 from stolgo.exception import BadDataError
 
+
+def _normalize_legacy_df(dfs: pd.DataFrame) -> pd.DataFrame:
+    out = dfs.copy()
+    mapping = {
+        "Open": "open",
+        "High": "high",
+        "Low": "low",
+        "Close": "close",
+        "Volume": "volume",
+    }
+    for old, new in mapping.items():
+        if old in out.columns and new not in out.columns:
+            out[new] = out[old]
+    return out
+
+
 class Trend:
-    def __init__(self,periods=13,percentage=2):
+    """Deprecated — use :func:`stolgo.pa.giant_uptrend` / :func:`stolgo.pa.giant_downtrend`."""
+
+    def __init__(self, periods: int = 13, percentage: float = 2) -> None:
+        warnings.warn(
+            "stolgo.trend.Trend is deprecated; use stolgo.pa",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.periods = periods
         self.percentage = percentage
 
-    def is_giant_uptrend(self,dfs,periods=None,percentage=None):
-        """Check if price in consolidating in range for given periods
+    def is_giant_uptrend(
+        self,
+        dfs: pd.DataFrame,
+        periods: int | None = None,
+        percentage: float | None = None,
+    ) -> bool:
+        periods = periods or self.periods
+        if dfs.shape[0] < periods:
+            raise BadDataError("Data is not enough for this periods")
+        df = _normalize_legacy_df(dfs)
+        return bool(pa.giant_uptrend(periods=periods).series(df).iloc[-1])
 
-        :param dfs: input candles
-        :type dfs: pandas dataframe
-        :param periods: Number of candles, defaults to None
-        :type periods: integer, optional
-        :param percentage: range of consolidation in percentage, defaults to None
-        :type percentage: float, optional
-        :raises BadDataError: data error
-        :return: is_consolidating
-        :rtype: bool
-        """
-
-        try:
-            if not periods:
-                periods = self.periods
-            if not percentage:
-                percentage = self.percentage
-
-            if dfs.shape[0] < periods:
-                raise BadDataError("Data is not enough for this periods")
-
-            recent_dfs = dfs[-1*periods:]
-            prev_candle = None
-            for candle in recent_dfs.iterrows():
-                #check if the candle is green
-                if(candle[1]["Close"] < candle[1]["Open"]):
-                    return False
-                if(not prev_candle):
-                    prev_candle = candle
-                    continue
-                if(prev_candle[1]["Close"] > candle[1]["Close"]):
-                    return False
-            return True
-        except Exception as err:
-            raise Exception(str(err))
-
-    def is_giant_downtrend(self,dfs,periods=None,percentage=None):
-        """Check if price in consolidating in range for given periods
-
-        :param dfs: input candles
-        :type dfs: pandas dataframe
-        :param periods: Number of candles, defaults to None
-        :type periods: integer, optional
-        :param percentage: range of consolidation in percentage, defaults to None
-        :type percentage: float, optional
-        :raises BadDataError: data error
-        :return: is_consolidating
-        :rtype: bool
-        """
-
-        try:
-            if not periods:
-                periods = self.periods
-            if not percentage:
-                percentage = self.percentage
-
-            if dfs.shape[0] < periods:
-                raise BadDataError("Data is not enough for this periods")
-
-            recent_dfs = dfs[-1*periods:]
-            prev_candle = None
-            for candle in recent_dfs.iterrows():
-                #check if the candle is red
-                if(candle[1]["Close"] > candle[1]["Open"]):
-                    return False
-                if(not prev_candle):
-                    prev_candle = candle
-                    continue
-                if(prev_candle[1]["Close"] < candle[1]["Close"]):
-                    return False
-            return True
-        except Exception as err:
-            raise Exception(str(err))
-
+    def is_giant_downtrend(
+        self,
+        dfs: pd.DataFrame,
+        periods: int | None = None,
+        percentage: float | None = None,
+    ) -> bool:
+        periods = periods or self.periods
+        if dfs.shape[0] < periods:
+            raise BadDataError("Data is not enough for this periods")
+        df = _normalize_legacy_df(dfs)
+        return bool(pa.giant_downtrend(periods=periods).series(df).iloc[-1])
