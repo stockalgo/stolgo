@@ -1,4 +1,10 @@
-from stolgo.nse_data import NseData
+import pytest
+
+legacy_nse_data = pytest.importorskip(
+    "stolgo.nse_data", reason="legacy NSE module is not part of the greenfield package"
+)
+
+NseData = legacy_nse_data.NseData
 
 def main():
     nse_data = NseData()
