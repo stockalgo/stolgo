@@ -1,4 +1,4 @@
-from stolgo.report.exporters import export_all, export_csv, export_json, export_parquet
+from stolgo.report.exporters import export_all, export_csv, export_json, export_parquet, export_sweep
 from stolgo.report.metrics import compute_metrics
 from stolgo.report.result import RunResult
 from stolgo.report.tearsheet import Report
@@ -13,4 +13,5 @@ __all__ = [
     "export_csv",
     "export_json",
     "export_parquet",
+    "export_sweep",
 ]
