@@ -53,7 +53,15 @@ For live market data via [bandl](https://bandl.io) (recommended):
 pip install stolgo bandl
 ```
 
-Optional extras: `pip install stolgo[numba]` for faster sweeps.
+Optional extras:
+
+```bash
+pip install "stolgo[numba]"   # faster sweeps
+pip install "stolgo[ui]"      # local read-only backtest browser
+```
+
+See [docs/UI.md](docs/UI.md) for the local backtest UI, its read-only API, and
+security notes.
 
 ---
 

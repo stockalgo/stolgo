@@ -11,17 +11,18 @@ dependencies = [
     "pydantic>=2.0",
     "bandl>=0.3",
     "plotly>=5.0",
+    "pyarrow>=14.0",
 ]
 
 [project.optional-dependencies]
 numba = ["numba>=0.58"]
 polars = ["polars>=0.20"]
 kaleido = ["kaleido>=0.2"]
+ui = ["fastapi>=0.110", "uvicorn>=0.29", "duckdb>=0.10"]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.1",
-    "pyarrow>=14.0",
 ]
 
 [project.scripts]
