@@ -30,6 +30,7 @@ class BandlDataSource:
         provider: Literal["crypto", "equity"] = "crypto",
         source: str | None = None,
         cache: ParquetCache | None = None,
+        asset_type: str | None = None,
     ) -> None:
         if client is None:
             from bandl import Bandl
@@ -39,6 +40,11 @@ class BandlDataSource:
         self._provider = provider
         self._source = source
         self._cache = cache or ParquetCache()
+        # Distinguishes crypto_spot / crypto_perp / crypto_future for providers
+        # (e.g. Binance) that serve both spot and USDT-M futures under the same
+        # symbol. None preserves prior behaviour (provider default = crypto_spot
+        # for Binance). Added to support futures-only strategies.
+        self._asset_type = asset_type
 
     def history(
         self,
@@ -46,11 +52,16 @@ class BandlDataSource:
         interval: str,
         start: datetime,
         end: datetime,
+        *,
+        asset_type: str | None = None,
     ) -> pd.DataFrame:
         if start >= end:
             raise DataError("start must be before end")
 
+        effective_asset_type = asset_type or self._asset_type
         provider_key = self._source or self._provider
+        if effective_asset_type:
+            provider_key = f"{provider_key}:{effective_asset_type}"
         key = self._cache.make_key(provider_key, symbol, interval, start, end)
         hit = self._cache.get(key)
         if hit is not None:
@@ -59,6 +70,8 @@ class BandlDataSource:
         kwargs: dict = {}
         if self._source:
             kwargs["source"] = self._source
+        if effective_asset_type:
+            kwargs["asset_type"] = effective_asset_type
 
         if self._provider == "crypto":
             raw = self._client.crypto.get_ohlcv_dataframe(
