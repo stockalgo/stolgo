@@ -61,48 +61,44 @@ body {
 }
 
 .app-shell.dark {
-  --page: #0b1117;
-  --panel: rgba(16, 24, 32, 0.86);
-  --panel-solid: #101820;
-  --panel-soft: rgba(18, 28, 37, 0.72);
-  --panel-strong: #15222d;
-  --ink: #edf3f7;
-  --muted: #98a5b2;
-  --muted-2: #7d8b97;
-  --line: rgba(226, 236, 244, 0.08);
-  --line-soft: rgba(226, 236, 244, 0.055);
-  --shadow: 0 20px 48px rgba(0, 0, 0, 0.34), 0 1px 0 rgba(255, 255, 255, 0.045) inset;
-  --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.24);
-  --green: #20b86c;
-  --green-soft: rgba(32, 184, 108, 0.16);
-  --red: #ff534d;
-  --red-soft: rgba(255, 83, 77, 0.16);
-  --cyan: #37bed8;
-  --cyan-soft: rgba(55, 190, 216, 0.15);
-  --amber: #d9a300;
-  background:
-    radial-gradient(circle at 18% -8%, rgba(55, 190, 216, 0.1), transparent 34%),
-    radial-gradient(circle at 88% 2%, rgba(32, 184, 108, 0.09), transparent 31%),
-    var(--page);
+  --page: #080a0f;
+  --panel: #0e121a;
+  --panel-solid: #111622;
+  --panel-soft: #161c2b;
+  --panel-strong: #1c2436;
+  --ink: #e2e8f0;
+  --muted: #8290a4;
+  --muted-2: #5f6d82;
+  --line: #222b3d;
+  --line-soft: #18202e;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --green: #20a07e;
+  --green-soft: rgba(32, 160, 126, 0.14);
+  --red: #ea4d5a;
+  --red-soft: rgba(234, 77, 90, 0.14);
+  --cyan: #29b6f6;
+  --cyan-soft: rgba(41, 182, 246, 0.12);
+  --amber: #f59e0b;
+  background: var(--page);
 }
 
 .topbar {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 10px;
   align-items: stretch;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .app-nav,
 .strategy-identity,
-.metrics-strip,
 .chart-stack,
 .trade-analysis,
 .surface-panel,
 .page-header {
-  border: 0;
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
   background: var(--panel);
   box-shadow: var(--shadow);
 }
@@ -366,9 +362,13 @@ h1 {
 .metrics-strip {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 12px;
-  padding: 6px;
+  gap: 0;
+  margin-bottom: 10px;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 .library-toolbar {
@@ -649,17 +649,28 @@ dd {
 
 .metric-card {
   min-width: 0;
-  padding: 10px 12px;
-  border-left: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel-solid) 48%, transparent);
+  padding: 8px 12px;
+  border-radius: 0;
+  background: transparent;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.metric-card:first-child {
-  border-left: 0;
+.metric-card:last-child {
+  border-right: 0;
 }
 
-.metric-label,
+.metric-label {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
 .section-heading span {
   color: var(--muted);
   font-size: 11px;
@@ -668,9 +679,10 @@ dd {
 }
 
 .metric-value {
-  margin: 4px 0 5px;
-  font: 600 22px/1 "IBM Plex Mono", monospace;
-  letter-spacing: 0;
+  margin: 0;
+  font: 600 15px/1.25 "IBM Plex Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .positive {
@@ -981,7 +993,8 @@ dd {
 
 .price-chart-wrap {
   position: relative;
-  height: 410px;
+  height: 460px;
+  min-height: 280px;
   background: var(--panel-solid);
 }
 
@@ -989,6 +1002,14 @@ dd {
 .subchart-canvas {
   width: 100%;
   height: 100%;
+}
+
+/* Complete removal of TradingView attribution / watermark logo */
+.tv-lightweight-charts a,
+a[href*="tradingview"] {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .drawing-layer {
@@ -1107,34 +1128,110 @@ dd {
 }
 
 .subchart {
-  height: 126px;
-  border-top: 0;
+  height: 120px;
+  border-top: 1px solid var(--line-soft);
   position: relative;
-  box-shadow: 0 -1px 0 var(--line-soft);
+  background: var(--panel-solid);
 }
 
 .subchart.compact {
-  height: 110px;
+  height: 98px;
 }
 
 .panel-label {
   position: absolute;
   z-index: 2;
-  top: 9px;
+  top: 7px;
   left: 12px;
+  right: 12px;
   color: var(--ink);
-  font-weight: 700;
-  font-size: 12px;
+  font-weight: 600;
+  font-size: 11px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
-.panel-label span,
-.panel-label strong {
-  margin-left: 0;
+.panel-label > * {
+  pointer-events: auto;
+}
+
+.subchart-meta {
   color: var(--muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
   font-weight: 500;
+}
+
+.subchart-close-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 11px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.subchart-close-btn:hover {
+  background: var(--red-soft);
+  color: var(--red);
+  border-color: var(--red);
+}
+
+/* Subchart Toggles in Toolbar */
+.subchart-toggles {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: color-mix(in srgb, var(--panel-soft) 70%, transparent);
+  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+}
+
+.subchart-toggles .tv-icon-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+}
+
+/* Chart Height Resizer Bar */
+.chart-resizer {
+  height: 8px;
+  background: var(--panel-soft);
+  border-top: 1px solid var(--line);
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.chart-resizer:hover,
+.chart-resizer.resizing {
+  background: color-mix(in srgb, var(--cyan) 20%, var(--panel-strong));
+}
+
+.resizer-grip {
+  width: 36px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--muted-2);
+  transition: all 0.15s ease;
+}
+
+.chart-resizer:hover .resizer-grip,
+.chart-resizer.resizing .resizer-grip {
+  background: var(--cyan);
+  width: 50px;
 }
 
 /* ==========================================================================
@@ -1746,9 +1843,9 @@ dd {
 .trade-table-wrap {
   overflow-x: auto;
   overflow-y: hidden;
-  border: 0;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--panel-solid) 54%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel-solid);
 }
 
 .trade-table,
@@ -1759,7 +1856,7 @@ dd {
 }
 
 .trade-table {
-  min-width: 760px;
+  min-width: 820px;
 }
 
 th,
@@ -1770,15 +1867,74 @@ td {
 
 .trade-table th,
 .trade-table td {
-  padding: 8px 10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line-soft) 70%, transparent);
-  font-size: 12px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 11.5px;
 }
 
 .trade-table th {
   color: var(--muted);
-  font-weight: 500;
-  background: color-mix(in srgb, var(--panel-soft) 78%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--panel-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.trade-table th.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.trade-table th.sortable-th:hover {
+  background: var(--panel-strong);
+  color: var(--ink);
+}
+
+.trade-table th.active-sort {
+  color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan-soft) 40%, var(--panel-soft));
+  border-bottom: 2px solid var(--cyan);
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.sort-icon {
+  font-size: 8px;
+  opacity: 0.45;
+}
+
+.sort-icon.active {
+  opacity: 1;
+  color: var(--cyan);
+}
+
+.mono-cell {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+.num-cell {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.empty-table-cell {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .trade-table td {
@@ -1787,15 +1943,16 @@ td {
 
 .trade-table tbody tr {
   cursor: pointer;
+  transition: background 0.1s ease;
 }
 
-.trade-table tbody tr:hover,
-.trade-table tbody tr.selected {
-  background: color-mix(in srgb, var(--cyan-soft) 78%, transparent);
+.trade-table tbody tr:hover {
+  background: color-mix(in srgb, var(--panel-strong) 85%, transparent);
 }
 
 .trade-table tbody tr.selected {
-  box-shadow: inset 3px 0 0 var(--cyan);
+  background: color-mix(in srgb, var(--cyan-soft) 50%, var(--panel-strong));
+  box-shadow: inset 2px 0 0 var(--cyan);
 }
 
 .run-conditions dl {

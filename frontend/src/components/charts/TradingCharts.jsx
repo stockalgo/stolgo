@@ -52,6 +52,53 @@ export function TradingCharts({
   const [showIndicatorsModal, setShowIndicatorsModal] = useState(false);
   const [showGoToDateModal, setShowGoToDateModal] = useState(false);
   const [subcharts, setSubcharts] = useState({ equity: true, drawdown: true, volume: true });
+  const [chartHeight, setChartHeight] = useState(() => {
+    try {
+      const saved = localStorage.getItem("stolgo_chart_height");
+      return saved ? Math.max(280, Math.min(850, Number(saved))) : 460;
+    } catch {
+      return 460;
+    }
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleResizerMouseDown = (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = chartHeight;
+    setIsResizing(true);
+
+    const onMouseMove = (moveEvent) => {
+      const deltaY = moveEvent.clientY - startY;
+      const newHeight = Math.max(280, Math.min(850, startHeight + deltaY));
+      setChartHeight(newHeight);
+      if (chartsRef.current?.priceChart) {
+        chartsRef.current.priceChart.applyOptions({ height: newHeight });
+      }
+    };
+
+    const onMouseUp = () => {
+      setIsResizing(false);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      try {
+        localStorage.setItem("stolgo_chart_height", String(chartHeight));
+      } catch {}
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
+  const handleResizerReset = () => {
+    setChartHeight(460);
+    if (chartsRef.current?.priceChart) {
+      chartsRef.current.priceChart.applyOptions({ height: 460 });
+    }
+    try {
+      localStorage.setItem("stolgo_chart_height", "460");
+    } catch {}
+  };
 
   const [activeIndicators, setActiveIndicators] = useState({
     volume: { id: "volume", hidden: false },
@@ -642,26 +689,44 @@ export function TradingCharts({
             ))}
           </div>
 
-          {/* Volume Quick Toggle */}
-          <button
-            type="button"
-            className={`tv-icon-btn ${subcharts.volume ? "active" : ""}`}
-            onClick={() => {
-              const nextVol = !subcharts.volume;
-              setSubcharts((s) => ({ ...s, volume: nextVol }));
-              setActiveIndicators((prev) => {
-                if (!nextVol) {
-                  const next = { ...prev };
-                  delete next.volume;
-                  return next;
-                }
-                return { ...prev, volume: { id: "volume", hidden: false } };
-              });
-            }}
-            title={subcharts.volume ? "Hide Volume" : "Show Volume"}
-          >
-            Vol
-          </button>
+          {/* Subchart Quick Toggles: Volume, Equity, Drawdown */}
+          <div className="subchart-toggles" role="group" aria-label="Subchart toggles">
+            <button
+              type="button"
+              className={`tv-icon-btn ${subcharts.volume ? "active" : ""}`}
+              onClick={() => {
+                const nextVol = !subcharts.volume;
+                setSubcharts((s) => ({ ...s, volume: nextVol }));
+                setActiveIndicators((prev) => {
+                  if (!nextVol) {
+                    const next = { ...prev };
+                    delete next.volume;
+                    return next;
+                  }
+                  return { ...prev, volume: { id: "volume", hidden: false } };
+                });
+              }}
+              title={subcharts.volume ? "Hide Volume Histogram" : "Show Volume Histogram"}
+            >
+              Vol
+            </button>
+            <button
+              type="button"
+              className={`tv-icon-btn ${subcharts.equity ? "active" : ""}`}
+              onClick={() => setSubcharts((s) => ({ ...s, equity: !s.equity }))}
+              title={subcharts.equity ? "Hide Equity Curve Subchart" : "Show Equity Curve Subchart"}
+            >
+              Equity
+            </button>
+            <button
+              type="button"
+              className={`tv-icon-btn ${subcharts.drawdown ? "active" : ""}`}
+              onClick={() => setSubcharts((s) => ({ ...s, drawdown: !s.drawdown }))}
+              title={subcharts.drawdown ? "Hide Drawdown Subchart" : "Show Drawdown Subchart"}
+            >
+              Drawdown
+            </button>
+          </div>
 
           {/* Indicators Button */}
           <button
@@ -726,7 +791,11 @@ export function TradingCharts({
       </div>
 
       {/* Main Chart Area */}
-      <div className={`price-chart-wrap ${isFullscreen ? "is-fullscreen" : ""}`} onDoubleClick={handleFitContent}>
+      <div
+        className={`price-chart-wrap ${isFullscreen ? "is-fullscreen" : ""}`}
+        style={isFullscreen ? undefined : { height: `${chartHeight}px` }}
+        onDoubleClick={handleFitContent}
+      >
         {/* TradingView Top-Left Legend */}
         <ChartLegend
           activeIndicators={activeIndicators}
@@ -805,43 +874,61 @@ export function TradingCharts({
         </div>
       )}
 
-      {/* Equity Curve Subchart (Collapsible) */}
-      <div className="subchart">
-        <div className="panel-label">
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* Equity Curve Subchart (Dismissible) */}
+      {subcharts.equity && (
+        <div className="subchart">
+          <div className="panel-label">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>Equity curve</span>
+              {finalEquity !== undefined && <span className="subchart-meta">Final: {money(finalEquity)}</span>}
+              <strong className="subchart-meta">Net {percent(metrics?.total_return ?? 0)}</strong>
+            </div>
             <button
               type="button"
-              className="collapse-btn"
-              onClick={() => setSubcharts((prev) => ({ ...prev, equity: !prev.equity }))}
+              className="ind-action-btn delete"
+              onClick={() => setSubcharts((prev) => ({ ...prev, equity: false }))}
+              title="Hide Equity curve subchart"
             >
-              {subcharts.equity ? "▾" : "▸"}
+              ✕
             </button>
-            <span>Equity curve</span>
           </div>
-          {finalEquity !== undefined && <span>Final: {money(finalEquity)}</span>}
-          <strong>Net {percent(metrics?.total_return ?? 0)}</strong>
+          <div className="subchart-canvas" ref={equityRef} />
         </div>
-        {subcharts.equity && <div className="subchart-canvas" ref={equityRef} />}
-      </div>
+      )}
 
-      {/* Drawdown Subchart (Collapsible) */}
-      <div className="subchart compact">
-        <div className="panel-label">
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      {/* Drawdown Subchart (Dismissible) */}
+      {subcharts.drawdown && (
+        <div className="subchart compact">
+          <div className="panel-label">
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>Drawdown</span>
+              <span className="subchart-meta">Max: {maxDrawdown.toFixed(2)}%</span>
+              <strong className="subchart-meta negative">Current {(currentDrawdown ?? 0).toFixed(2)}%</strong>
+            </div>
             <button
               type="button"
-              className="collapse-btn"
-              onClick={() => setSubcharts((prev) => ({ ...prev, drawdown: !prev.drawdown }))}
+              className="ind-action-btn delete"
+              onClick={() => setSubcharts((prev) => ({ ...prev, drawdown: false }))}
+              title="Hide Drawdown subchart"
             >
-              {subcharts.drawdown ? "▾" : "▸"}
+              ✕
             </button>
-            <span>Drawdown</span>
           </div>
-          <span>Max: {maxDrawdown.toFixed(2)}%</span>
-          <strong className="negative">Current {(currentDrawdown ?? 0).toFixed(2)}%</strong>
+          <div className="subchart-canvas" ref={drawdownRef} />
         </div>
-        {subcharts.drawdown && <div className="subchart-canvas" ref={drawdownRef} />}
-      </div>
+      )}
+
+      {/* Interactive Chart Height Resizer */}
+      {!isFullscreen && (
+        <div
+          className={`chart-resizer ${isResizing ? "resizing" : ""}`}
+          onMouseDown={handleResizerMouseDown}
+          onDoubleClick={handleResizerReset}
+          title="Drag up/down to adjust chart height · Double-click to reset"
+        >
+          <span className="resizer-grip" />
+        </div>
+      )}
 
       {/* Indicators Picker Modal */}
       {showIndicatorsModal && (
