@@ -32,16 +32,39 @@ export function resampleCandles(candles, volume = [], targetTf = "15m", timeZone
   const tfConfig = TIMEFRAMES.find((tf) => tf.id === targetTf) || TIMEFRAMES[1];
   const baseInterval = detectBaseInterval(candles);
 
+  // Check if incoming volume data has real values or is all zero/empty
+  const hasRealVolume = volume && volume.some((v) => v.value > 0);
+
+  const getEffectiveVol = (bar) => {
+    if (hasRealVolume) {
+      const found = volume.find((v) => v.time === bar.time);
+      if (found && found.value > 0) return found.value;
+    }
+    // Calculate synthetic range volume: True range as a percentage of price * 100,000 lots
+    // Ensure minimum base volume of 1,250 so volume bars are always visible
+    const range = Math.max(1.5, bar.high - bar.low);
+    const typical = (bar.high + bar.low + bar.close) / 3 || 1;
+    return Math.max(1250, Math.round((range / typical) * 1000000));
+  };
+
   // If target interval is smaller than base interval, return original
   if (tfConfig.seconds <= baseInterval) {
-    return { candles, volume };
+    if (hasRealVolume) {
+      return { candles, volume };
+    }
+    const derivedVol = candles.map((c) => ({
+      time: c.time,
+      value: getEffectiveVol(c),
+      color: c.close >= c.open ? "rgba(20, 154, 90, 0.28)" : "rgba(200, 63, 58, 0.24)",
+    }));
+    return { candles, volume: derivedVol };
   }
 
   const resampledCandles = [];
   const resampledVolume = [];
   const volMap = new Map();
-  for (const v of volume) {
-    volMap.set(v.time, v.value);
+  for (const c of candles) {
+    volMap.set(c.time, getEffectiveVol(c));
   }
 
   const getBucketKey = (ts) => {

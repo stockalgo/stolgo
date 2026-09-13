@@ -6,10 +6,11 @@ export const AVAILABLE_INDICATORS = [
   { id: "ema200", name: "EMA 200", category: "Moving Averages", color: "#9c27b0", desc: "Long-term institutional moving average" },
   { id: "sma20", name: "SMA 20", category: "Moving Averages", color: "#26a69a", desc: "Simple 20-period moving average" },
   { id: "sma50", name: "SMA 50", category: "Moving Averages", color: "#e91e63", desc: "Simple 50-period moving average" },
+  { id: "volume", name: "Volume (Traded)", category: "Volume & Flow", color: "#26a69a", desc: "Bar traded volume histogram with green/red bars" },
+  { id: "volumeMa", name: "Volume MA (20)", category: "Volume & Flow", color: "#29b6f6", desc: "20-period average volume overlay" },
   { id: "vwap", name: "VWAP", category: "Volume & Flow", color: "#ffd600", desc: "Intraday session volume weighted average price" },
   { id: "bollinger", name: "Bollinger Bands (20, 2)", category: "Volatility", color: "#00bcd4", desc: "20-period volatility envelope (2 std dev)" },
   { id: "rsi", name: "RSI (14)", category: "Oscillators", color: "#ab47bc", desc: "Relative Strength Index momentum oscillator" },
-  { id: "volumeMa", name: "Volume MA (20)", category: "Volume & Flow", color: "#29b6f6", desc: "20-period average volume overlay" },
 ];
 
 export function IndicatorsModal({ activeIndicators, onClose, onToggleIndicator }) {

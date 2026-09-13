@@ -7,16 +7,21 @@ import { OptimizationPage } from "./pages/OptimizationPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { StrategyDetailPage } from "./pages/StrategyDetailPage";
 import { StrategyLibraryPage } from "./pages/StrategyLibraryPage";
+import { FullScreenChartPage } from "./pages/FullScreenChartPage";
 import { setFormattingConfig } from "./utils/formatters";
 
 const emptyData = { candles: [], volume: [], equity: [], drawdown: [], trades: [] };
 
 export function App() {
-  const [activePage, setActivePage] = useState("library");
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialView = urlParams.get("view");
+  const initialRun = urlParams.get("run");
+
+  const [activePage, setActivePage] = useState(initialView === "chart" ? "fullscreenChart" : "library");
   const [exportState, setExportState] = useState("Export");
   const [runs, setRuns] = useState([]);
   const [sweeps, setSweeps] = useState([]);
-  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [selectedRunId, setSelectedRunId] = useState(initialRun || null);
   const [detail, setDetail] = useState(null);
   const [data, setData] = useState(emptyData);
   const [selectedTrade, setSelectedTrade] = useState(null);
@@ -173,11 +178,41 @@ export function App() {
         timeZone={timeZone}
       />
     ),
+    fullscreenChart: (
+      <FullScreenChartPage
+        currency={currency}
+        data={data}
+        detail={detail}
+        loading={loadingDetail}
+        onBackToDashboard={() => {
+          window.history.replaceState({}, "", "/");
+          setActivePage("detail");
+        }}
+        onToggleCurrency={handleToggleCurrency}
+        onToggleTheme={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        runs={runs}
+        selectedRunId={selectedRunId}
+        selectedTrade={selectedTrade}
+        setSelectedRunId={setSelectedRunId}
+        setSelectedTrade={setSelectedTrade}
+        theme={theme}
+        timeZone={timeZone}
+      />
+    ),
     new: <NewBacktestPage />,
     compare: <ComparePage onOpenDetail={navigateToDetail} runs={runs} />,
     optimize: <OptimizationPage sweeps={sweeps} />,
     reports: <ReportsPage onOpenDetail={navigateToDetail} runs={runs} />,
   };
+
+  if (activePage === "fullscreenChart") {
+    return (
+      <main className={`app-shell fullscreen-mode ${theme}`}>
+        {error && <div className="app-error">API error: {error}</div>}
+        {pages.fullscreenChart}
+      </main>
+    );
+  }
 
   return (
     <main className={`app-shell ${theme}`}>

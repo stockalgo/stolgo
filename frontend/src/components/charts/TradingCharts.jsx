@@ -26,7 +26,15 @@ import { GoToDateModal } from "./GoToDateModal";
 import { ChartLegend } from "./ChartLegend";
 import { RANGE_PRESETS, RangeBar } from "./RangeBar";
 
-export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade, theme }) {
+export function TradingCharts({
+  data,
+  isFullscreen = false,
+  metrics,
+  onSelectTrade,
+  run,
+  selectedTrade,
+  theme,
+}) {
   const priceRef = useRef(null);
   const equityRef = useRef(null);
   const drawdownRef = useRef(null);
@@ -46,6 +54,7 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
   const [subcharts, setSubcharts] = useState({ equity: true, drawdown: true, volume: true });
 
   const [activeIndicators, setActiveIndicators] = useState({
+    volume: { id: "volume", hidden: false },
     ema20: { id: "ema20", hidden: false },
     vwap: { id: "vwap", hidden: false },
     volumeMa: { id: "volumeMa", hidden: false },
@@ -562,8 +571,10 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       if (prev[id]) {
         const next = { ...prev };
         delete next[id];
+        if (id === "volume") setSubcharts((s) => ({ ...s, volume: false }));
         return next;
       }
+      if (id === "volume") setSubcharts((s) => ({ ...s, volume: true }));
       return { ...prev, [id]: { id, hidden: false } };
     });
   };
@@ -571,7 +582,9 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
   const toggleIndicatorVisibility = (id) => {
     setActiveIndicators((prev) => {
       if (!prev[id]) return prev;
-      return { ...prev, [id]: { ...prev[id], hidden: !prev[id].hidden } };
+      const willHide = !prev[id].hidden;
+      if (id === "volume") setSubcharts((s) => ({ ...s, volume: !willHide }));
+      return { ...prev, [id]: { ...prev[id], hidden: willHide } };
     });
   };
 
@@ -579,12 +592,16 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
     setActiveIndicators((prev) => {
       const next = { ...prev };
       delete next[id];
+      if (id === "volume") setSubcharts((s) => ({ ...s, volume: false }));
       return next;
     });
   };
 
   return (
-    <section className="chart-stack tv-workspace" aria-label="TradingView strategy chart workspace">
+    <section
+      className={`chart-stack tv-workspace ${isFullscreen ? "is-fullscreen" : ""}`}
+      aria-label="TradingView strategy chart workspace"
+    >
       {/* TradingView Top Toolbar */}
       <div className="chart-toolbar tv-topbar">
         <div className="chart-info-bar">
@@ -624,6 +641,27 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
               </button>
             ))}
           </div>
+
+          {/* Volume Quick Toggle */}
+          <button
+            type="button"
+            className={`tv-icon-btn ${subcharts.volume ? "active" : ""}`}
+            onClick={() => {
+              const nextVol = !subcharts.volume;
+              setSubcharts((s) => ({ ...s, volume: nextVol }));
+              setActiveIndicators((prev) => {
+                if (!nextVol) {
+                  const next = { ...prev };
+                  delete next.volume;
+                  return next;
+                }
+                return { ...prev, volume: { id: "volume", hidden: false } };
+              });
+            }}
+            title={subcharts.volume ? "Hide Volume" : "Show Volume"}
+          >
+            Vol
+          </button>
 
           {/* Indicators Button */}
           <button
@@ -669,11 +707,26 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
           >
             ⤢ Fit
           </button>
+
+          {!isFullscreen && (
+            <button
+              type="button"
+              className="ghost-button tv-fullscreen-btn"
+              onClick={() => {
+                const runId = run?.id || "";
+                const url = runId ? `/?view=chart&run=${encodeURIComponent(runId)}` : `/?view=chart`;
+                window.open(url, "_blank");
+              }}
+              title="Open full screen chart in new tab"
+            >
+              ⛶ Fullscreen
+            </button>
+          )}
         </div>
       </div>
 
       {/* Main Chart Area */}
-      <div className="price-chart-wrap" onDoubleClick={handleFitContent}>
+      <div className={`price-chart-wrap ${isFullscreen ? "is-fullscreen" : ""}`} onDoubleClick={handleFitContent}>
         {/* TradingView Top-Left Legend */}
         <ChartLegend
           activeIndicators={activeIndicators}
