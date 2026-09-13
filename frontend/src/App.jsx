@@ -110,8 +110,50 @@ export function App() {
   };
 
   const handleExport = () => {
-    setExportState("Queued");
-    window.setTimeout(() => setExportState("Export"), 1800);
+    if (!data.trades || data.trades.length === 0) {
+      setExportState("No trades");
+      setTimeout(() => setExportState("Export"), 1500);
+      return;
+    }
+    const headers = [
+      "id",
+      "entry_time",
+      "exit_time",
+      "side",
+      "entry_premium",
+      "exit_premium",
+      "qty",
+      "gross_pnl",
+      "costs",
+      "net_pnl",
+      "r_multiple",
+      "tag",
+    ];
+    const rows = data.trades.map((t) => [
+      t.id,
+      new Date(t.entryTime * 1000).toISOString(),
+      new Date(t.exitTime * 1000).toISOString(),
+      t.side,
+      t.entryPrice,
+      t.exitPrice,
+      t.qty,
+      t.grossPnl ?? t.pnl,
+      t.commission ?? 0,
+      t.pnl,
+      t.r,
+      t.tag || "",
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${selectedRunId || "trades"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setExportState("Downloaded!");
+    window.setTimeout(() => setExportState("Export"), 2000);
   };
 
   const pages = {
@@ -134,7 +176,7 @@ export function App() {
     new: <NewBacktestPage />,
     compare: <ComparePage onOpenDetail={navigateToDetail} runs={runs} />,
     optimize: <OptimizationPage sweeps={sweeps} />,
-    reports: <ReportsPage runs={runs} />,
+    reports: <ReportsPage onOpenDetail={navigateToDetail} runs={runs} />,
   };
 
   return (

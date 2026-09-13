@@ -783,6 +783,42 @@ dd {
   background: var(--red);
 }
 
+.weekday-list {
+  display: grid;
+  gap: 6px;
+}
+
+.weekday-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel-solid) 48%, transparent);
+  font-size: 12px;
+}
+
+.weekday-row div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weekday-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.expiry-pill {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--amber);
+  color: #ffffff;
+}
+
 .extreme-list {
   display: grid;
   gap: 8px;

@@ -52,6 +52,35 @@ function drawdownStats(drawdown) {
   return { max, current, underwater };
 }
 
+function weekdayStats(trades, timeZone = "Asia/Kolkata") {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+  const map = {};
+  days.forEach((day) => {
+    map[day] = { day, trades: 0, wins: 0, pnl: 0 };
+  });
+  trades.forEach((trade) => {
+    const day = new Date(trade.entryTime * 1000).toLocaleDateString("en-IN", { timeZone, weekday: "short" });
+    if (!map[day]) map[day] = { day, trades: 0, wins: 0, pnl: 0 };
+    map[day].trades++;
+    if (trade.pnl > 0) map[day].wins++;
+    map[day].pnl += trade.pnl;
+  });
+  return Object.values(map).filter((d) => d.trades > 0);
+}
+
+function frictionStats(trades) {
+  let gross = 0;
+  let costs = 0;
+  let net = 0;
+  trades.forEach((t) => {
+    gross += t.grossPnl ?? t.pnl;
+    costs += t.commission ?? 0;
+    net += t.pnl;
+  });
+  const dragPct = gross > 0 ? (costs / gross) * 100 : 0;
+  return { gross, costs, net, dragPct };
+}
+
 export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, timeZone }) {
   const trades = data.trades ?? [];
   const candles = data.candles ?? [];
@@ -60,6 +89,8 @@ export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, ti
   const distribution = trades.length ? tradeDistribution(trades) : null;
   const bars = distributionBars(trades);
   const dd = drawdownStats(drawdown);
+  const weekdays = weekdayStats(trades, timeZone);
+  const friction = frictionStats(trades);
   const firstCandle = candles[0];
   const lastCandle = candles.at(-1);
   const finalEquity = equity.at(-1)?.value;
@@ -82,6 +113,49 @@ export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, ti
         )}
       </section>
 
+      {friction.costs > 0 && (
+        <section className="rail-panel">
+          <div className="rail-heading">
+            <span>Friction & Costs</span>
+            <h2>Statutory Tax Drag</h2>
+          </div>
+          <div className="rail-stat-grid">
+            <Stat label="Gross PnL" value={money(friction.gross, currency)} tone={friction.gross >= 0 ? "positive" : "negative"} />
+            <Stat label="Total Costs" value={`-${money(friction.costs, currency)}`} tone="negative" />
+            <Stat label="Net PnL" value={money(friction.net, currency)} tone={friction.net >= 0 ? "positive" : "negative"} />
+            <Stat label="Cost drag" value={`${friction.dragPct.toFixed(1)}%`} tone={friction.dragPct > 30 ? "negative" : "neutral"} />
+          </div>
+          <p className="rail-note">Includes STT, Exchange fees, GST, SEBI charges, and execution slippage.</p>
+        </section>
+      )}
+
+      {weekdays.length > 0 && (
+        <section className="rail-panel">
+          <div className="rail-heading">
+            <span>Session breakdown</span>
+            <h2>Day of Week PnL</h2>
+          </div>
+          <div className="weekday-list">
+            {weekdays.map((item) => {
+              const winRate = item.trades > 0 ? (item.wins / item.trades) * 100 : 0;
+              const isExpiry = (run?.market === "NIFTY" && item.day === "Thu") || (run?.market === "SENSEX" && item.day === "Fri");
+              return (
+                <div className="weekday-row" key={item.day}>
+                  <div>
+                    <b>{item.day}</b>
+                    {isExpiry && <span className="expiry-pill">Expiry</span>}
+                    <small>({item.trades} trades · {winRate.toFixed(0)}% win)</small>
+                  </div>
+                  <strong className={item.pnl >= 0 ? "positive" : "negative"}>
+                    {signedMoney(item.pnl, currency)}
+                  </strong>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       <section className="rail-panel">
         <div className="rail-heading">
           <span>Trade distribution</span>
@@ -99,8 +173,8 @@ export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, ti
             <div className="rail-stat-grid">
               <Stat label="Winners" value={distribution.wins.length.toLocaleString()} tone="positive" />
               <Stat label="Losers" value={distribution.losses.length.toLocaleString()} tone="negative" />
-              <Stat label="Avg winner" value={signedMoney(distribution.avgWinner)} tone="positive" />
-              <Stat label="Avg loser" value={signedMoney(distribution.avgLoser)} tone="negative" />
+              <Stat label="Avg winner" value={signedMoney(distribution.avgWinner, currency)} tone="positive" />
+              <Stat label="Avg loser" value={signedMoney(distribution.avgLoser, currency)} tone="negative" />
             </div>
           </>
         )}
@@ -128,11 +202,11 @@ export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, ti
           <div className="extreme-list">
             <button type="button" onClick={() => onSelectTrade(distribution.best)}>
               <span>Best trade #{distribution.best.id}</span>
-              <strong className="positive">{signedMoney(distribution.best.pnl)}</strong>
+              <strong className="positive">{signedMoney(distribution.best.pnl, currency)}</strong>
             </button>
             <button type="button" onClick={() => onSelectTrade(distribution.worst)}>
               <span>Worst trade #{distribution.worst.id}</span>
-              <strong className="negative">{signedMoney(distribution.worst.pnl)}</strong>
+              <strong className="negative">{signedMoney(distribution.worst.pnl, currency)}</strong>
             </button>
           </div>
         ) : (
