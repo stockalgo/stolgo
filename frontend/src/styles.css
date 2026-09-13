@@ -1138,23 +1138,47 @@ a[href*="tradingview"] {
   height: 98px;
 }
 
-.panel-label {
+.subchart-panel-header {
   position: absolute;
-  z-index: 2;
-  top: 7px;
-  left: 12px;
-  right: 12px;
+  z-index: 10;
+  top: 6px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--panel-solid) 85%, transparent);
+  backdrop-filter: blur(4px);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-soft);
+  pointer-events: auto;
+}
+
+.subchart-title {
   color: var(--ink);
   font-weight: 600;
   font-size: 11px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  pointer-events: none;
 }
 
-.panel-label > * {
-  pointer-events: auto;
+.subchart-hide-btn {
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.15s ease;
+}
+
+.subchart-hide-btn:hover {
+  background: var(--red-soft);
+  color: var(--red);
+  border-color: var(--red);
 }
 
 .subchart-meta {
@@ -1506,6 +1530,48 @@ a[href*="tradingview"] {
   background: color-mix(in srgb, var(--cyan-soft) 85%, transparent);
   color: var(--cyan);
   border-color: var(--cyan);
+}
+
+.range-subchart-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: color-mix(in srgb, var(--panel-soft) 70%, transparent);
+  padding: 2px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--line-soft);
+}
+
+.subchart-toggle-label {
+  color: var(--muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 2px;
+}
+
+.range-subchart-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.range-subchart-btn:hover {
+  color: var(--ink);
+  background: var(--panel-strong);
+}
+
+.range-subchart-btn.active {
+  background: color-mix(in srgb, var(--cyan) 16%, transparent);
+  color: var(--cyan);
+  border-color: color-mix(in srgb, var(--cyan) 40%, transparent);
 }
 
 .range-meta-group {

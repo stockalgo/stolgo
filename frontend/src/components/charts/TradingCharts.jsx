@@ -853,22 +853,24 @@ export function TradingCharts({
         onFitContent={handleFitContent}
         onOpenGoToDate={() => setShowGoToDateModal(true)}
         onSelectRange={handleSelectRange}
+        onToggleSubchart={(key) => setSubcharts((prev) => ({ ...prev, [key]: !prev[key] }))}
+        subcharts={subcharts}
       />
 
       {/* RSI (14) Sub-Pane */}
       {indicatorSeriesData.rsi && (
         <div className="subchart">
-          <div className="panel-label">
-            <span>RSI (14)</span>
-            <span className="rsi-badge">Overbought 70 · Oversold 30</span>
+          <div className="subchart-panel-header">
+            <span className="subchart-title">RSI (14)</span>
             <button
               type="button"
-              className="ind-action-btn delete"
+              className="subchart-hide-btn"
               onClick={() => removeIndicator("rsi")}
               title="Close RSI pane"
             >
-              ✕
+              ✕ Hide
             </button>
+            <span className="rsi-badge">Overbought 70 · Oversold 30</span>
           </div>
           <div className="subchart-canvas" ref={rsiRef} />
         </div>
@@ -877,20 +879,18 @@ export function TradingCharts({
       {/* Equity Curve Subchart (Dismissible) */}
       {subcharts.equity && (
         <div className="subchart">
-          <div className="panel-label">
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>Equity curve</span>
-              {finalEquity !== undefined && <span className="subchart-meta">Final: {money(finalEquity)}</span>}
-              <strong className="subchart-meta">Net {percent(metrics?.total_return ?? 0)}</strong>
-            </div>
+          <div className="subchart-panel-header">
+            <span className="subchart-title">Equity curve</span>
             <button
               type="button"
-              className="ind-action-btn delete"
+              className="subchart-hide-btn"
               onClick={() => setSubcharts((prev) => ({ ...prev, equity: false }))}
               title="Hide Equity curve subchart"
             >
-              ✕
+              ✕ Hide
             </button>
+            {finalEquity !== undefined && <span className="subchart-meta">Final: {money(finalEquity)}</span>}
+            <strong className="subchart-meta">Net {percent(metrics?.total_return ?? 0)}</strong>
           </div>
           <div className="subchart-canvas" ref={equityRef} />
         </div>
@@ -899,20 +899,18 @@ export function TradingCharts({
       {/* Drawdown Subchart (Dismissible) */}
       {subcharts.drawdown && (
         <div className="subchart compact">
-          <div className="panel-label">
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>Drawdown</span>
-              <span className="subchart-meta">Max: {maxDrawdown.toFixed(2)}%</span>
-              <strong className="subchart-meta negative">Current {(currentDrawdown ?? 0).toFixed(2)}%</strong>
-            </div>
+          <div className="subchart-panel-header">
+            <span className="subchart-title">Drawdown</span>
             <button
               type="button"
-              className="ind-action-btn delete"
+              className="subchart-hide-btn"
               onClick={() => setSubcharts((prev) => ({ ...prev, drawdown: false }))}
               title="Hide Drawdown subchart"
             >
-              ✕
+              ✕ Hide
             </button>
+            <span className="subchart-meta">Max: {maxDrawdown.toFixed(2)}%</span>
+            <strong className="subchart-meta negative">Current {(currentDrawdown ?? 0).toFixed(2)}%</strong>
           </div>
           <div className="subchart-canvas" ref={drawdownRef} />
         </div>

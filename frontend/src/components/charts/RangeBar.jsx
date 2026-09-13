@@ -13,6 +13,8 @@ export function RangeBar({
   onFitContent,
   onOpenGoToDate,
   onSelectRange,
+  onToggleSubchart,
+  subcharts,
   timeZoneLabel = "Asia/Kolkata (IST)",
 }) {
   return (
@@ -29,6 +31,29 @@ export function RangeBar({
           </button>
         ))}
       </div>
+
+      {subcharts && onToggleSubchart && (
+        <div className="range-subchart-group" role="group" aria-label="Subchart visibility toggles">
+          <span className="subchart-toggle-label">Subcharts:</span>
+          <button
+            type="button"
+            className={`range-subchart-btn ${subcharts.equity ? "active" : ""}`}
+            onClick={() => onToggleSubchart("equity")}
+            title={subcharts.equity ? "Hide Equity Curve" : "Show Equity Curve"}
+          >
+            {subcharts.equity ? "✓ Equity" : "+ Equity"}
+          </button>
+          <button
+            type="button"
+            className={`range-subchart-btn ${subcharts.drawdown ? "active" : ""}`}
+            onClick={() => onToggleSubchart("drawdown")}
+            title={subcharts.drawdown ? "Hide Drawdown Curve" : "Show Drawdown Curve"}
+          >
+            {subcharts.drawdown ? "✓ Drawdown" : "+ Drawdown"}
+          </button>
+        </div>
+      )}
+
       <div className="range-meta-group">
         <button
           type="button"
