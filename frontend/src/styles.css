@@ -2005,3 +2005,313 @@ td {
   background: color-mix(in srgb, var(--cyan-soft) 80%, transparent);
 }
 
+/* ==========================================================================
+   OpenAlgo Pro Terminal Styles
+   ========================================================================== */
+
+.pro-terminal-workspace {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  background: var(--panel-solid);
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.pro-terminal-workspace.is-fullscreen {
+  height: 100%;
+  border-radius: 0;
+  border: none;
+}
+
+.pro-topbar {
+  flex-wrap: wrap;
+  gap: 8px;
+  background: var(--panel-soft);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 12px;
+}
+
+.pro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--cyan) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  color: var(--cyan);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.pro-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.pro-terminal-stage {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.pro-drawing-rail {
+  width: 44px;
+  flex-shrink: 0;
+  background: var(--panel-soft);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 4px;
+  z-index: 10;
+  overflow-y: auto;
+}
+
+.rail-tool-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.rail-tool-btn:hover {
+  background: var(--panel-strong);
+  color: var(--ink);
+  border-color: var(--line-soft);
+}
+
+.rail-tool-btn.active {
+  background: color-mix(in srgb, var(--cyan) 18%, transparent);
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+
+.rail-divider {
+  width: 24px;
+  height: 1px;
+  background: var(--line);
+  margin: 6px 0;
+}
+
+.all-tools-btn {
+  font-weight: bold;
+}
+
+.pro-chart-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pro-canvas-container {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+}
+
+.pro-hud-legend {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: color-mix(in srgb, var(--panel-solid) 82%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line-soft);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  pointer-events: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.hud-symbol {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.hud-tf {
+  background: var(--panel-strong);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.hud-item {
+  color: var(--muted);
+}
+
+.hud-item b {
+  color: var(--ink);
+}
+
+.hud-item.positive {
+  color: var(--green);
+}
+
+.hud-item.negative {
+  color: var(--red);
+}
+
+.hud-indicators-list {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.hud-ind-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: color-mix(in srgb, var(--cyan) 12%, transparent);
+  color: var(--cyan);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.ind-del-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ind-del-btn:hover {
+  color: var(--red);
+}
+
+/* Engine Switcher */
+.engine-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  background: var(--panel-strong);
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--line);
+}
+
+.engine-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.engine-btn:hover {
+  color: var(--ink);
+}
+
+.engine-btn.active {
+  background: var(--panel-solid);
+  color: var(--cyan);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+/* Tools Drawer Dialog */
+.tools-drawer-dialog {
+  max-width: 680px;
+  max-height: 80vh;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.drawer-tool-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.drawer-tool-card:hover {
+  border-color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 8%, transparent);
+}
+
+.drawer-tool-card.active {
+  border-color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 16%, transparent);
+}
+
+.drawer-tool-card b {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.drawer-tool-card small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* Pro Indicator Dialog Category Tabs */
+.pro-ind-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 14px 0 14px;
+}
+
+.ind-tab-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--line-soft);
+  background: var(--panel-soft);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.ind-tab-btn.active {
+  background: var(--cyan);
+  color: #ffffff;
+  border-color: var(--cyan);
+}
+
+
