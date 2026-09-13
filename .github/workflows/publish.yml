@@ -1,5 +1,4 @@
 # Publish to PyPI using Trusted Publishing (OIDC).
-# Configure the trusted publisher on https://pypi.org (see docs/PYPI_TRUSTED_PUBLISHING.md).
 # Actions are pinned to full SHAs (supply-chain hygiene); bump intentionally when upgrading.
 
 name: Publish to PyPI
