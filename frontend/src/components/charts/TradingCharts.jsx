@@ -247,10 +247,9 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       addedIndicatorSeries.bollinger = midS;
     }
 
-    // Trade Markers
-    createSeriesMarkers(
-      mainSeries,
-      data.trades.flatMap((trade) => [
+    // Trade Markers (must be strictly sorted ascending by time for lightweight-charts)
+    const tradeMarkers = data.trades
+      .flatMap((trade) => [
         {
           time: trade.entryTime,
           position: trade.side === "Short" ? "aboveBar" : "belowBar",
@@ -265,8 +264,11 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
           shape: trade.side === "Short" ? "arrowUp" : "circle",
           text: trade.side === "Short" ? "Cover" : "Exit",
         },
-      ]),
-    );
+      ])
+      .filter((m) => m.time && !Number.isNaN(m.time))
+      .sort((a, b) => a.time - b.time);
+
+    createSeriesMarkers(mainSeries, tradeMarkers);
 
     // Optional Subchart: RSI (14)
     let rsiChart = null;
@@ -676,7 +678,7 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
         <ChartLegend
           activeIndicators={activeIndicators}
           hoverCandle={hoverData.candle}
-          hoverVol={hoverData.vol}
+          hoverVol={hoverData.vol !== null && hoverData.vol !== undefined ? hoverData.vol : activeVolume.at(-1)?.value}
           indicatorValues={hoverData.indicators}
           lastCandle={lastCandle}
           onRemoveIndicator={removeIndicator}

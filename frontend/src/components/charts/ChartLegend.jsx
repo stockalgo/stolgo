@@ -31,7 +31,7 @@ export function ChartLegend({
             <span>H<b>{price(displayCandle.high)}</b></span>
             <span>L<b>{price(displayCandle.low)}</b></span>
             <span>C<b>{price(displayCandle.close)}</b></span>
-            {hoverVol !== undefined && <span>Vol<b>{hoverVol.toLocaleString()}</b></span>}
+            {hoverVol != null && <span>Vol<b>{Number(hoverVol).toLocaleString()}</b></span>}
             <span className={change >= 0 ? "positive" : "negative"}>
               {price(change)} ({percent(changePct)})
             </span>
