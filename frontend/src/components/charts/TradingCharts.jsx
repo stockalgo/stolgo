@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaSeries,
   CandlestickSeries,
@@ -9,7 +9,8 @@ import {
   createSeriesMarkers,
 } from "lightweight-charts";
 import { chartColors } from "../../data/constants";
-import { dateLabel, money, percent, price, timeLabel } from "../../utils/formatters";
+import { dateLabel, getFormattingConfig, money, percent, price, signedMoney, timeLabel } from "../../utils/formatters";
+import { TIMEFRAMES, detectBaseInterval, resampleCandles } from "../../utils/resample";
 
 export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade, theme }) {
   const priceRef = useRef(null);
@@ -20,6 +21,14 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
   const [tooltip, setTooltip] = useState(null);
   const [drawing, setDrawing] = useState(null);
   const [tools, setTools] = useState({ crosshair: true, tradePath: true });
+  const [timeframe, setTimeframe] = useState("15m");
+
+  const baseInterval = useMemo(() => detectBaseInterval(data.candles), [data.candles]);
+  const activeTf = timeframe;
+
+  const { candles: activeCandles, volume: activeVolume } = useMemo(() => {
+    return resampleCandles(data.candles, data.volume, activeTf, getFormattingConfig().timeZone);
+  }, [data.candles, data.volume, activeTf]);
 
   useEffect(() => {
     if (!priceRef.current || !equityRef.current || !drawdownRef.current) return undefined;
@@ -56,9 +65,14 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       },
       timeScale: {
         borderColor: chartTheme.border,
-        timeVisible: true,
+        timeVisible: !["1D", "1W"].includes(activeTf),
         secondsVisible: false,
-        tickMarkFormatter: (time) => timeLabel(time),
+        tickMarkFormatter: (time) => {
+          if (["1D", "1W"].includes(activeTf)) {
+            return new Date(time * 1000).toLocaleDateString("en-IN", { month: "short", day: "2-digit" });
+          }
+          return timeLabel(time);
+        },
       },
       crosshair: {
         mode: tools.crosshair ? CrosshairMode.Normal : CrosshairMode.Magnet,
@@ -73,7 +87,7 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       ...baseOptions,
       localization: {
         priceFormatter: (value) => price(value),
-        timeFormatter: (time) => `${dateLabel(time)} ET`,
+        timeFormatter: (time) => `${dateLabel(time)} ${getFormattingConfig().timeZoneName}`,
       },
     });
     const candleSeries = priceChart.addSeries(CandlestickSeries, {
@@ -84,14 +98,14 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       borderVisible: false,
       priceFormat: { type: "price", precision: 2, minMove: 0.01 },
     });
-    candleSeries.setData(data.candles);
+    candleSeries.setData(activeCandles);
 
     const volumeSeries = priceChart.addSeries(HistogramSeries, {
       priceScaleId: "",
       priceFormat: { type: "volume" },
       base: 0,
     });
-    volumeSeries.setData(data.volume);
+    volumeSeries.setData(activeVolume);
     volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
     createSeriesMarkers(
@@ -99,17 +113,17 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       data.trades.flatMap((trade) => [
         {
           time: trade.entryTime,
-          position: trade.side === "Long" ? "belowBar" : "aboveBar",
-          color: trade.side === "Long" ? chartColors.green : chartColors.red,
-          shape: trade.side === "Long" ? "arrowUp" : "arrowDown",
-          text: trade.side,
+          position: trade.side === "Short" ? "aboveBar" : "belowBar",
+          color: trade.side === "Short" ? chartColors.red : chartColors.green,
+          shape: trade.side === "Short" ? "arrowDown" : "arrowUp",
+          text: trade.side === "Short" ? "Sell" : "Buy",
         },
         {
           time: trade.exitTime,
-          position: trade.side === "Long" ? "aboveBar" : "belowBar",
+          position: trade.side === "Short" ? "belowBar" : "aboveBar",
           color: trade.pnl >= 0 ? chartColors.green : chartColors.red,
-          shape: "circle",
-          text: "Exit",
+          shape: trade.side === "Short" ? "arrowUp" : "circle",
+          text: trade.side === "Short" ? "Cover" : "Exit",
         },
       ]),
     );
@@ -151,12 +165,24 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
 
     const updateDrawing = () => {
       const trade = selectedTradeRef.current;
-      if (!trade || !overlayRef.current) return;
+      if (!trade || !overlayRef.current || !activeCandles.length) return;
       const x1 = priceChart.timeScale().timeToCoordinate(trade.entryTime);
       const x2 = priceChart.timeScale().timeToCoordinate(trade.exitTime);
-      const y1 = candleSeries.priceToCoordinate(trade.entryPrice);
-      const y2 = candleSeries.priceToCoordinate(trade.exitPrice);
-      if ([x1, x2, y1, y2].some((point) => point === null)) return;
+
+      const samplePrice = activeCandles[0]?.close || 1;
+      const isOptionsOnSpot = Math.abs(trade.entryPrice - samplePrice) > samplePrice * 0.4;
+      let y1;
+      let y2;
+      if (isOptionsOnSpot) {
+        const entryBar = activeCandles.find((c) => Math.abs(c.time - trade.entryTime) <= 1800) || activeCandles[0];
+        const exitBar = activeCandles.find((c) => Math.abs(c.time - trade.exitTime) <= 1800) || activeCandles.at(-1);
+        y1 = candleSeries.priceToCoordinate(entryBar ? entryBar.high : samplePrice);
+        y2 = candleSeries.priceToCoordinate(exitBar ? exitBar.low : samplePrice);
+      } else {
+        y1 = candleSeries.priceToCoordinate(trade.entryPrice);
+        y2 = candleSeries.priceToCoordinate(trade.exitPrice);
+      }
+      if ([x1, x2, y1, y2].some((point) => point === null || point === undefined)) return;
 
       const left = Math.min(x1, x2);
       const top = Math.min(y1, y2);
@@ -164,6 +190,9 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       const height = Math.max(1, Math.abs(y2 - y1));
       const length = Math.sqrt(width ** 2 + height ** 2);
       const angle = (Math.atan2(y2 - y1, x2 - x1) * 180) / Math.PI;
+
+      const entryVerb = trade.side === "Short" ? "Sell" : "Buy";
+      const exitVerb = trade.side === "Short" ? "Cover" : "Exit";
 
       setDrawing({
         region: {
@@ -181,8 +210,8 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
           transform: `rotate(${angle}deg)`,
           background: trade.pnl >= 0 ? chartColors.cyan : chartColors.red,
         },
-        entry: { left: x1, top: y1, label: `Entry ${price(trade.entryPrice)}` },
-        exit: { left: x2, top: y2, label: `Exit ${price(trade.exitPrice)}` },
+        entry: { left: x1, top: y1, label: `${entryVerb} ${money(trade.entryPrice)}` },
+        exit: { left: x2, top: y2, label: `${exitVerb} ${money(trade.exitPrice)} (${signedMoney(trade.pnl)})` },
       });
     };
 
@@ -228,7 +257,7 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
         setTooltip(null);
         return;
       }
-      const candle = data.candles.find((item) => item.time === param.time);
+      const candle = activeCandles.find((item) => item.time === param.time);
       if (!candle) return;
       const hoverTrade = data.trades.find((trade) => param.time >= trade.entryTime && param.time <= trade.exitTime);
       setTooltip({
@@ -249,7 +278,7 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
       drawdownChart.remove();
       chartsRef.current = null;
     };
-  }, [data, onSelectTrade, selectedTrade, theme, tools.crosshair]);
+  }, [activeCandles, activeVolume, data.drawdown, data.equity, data.trades, onSelectTrade, selectedTrade, theme, tools.crosshair, activeTf]);
 
   useEffect(() => {
     if (!chartsRef.current) return;
@@ -257,8 +286,8 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
     requestAnimationFrame(chartsRef.current.updateDrawing);
   }, [selectedTrade]);
 
-  const lastCandle = data.candles.at(-1);
-  const priorCandle = data.candles.at(-2);
+  const lastCandle = activeCandles.at(-1);
+  const priorCandle = activeCandles.at(-2);
   const finalEquity = data.equity.at(-1)?.value;
   const currentDrawdown = data.drawdown.at(-1)?.value;
   const maxDrawdown = data.drawdown.reduce((lowest, point) => Math.min(lowest, point.value), 0);
@@ -268,16 +297,29 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
   return (
     <section className="chart-stack" aria-label="Strategy chart workspace">
       <div className="chart-toolbar">
-        <div>
-          <span className="chart-title">{run?.market ?? "-"} {run?.timeframe ?? "-"}</span>
+        <div className="chart-info-bar">
+          <span className="chart-title">{run?.market ?? "-"} · {activeTf}</span>
+          <div className="timeframe-group" role="group" aria-label="Chart timeframes">
+            {TIMEFRAMES.map((tf) => (
+              <button
+                key={tf.id}
+                type="button"
+                className={`tf-btn ${activeTf === tf.id ? "active" : ""}`}
+                onClick={() => setTimeframe(tf.id)}
+                title={tf.seconds < baseInterval ? `Base interval is ${run?.timeframe || '15m'}` : `Switch to ${tf.label}`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
           {lastCandle && (
-            <>
+            <div className="ohlc-strip">
               <span className="ohlc">O {price(lastCandle.open)}</span>
               <span className="ohlc">H {price(lastCandle.high)}</span>
               <span className="ohlc">L {price(lastCandle.low)}</span>
               <span className="ohlc">C {price(lastCandle.close)}</span>
               <span className={change >= 0 ? "positive" : "negative"}>{price(change)} ({percent(changePct)})</span>
-            </>
+            </div>
           )}
         </div>
         <div className="tool-group" aria-label="Chart tools">
@@ -316,8 +358,11 @@ export function TradingCharts({ data, metrics, onSelectTrade, run, selectedTrade
             <div><span>Close</span><b>{price(tooltip.candle.close)}</b></div>
             {tooltip.trade && (
               <div className="tooltip-trade">
-                <strong>Trade {tooltip.trade.id}</strong>
+                <strong>Trade #{tooltip.trade.id} ({tooltip.trade.side})</strong>
                 <span className={tooltip.trade.pnlClass}>{money(tooltip.trade.pnl)} · {tooltip.trade.r}R</span>
+                {tooltip.trade.commission > 0 && (
+                  <small className="tooltip-cost">Cost: {money(tooltip.trade.commission)}</small>
+                )}
               </div>
             )}
           </div>

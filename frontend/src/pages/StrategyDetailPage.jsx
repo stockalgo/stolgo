@@ -5,6 +5,7 @@ import { TradeTable } from "../components/detail/TradeTable";
 import { MetricCard } from "../components/MetricCard";
 
 export function StrategyDetailPage({
+  currency,
   data,
   detail,
   loading,
@@ -14,6 +15,7 @@ export function StrategyDetailPage({
   setSelectedRunId,
   setSelectedTrade,
   theme,
+  timeZone,
 }) {
   const [tradeFilter, setTradeFilter] = useState("All");
   const selectedRun = runs.find((run) => run.id === selectedRunId);
@@ -86,14 +88,22 @@ export function StrategyDetailPage({
                 ))}
               </div>
             </div>
-            <TradeTable visibleTrades={visibleTrades} selectedTrade={selectedTrade} setSelectedTrade={setSelectedTrade} />
+            <TradeTable
+              currency={currency}
+              selectedTrade={selectedTrade}
+              setSelectedTrade={setSelectedTrade}
+              timeZone={timeZone}
+              visibleTrades={visibleTrades}
+            />
           </section>
         </div>
         <RunAnalysisRail
+          currency={currency}
           data={data}
           detail={detail}
           onSelectTrade={setSelectedTrade}
           run={selectedRun}
+          timeZone={timeZone}
         />
       </div>
     </>

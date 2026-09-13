@@ -7,6 +7,7 @@ import { OptimizationPage } from "./pages/OptimizationPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { StrategyDetailPage } from "./pages/StrategyDetailPage";
 import { StrategyLibraryPage } from "./pages/StrategyLibraryPage";
+import { setFormattingConfig } from "./utils/formatters";
 
 const emptyData = { candles: [], volume: [], equity: [], drawdown: [], trades: [] };
 
@@ -23,6 +24,21 @@ export function App() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState("");
   const [theme, setTheme] = useState("light");
+  const [currency, setCurrency] = useState("INR");
+  const [timeZone, setTimeZone] = useState("Asia/Kolkata");
+
+  const handleToggleCurrency = () => {
+    const next = currency === "INR" ? "USD" : "INR";
+    setCurrency(next);
+    setFormattingConfig({ currency: next });
+  };
+
+  const handleToggleTimeZone = () => {
+    const zones = ["Asia/Kolkata", "UTC", "America/New_York"];
+    const next = zones[(zones.indexOf(timeZone) + 1) % zones.length];
+    setTimeZone(next);
+    setFormattingConfig({ timeZone: next });
+  };
 
   useEffect(() => {
     let alive = true;
@@ -102,6 +118,7 @@ export function App() {
     library: <StrategyLibraryPage loading={loadingRuns} onOpenDetail={navigateToDetail} runs={runs} />,
     detail: (
       <StrategyDetailPage
+        currency={currency}
         data={data}
         detail={detail}
         loading={loadingDetail}
@@ -111,6 +128,7 @@ export function App() {
         setSelectedRunId={setSelectedRunId}
         setSelectedTrade={setSelectedTrade}
         theme={theme}
+        timeZone={timeZone}
       />
     ),
     new: <NewBacktestPage />,
@@ -123,11 +141,15 @@ export function App() {
     <main className={`app-shell ${theme}`}>
       <AppNav
         activePage={activePage}
+        currency={currency}
         exportState={exportState}
         onExport={handleExport}
         onNavigate={setActivePage}
+        onToggleCurrency={handleToggleCurrency}
         onToggleTheme={() => setTheme((current) => (current === "light" ? "dark" : "light"))}
+        onToggleTimeZone={handleToggleTimeZone}
         theme={theme}
+        timeZone={timeZone}
       />
       {error && <div className="app-error">API error: {error}</div>}
       <div className="page-stage">{pages[activePage]}</div>

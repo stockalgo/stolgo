@@ -91,6 +91,8 @@ def test_series_and_trades_match_frontend_mock_shapes(tmp_path) -> None:
         "exitPrice",
         "qty",
         "pnl",
+        "grossPnl",
+        "commission",
         "r",
         "side",
         "tag",
@@ -98,6 +100,44 @@ def test_series_and_trades_match_frontend_mock_shapes(tmp_path) -> None:
     }
     assert trades[0]["side"] == "Long"
     assert isinstance(trades[0]["entryTime"], int)
+
+    # Test Short side detection for straddles/strangles
+    options_trades_df = pd.DataFrame(
+        {
+            "entry_ts": [index[0]],
+            "exit_ts": [index[1]],
+            "entry_price": [180.0],
+            "exit_price": [170.0],
+            "qty": [65.0],
+            "net_pnl": [650.0],
+            "gross_pnl": [700.0],
+            "commission": [50.0],
+            "r_multiple": [0.3],
+            "tag": ["strangle_0dte"],
+        }
+    )
+    opt_trades = adapters.trades(options_trades_df)
+    assert opt_trades[0]["side"] == "Short"
+    assert opt_trades[0]["grossPnl"] == 700.0
+    assert opt_trades[0]["commission"] == 50.0
+
+
+def test_run_summary_options_index_and_dte() -> None:
+    manifest = {
+        "run_id": "NIFTY-strangle-0dte",
+        "strategy": "NIFTY 0-DTE Strangle",
+        "params": {
+            "index": "NIFTY",
+            "structure": "strangle",
+            "dte": 0,
+            "capital": 180000.0,
+        },
+        "metrics": {"total_return": 0.05, "num_trades": 52},
+        "created_at": "2026-09-13T10:00:00+00:00",
+    }
+    summary = adapters.run_summary(manifest)
+    assert summary["market"] == "NIFTY"
+    assert summary["timeframe"] == "0DTE"
 
 
 def test_adapters_read_existing_output_dir_shape() -> None:

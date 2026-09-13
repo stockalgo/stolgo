@@ -844,6 +844,93 @@ dd {
   font-size: 12px;
 }
 
+.chart-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.ohlc-strip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.timeframe-group {
+  display: inline-flex;
+  gap: 3px;
+  background: color-mix(in srgb, var(--panel-solid) 60%, var(--panel-strong));
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+.tf-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tf-btn:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel-solid) 40%, var(--panel-soft));
+}
+
+.tf-btn.active {
+  background: var(--cyan);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.pref-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  min-height: 28px;
+  border-radius: 6px;
+}
+
+.side-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.side-badge.positive {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.side-badge.negative {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.cost-cell {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.tooltip-cost {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
 .tool-group {
   display: flex;
   gap: 6px;

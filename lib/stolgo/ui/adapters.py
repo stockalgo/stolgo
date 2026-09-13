@@ -12,11 +12,14 @@ def _to_secs(ts) -> int:
 def run_summary(manifest: dict) -> dict:
     m = manifest.get("metrics", {})
     p = manifest.get("params", {})
+    market = p.get("symbol") or p.get("index") or "-"
+    dte_val = p.get("dte")
+    timeframe = p.get("interval") or (f"{dte_val}DTE" if dte_val is not None else "-")
     return {
         "id": manifest["run_id"],
         "strategy": manifest["strategy"],
-        "market": p.get("symbol") or "-",
-        "timeframe": p.get("interval") or "-",
+        "market": market,
+        "timeframe": timeframe,
         "return": m.get("total_return", 0.0),
         "sharpe": m.get("sharpe", 0.0),
         "drawdown": m.get("max_drawdown", 0.0),
@@ -74,6 +77,15 @@ def trades(trades_df) -> list[dict]:
     out = []
     for index, row in trades_df.iterrows():
         pnl = float(row.get("net_pnl", 0.0))
+        gross_pnl = float(row.get("gross_pnl", pnl))
+        commission = float(row.get("commission", 0.0))
+        side = row.get("side")
+        if not side:
+            tag = str(row.get("tag") or "").lower()
+            if any(k in tag for k in ("short", "strangle", "straddle", "iron_condor", "condor")):
+                side = "Short"
+            else:
+                side = "Long"
         out.append(
             {
                 "id": int(index) + 1,
@@ -83,9 +95,11 @@ def trades(trades_df) -> list[dict]:
                 "exitPrice": float(row["exit_price"]),
                 "qty": float(row["qty"]),
                 "pnl": pnl,
+                "grossPnl": gross_pnl,
+                "commission": commission,
                 "r": round(float(row.get("r_multiple", 0.0)), 2),
-                "side": "Long",
-                "tag": row.get("tag") or "",
+                "side": str(side),
+                "tag": str(row.get("tag") or ""),
                 "pnlClass": "positive" if pnl >= 0 else "negative",
             }
         )

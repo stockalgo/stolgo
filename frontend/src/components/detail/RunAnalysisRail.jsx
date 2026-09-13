@@ -52,7 +52,7 @@ function drawdownStats(drawdown) {
   return { max, current, underwater };
 }
 
-export function RunAnalysisRail({ data, detail, onSelectTrade, run }) {
+export function RunAnalysisRail({ currency, data, detail, onSelectTrade, run, timeZone }) {
   const trades = data.trades ?? [];
   const candles = data.candles ?? [];
   const equity = data.equity ?? [];
@@ -69,16 +69,16 @@ export function RunAnalysisRail({ data, detail, onSelectTrade, run }) {
       <section className="rail-panel">
         <div className="rail-heading">
           <span>Run facts</span>
-          <h2>{run?.market ?? "-"} {run?.timeframe ?? "-"}</h2>
+          <h2>{run?.market ?? "-"} · {run?.timeframe ?? "-"}</h2>
         </div>
         <div className="rail-stat-grid">
           <Stat label="Candles" value={candles.length.toLocaleString()} />
           <Stat label="Trades" value={trades.length.toLocaleString()} />
-          <Stat label="Final equity" value={finalEquity === undefined ? "-" : money(finalEquity)} />
+          <Stat label="Final equity" value={finalEquity === undefined ? "-" : money(finalEquity, currency)} />
           <Stat label="Profit factor" value={Number(detail?.rawMetrics?.profit_factor ?? 0).toFixed(2)} />
         </div>
         {firstCandle && lastCandle && (
-          <p className="rail-note">{dateLabel(firstCandle.time)} to {dateLabel(lastCandle.time)}</p>
+          <p className="rail-note">{dateLabel(firstCandle.time, timeZone)} to {dateLabel(lastCandle.time, timeZone)}</p>
         )}
       </section>
 
