@@ -25,7 +25,6 @@ import { AVAILABLE_INDICATORS, IndicatorsModal } from "./IndicatorsModal";
 import { GoToDateModal } from "./GoToDateModal";
 import { ChartLegend } from "./ChartLegend";
 import { RANGE_PRESETS, RangeBar } from "./RangeBar";
-import { OpenAlgoTerminal } from "./OpenAlgoTerminal";
 
 export function TradingCharts({
   data,
@@ -36,7 +35,6 @@ export function TradingCharts({
   selectedTrade,
   theme,
 }) {
-  const [chartEngine, setChartEngine] = useState("pro"); // 'pro' (OpenAlgo) or 'standard' (Lightweight)
   const priceRef = useRef(null);
   const equityRef = useRef(null);
   const drawdownRef = useRef(null);
@@ -600,44 +598,10 @@ export function TradingCharts({
   };
 
   return (
-    <div className="trading-charts-container">
-      {/* Engine Switcher Bar */}
-      <div className="engine-bar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-        <div className="engine-toggle-group" role="group" aria-label="Chart Engine">
-          <button
-            type="button"
-            className={`engine-btn ${chartEngine === "pro" ? "active" : ""}`}
-            onClick={() => setChartEngine("pro")}
-            title="OpenAlgo Pro Terminal with 51 Drawing Tools & 102 Technical Indicators"
-          >
-            ⚡ Pro Terminal (OpenAlgo)
-          </button>
-          <button
-            type="button"
-            className={`engine-btn ${chartEngine === "standard" ? "active" : ""}`}
-            onClick={() => setChartEngine("standard")}
-            title="Standard Lightweight Charts Viewer"
-          >
-            📊 Standard View
-          </button>
-        </div>
-      </div>
-
-      {chartEngine === "pro" ? (
-        <OpenAlgoTerminal
-          data={data}
-          isFullscreen={isFullscreen}
-          metrics={metrics}
-          onSelectTrade={onSelectTrade}
-          run={run}
-          selectedTrade={selectedTrade}
-          theme={theme}
-        />
-      ) : (
-        <section
-          className={`chart-stack tv-workspace ${isFullscreen ? "is-fullscreen" : ""}`}
-          aria-label="TradingView strategy chart workspace"
-        >
+    <section
+      className={`chart-stack tv-workspace ${isFullscreen ? "is-fullscreen" : ""}`}
+      aria-label="TradingView strategy chart workspace"
+    >
           {/* TradingView Top Toolbar */}
           <div className="chart-toolbar tv-topbar">
             <div className="chart-info-bar">
@@ -900,7 +864,5 @@ export function TradingCharts({
         />
       )}
     </section>
-      )}
-    </div>
   );
 }
