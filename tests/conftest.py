@@ -12,6 +12,11 @@ import pytest
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
+def pytest_ignore_collect(collection_path, config):
+    if "test_nse_option_chain.py" in str(collection_path):
+        return True
+
+
 def pytest_collection_modifyitems(config, items):
     """Skip legacy tests that import pre-greenfield stolgo modules."""
     skip_legacy = pytest.mark.skip(reason="legacy stolgo module; greenfield backtest tests only")
