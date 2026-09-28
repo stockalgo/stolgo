@@ -6,13 +6,23 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
     "@vitejs/plugin-react": "5.0.4",
     "lightweight-charts": "^5.2.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "react-router-dom": "^7.18.4",
     "vite": "^6.4.3"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "jsdom": "^30.1.1",
+    "vitest": "^3.2.7"
   }
 }
