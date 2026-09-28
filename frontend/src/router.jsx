@@ -11,6 +11,7 @@ import { ComparePage } from "./pages/ComparePage.jsx";
 import { GroupsPage } from "./pages/GroupsPage.jsx";
 import { GroupPage } from "./pages/GroupPage.jsx";
 import { NewRunPage } from "./pages/NewRunPage.jsx";
+import { KitPage } from "./pages/KitPage.jsx";
 import { NotFoundPage } from "./pages/NotFoundPage.jsx";
 
 export const router = createBrowserRouter([
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { path: "groups", element: <GroupsPage /> },
       { path: "groups/:groupId", element: <GroupPage /> },
       { path: "new", element: <NewRunPage /> },
+      { path: "_kit", element: <KitPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },
