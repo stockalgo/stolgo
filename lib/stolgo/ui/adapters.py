@@ -45,8 +45,8 @@ def run_summary_v2(manifest: dict) -> dict:
     run_id = str(manifest.get("run_id", ""))
     inst = manifest.get("instrument") or {}
     group = manifest.get("group") or {}
-    window = manifest.get("window") or {}
     config = manifest.get("config") or {}
+    window = manifest.get("window") or config.get("window") or {}
     metrics = manifest.get("metrics") or {}
     rob = manifest.get("robustness") or {}
     diag = manifest.get("diagnostics") or {}
@@ -101,6 +101,7 @@ def run_summary_v2(manifest: dict) -> dict:
             "audit": bool(has_flags.get("audit", False)),
         },
         "created_at": manifest.get("created_at"),
+        "migrated_at": manifest.get("migrated_at"),
     }
     return _clean(raw)
 
