@@ -34,6 +34,7 @@ def _result() -> RunResult:
             "exit_price": [12.0],
             "qty": [1.0],
             "net_pnl": [1.0],
+            "side": ["BUY"],
             "tag": ["exit"],
         }
     )
@@ -51,80 +52,166 @@ def _result() -> RunResult:
 def _client(tmp_path: Path) -> TestClient:
     runs_dir = tmp_path / "runs"
     export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
+    # Add a mock group to run-1's manifest for group endpoint testing
+    m_path = runs_dir / "run-1" / "manifest.json"
+    manifest = json.loads(m_path.read_text())
+    manifest["group"] = {"id": "test-group", "label": "Test Group", "axes": {"market": "SYN", "dte": 0}}
+    manifest["has"]["intraday_equity"] = True
+    m_path.write_text(json.dumps(manifest))
+
     export_sweep(
         pd.DataFrame({"period": [10], "sharpe": [1.2]}),
         runs_dir / "sweep-1",
         param_grid={"period": [10]},
         strategy_name="SmaTrend",
     )
+    (runs_dir / "_migration_report.md").write_text("# Mock Migration Report")
     return TestClient(create_app(runs_dir))
 
 
-def test_read_only_endpoints_return_adapter_shapes(tmp_path) -> None:
+def test_api_v2_endpoints(tmp_path: Path) -> None:
     client = _client(tmp_path)
 
+    # 4.1 GET /api/runs
     runs = client.get("/api/runs").json()
     assert runs["warnings"] == 0
-    assert runs["items"][0]["id"] == "run-1"
+    assert len(runs["items"]) == 1
+    summary = runs["items"][0]
+    expected_summary_keys = {
+        "id",
+        "name",
+        "status",
+        "status_reasons",
+        "markets",
+        "structure",
+        "dte",
+        "group",
+        "window",
+        "capital",
+        "metrics",
+        "robustness",
+        "data_quality",
+        "has",
+        "created_at",
+    }
+    assert expected_summary_keys.issubset(set(summary.keys()))
 
+    # 4.2 GET /api/runs/{id}
     detail = client.get("/api/runs/run-1").json()
-    assert detail["strategy"] == "TrendBreakout"
-    assert all(set(card) == {"key", "label", "value", "fmt"} for card in detail["metrics"])
+    assert detail["id"] == "run-1"
+    assert "instrument" in detail
+    assert "config" in detail
+    assert "metric_defs" in detail
+    assert any(m["key"] == "sharpe" for m in detail["metric_defs"])
 
-    series = client.get("/api/runs/run-1/series").json()
-    assert set(series) == {"candles", "volume", "equity", "drawdown"}
-    assert isinstance(series["candles"][0]["time"], int)
+    # 4.3 GET /api/runs/{id}/daily
+    daily = client.get("/api/runs/run-1/daily").json()
+    assert "rows" in daily
+    assert len(daily["rows"]) > 0
+    assert set(daily["rows"][0].keys()) >= {"session", "pnl", "equity", "drawdown", "trades_closed"}
 
-    trades = client.get("/api/runs/run-1/trades").json()
-    assert trades[0]["side"] == "Long"
+    # 4.4 GET /api/runs/{id}/monthly
+    monthly = client.get("/api/runs/run-1/monthly").json()
+    assert "rows" in monthly
+    assert len(monthly["rows"]) > 0
+    assert set(monthly["rows"][0].keys()) >= {"month", "pnl", "return_pct", "trades"}
+
+    # 4.5 GET /api/runs/{id}/trades
+    trades_resp = client.get("/api/runs/run-1/trades").json()
+    assert "rows" in trades_resp and "columns" in trades_resp
+    assert len(trades_resp["rows"]) == 1
+    trade_id = trades_resp["rows"][0]["trade_id"]
+    assert isinstance(trades_resp["rows"][0]["entry_ts"], int)
+
+    # 4.6 GET /api/runs/{id}/trades/{trade_id}
+    t_detail = client.get(f"/api/runs/run-1/trades/{trade_id}").json()
+    assert set(t_detail.keys()) == {"trade", "legs", "bars"}
+    assert t_detail["trade"]["trade_id"] == trade_id
+    assert client.get("/api/runs/run-1/trades/999").status_code == 404
+
+    # 4.7 GET /api/runs/{id}/candles
+    candles = client.get("/api/runs/run-1/candles?tf=1D").json()
+    assert "rows" in candles and candles["tf"] == "1D"
+    assert len(candles["rows"]) > 0
+
+    # 4.8 GET /api/runs/{id}/equity
+    eq = client.get("/api/runs/run-1/equity").json()
+    assert "rows" in eq
+    assert len(eq["rows"]) > 0
+
+    # 4.9 GET /api/groups and /api/groups/{id}
+    groups = client.get("/api/groups").json()
+    assert len(groups["items"]) == 1
+    assert groups["items"][0]["id"] == "test-group"
+    assert groups["items"][0]["axes"] == {"dte": [0], "market": ["SYN"]}
+
+    grp_detail = client.get("/api/groups/test-group").json()
+    assert grp_detail["id"] == "test-group"
+    assert len(grp_detail["runs"]) == 1
+
+    # 4.10 GET /api/migration-report
+    rep = client.get("/api/migration-report")
+    assert rep.status_code == 200
+    assert "# Mock Migration Report" in rep.text
+
+    # 4.11 GET /api/runs/{id}/audit
+    assert client.get("/api/runs/run-1/audit").status_code == 404
+
+
+def test_v1_run_returns_409_and_warning(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    v1_dir = runs_dir / "v1-run"
+    v1_dir.mkdir(parents=True)
+    v1_manifest = {
+        "schema_version": 1,
+        "run_id": "v1-run",
+        "kind": "run",
+        "strategy": "Old",
+        "params": {},
+        "metrics": {},
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "path": str(v1_dir),
+    }
+    (v1_dir / "manifest.json").write_text(json.dumps(v1_manifest))
+
+    client = TestClient(create_app(runs_dir))
+
+    # /api/runs excludes v1 runs with warnings += 1
+    runs = client.get("/api/runs").json()
+    assert runs["warnings"] == 1
+    assert len(runs["items"]) == 0
+
+    # Detail endpoints return 409 {"detail":"run_not_migrated", "hint": "..."}
+    for ep in ["/api/runs/v1-run", "/api/runs/v1-run/daily", "/api/runs/v1-run/trades"]:
+        res = client.get(ep)
+        assert res.status_code == 409
+        data = res.json()
+        assert data["detail"] == "run_not_migrated"
+        assert "python scripts/migrate_runs_v2.py" in data["hint"]
+
+
+def test_audit_report_security(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    runs_dir = tmp_path / "runs"
+
+    report = runs_dir / "run-1" / "audit.html"
+    report.write_text("<h1>Audit</h1>")
+    assert client.get("/api/runs/run-1/audit").status_code == 200
+
+    report.unlink()
+    outside = tmp_path / "outside.html"
+    outside.write_text("outside")
+    report.symlink_to(outside)
+    assert client.get("/api/runs/run-1/audit").status_code == 409
+
+
+def test_error_contracts_and_sweeps(tmp_path: Path) -> None:
+    client = _client(tmp_path)
+    assert client.get("/api/runs/missing").status_code == 404
+    assert client.get("/api/groups/missing-group").status_code == 404
 
     sweeps = client.get("/api/sweeps").json()
     assert sweeps["items"][0]["id"] == "sweep-1"
 
     sweep = client.get("/api/sweeps/sweep-1").json()
-    assert sweep["param_grid"] == {"period": [10]}
     assert sweep["rows"] == [{"period": 10, "sharpe": 1.2}]
-
-
-def test_error_contract_404_409_and_list_warnings(tmp_path) -> None:
-    runs_dir = tmp_path / "runs"
-    export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
-    client = TestClient(create_app(runs_dir))
-
-    assert client.get("/api/runs/missing").status_code == 404
-
-    (runs_dir / "run-1" / "parquet" / "ohlcv.parquet").unlink()
-    assert client.get("/api/runs/run-1/series").status_code == 409
-
-    bad_dir = runs_dir / "bad"
-    bad_dir.mkdir()
-    bad_manifest = {
-        "schema_version": 99,
-        "run_id": "bad",
-        "kind": "run",
-        "strategy": "Future",
-        "params": {},
-        "metrics": {},
-        "created_at": "2026-07-06T10:00:00+00:00",
-        "path": str(bad_dir),
-    }
-    (bad_dir / "manifest.json").write_text(json.dumps(bad_manifest))
-    client = TestClient(create_app(runs_dir))
-    listing = client.get("/api/runs").json()
-    assert listing["warnings"] == 1
-
-
-def test_manifest_path_must_stay_inside_runs_dir(tmp_path) -> None:
-    runs_dir = tmp_path / "runs"
-    export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
-    manifest_path = runs_dir / "run-1" / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    manifest["path"] = str(tmp_path / "outside")
-    manifest_path.write_text(json.dumps(manifest))
-
-    client = TestClient(create_app(runs_dir))
-
-    assert client.get("/api/runs").json()["warnings"] == 1
-    response = client.get("/api/runs/run-1")
-    assert response.status_code == 409
-    assert "outside runs_dir" in response.json()["detail"]
