@@ -225,32 +225,30 @@ export function LibraryPage() {
 
   if (loading) {
     return (
-      <main className="page">
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <Skeleton width="200px" height="32px" />
-          <Skeleton width="100%" height="48px" />
-          <div style={{ display: "grid", gridTemplateColumns: "240px minmax(0,1fr)", gap: "16px" }}>
-            <Skeleton width="100%" height="400px" />
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <Skeleton width="100%" height="330px" />
-              <Skeleton width="100%" height="300px" />
-            </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        <Skeleton width="200px" height="32px" />
+        <Skeleton width="100%" height="48px" />
+        <div style={{ display: "grid", gridTemplateColumns: "240px minmax(0,1fr)", gap: "16px" }}>
+          <Skeleton width="100%" height="400px" />
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <Skeleton width="100%" height="330px" />
+            <Skeleton width="100%" height="300px" />
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <main className="page">
+      <div>
         <Banner intent="danger">
           Failed to load runs: {error.message || "Unknown error"}
         </Banner>
         <div style={{ marginTop: "16px" }}>
           <Button onClick={reload}>Retry</Button>
         </div>
-      </main>
+      </div>
     );
   }
 
@@ -276,7 +274,7 @@ export function LibraryPage() {
   const subLine = `${emptyCount} empty and ${supersededCount} superseded runs hidden${subLineExtra}`;
 
   return (
-    <main className="page">
+    <>
       {/* Toast */}
       {toast && (
         <div
@@ -443,6 +441,6 @@ export function LibraryPage() {
           )}
         </div>
       </div>
-    </main>
+    </>
   );
 }
