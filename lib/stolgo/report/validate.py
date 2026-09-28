@@ -93,19 +93,21 @@ def validate_run_frames(
             if tz is None or str(tz) != "UTC":
                 problems.append(f"trades.{col} is not timezone-aware UTC (got {tz})")
 
-    # 2. Every entry/exit inside market hours
-    for col in ("entry_ts", "exit_ts"):
-        if col in trades.columns and not trades[col].empty:
-            valid_ts = trades[col].dropna()
-            out_of_bounds = [
-                t for t in valid_ts
-                if not (market_start <= t.time() <= market_end)
-            ]
-            if out_of_bounds:
-                problems.append(
-                    f"trades.{col} has {len(out_of_bounds)} timestamps outside market hours "
-                    f"[{market_start}, {market_end}] UTC (example: {out_of_bounds[0]})"
-                )
+    # 2. Every entry/exit inside market hours (if exchange in MARKET_HOURS_UTC and not midnight daily bars)
+    if exchange in MARKET_HOURS_UTC:
+        market_start, market_end = MARKET_HOURS_UTC[exchange]
+        for col in ("entry_ts", "exit_ts"):
+            if col in trades.columns and not trades[col].empty:
+                valid_ts = trades[col].dropna()
+                out_of_bounds = [
+                    t for t in valid_ts
+                    if t.time() != dt.time(0, 0) and not (market_start <= t.time() <= market_end)
+                ]
+                if out_of_bounds:
+                    problems.append(
+                        f"trades.{col} has {len(out_of_bounds)} timestamps outside market hours "
+                        f"[{market_start}, {market_end}] UTC (example: {out_of_bounds[0]})"
+                    )
 
     # 3. exit_ts >= entry_ts
     if "entry_ts" in trades.columns and "exit_ts" in trades.columns and not trades.empty:

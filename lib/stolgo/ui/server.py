@@ -8,13 +8,14 @@ from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from stolgo.ui import adapters
 from stolgo.ui import index as runs_index
 
 
-SUPPORTED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSION = 2
 
 
 def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | None = None) -> FastAPI:
@@ -46,7 +47,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
         return {
             "id": manifest["run_id"],
-            "strategy": manifest["strategy"],
+            "strategy": manifest.get("strategy") or manifest.get("name", "Unknown"),
             "params": manifest.get("params", {}),
             "metrics": adapters.metric_cards(manifest.get("metrics", {})),
             "rawMetrics": manifest.get("metrics", {}),
@@ -60,7 +61,15 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         try:
             ohlcv = pd.read_parquet(parquet_dir / "ohlcv.parquet")
             equity = pd.read_parquet(parquet_dir / "equity.parquet")["equity"]
-            drawdown = pd.read_parquet(parquet_dir / "drawdown.parquet")["drawdown"]
+            drawdown_path = parquet_dir / "drawdown.parquet"
+            if drawdown_path.is_file():
+                drawdown = pd.read_parquet(drawdown_path)["drawdown"]
+            else:
+                daily_df = pd.read_parquet(parquet_dir / "daily.parquet")
+                drawdown = pd.Series(
+                    (daily_df["drawdown"] * 100.0).values,
+                    index=pd.to_datetime(daily_df["session"], utc=True),
+                )
         except Exception as exc:
             raise HTTPException(status_code=409, detail=f"run series unavailable: {exc}") from exc
         return adapters.series(ohlcv, equity, drawdown)
@@ -73,6 +82,17 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         except Exception as exc:
             raise HTTPException(status_code=409, detail=f"run trades unavailable: {exc}") from exc
         return adapters.trades(trades_df)
+
+    @app.get("/api/runs/{run_id}/audit")
+    def get_run_audit(run_id: str):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        directory = Path(manifest["path"]).resolve()
+        report = (directory / "audit.html").resolve()
+        if not report.is_relative_to(runs_dir.resolve()) or report.parent != directory:
+            raise HTTPException(status_code=409, detail="Audit path outside run directory")
+        if not report.is_file():
+            raise HTTPException(status_code=404, detail="No audit report exported for this run")
+        return FileResponse(report, media_type="text/html")
 
     @app.get("/api/sweeps")
     def list_sweeps() -> dict[str, Any]:

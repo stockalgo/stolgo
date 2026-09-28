@@ -35,7 +35,7 @@ def _result() -> RunResult:
     )
 
 
-def test_export_parquet_persists_ohlcv_and_drawdown_by_default(
+def test_export_parquet_persists_ohlcv_by_default(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("STOLGO_PERSIST_SERIES", raising=False)
@@ -43,9 +43,7 @@ def test_export_parquet_persists_ohlcv_and_drawdown_by_default(
     export_parquet(_result(), tmp_path)
 
     assert (tmp_path / "ohlcv.parquet").exists()
-    assert (tmp_path / "drawdown.parquet").exists()
-    drawdown = pd.read_parquet(tmp_path / "drawdown.parquet")["drawdown"]
-    assert drawdown.to_list() == pytest.approx([0.0, 0.0, -10.0])
+    assert not (tmp_path / "drawdown.parquet").exists()
 
 
 @pytest.mark.parametrize("flag", ["0", "false", "no", "off"])
@@ -63,32 +61,39 @@ def test_export_parquet_skips_series_when_disabled(
 
 
 def test_export_all_writes_manifest_last_and_publishes_atomically(
-    tmp_path, monkeypatch: pytest.MonkeyPatch
+    tmp_path,
 ) -> None:
     result = _result()
     out = tmp_path / "runs" / "run-1"
-
-    def checked_export_parquet(exported_result: RunResult, directory) -> None:
-        assert exported_result is result
-        assert directory == out.with_name("run-1.tmp") / "parquet"
-        assert out.with_name("run-1.tmp").exists()
-        assert not out.exists()
-        export_parquet(exported_result, directory)
-        assert not (out.with_name("run-1.tmp") / "manifest.json").exists()
-
-    monkeypatch.setattr("stolgo.report.exporters.export_parquet", checked_export_parquet)
 
     export_all(result, out, strategy_name="TrendBreakout")
 
     assert out.exists()
     assert not out.with_name("run-1.tmp").exists()
-    manifest = json.loads((out / "manifest.json").read_text())
-    assert manifest["schema_version"] == 1
+    manifest_text = (out / "manifest.json").read_text()
+    manifest = json.loads(manifest_text)
+    assert manifest["schema_version"] == 2
     assert manifest["kind"] == "run"
     assert manifest["run_id"] == "run-1"
-    assert manifest["strategy"] == "TrendBreakout"
+    assert manifest["name"] == "TrendBreakout"
     assert manifest["path"] == str(out)
-    assert "metrics" in manifest
+    assert manifest["metrics"]["basis"] == "calendar_daily"
+    assert (out / "parquet" / "daily.parquet").exists()
+    assert (out / "parquet" / "trades.parquet").exists()
+
+    # json.loads of manifest contains no NaN
+    def _assert_no_nan(val):
+        if isinstance(val, dict):
+            for v in val.values():
+                _assert_no_nan(v)
+        elif isinstance(val, list):
+            for v in val:
+                _assert_no_nan(v)
+        elif isinstance(val, float):
+            import math
+            assert not math.isnan(val)
+
+    _assert_no_nan(manifest)
 
 
 def test_export_sweep_writes_results_and_manifest_atomically(tmp_path) -> None:

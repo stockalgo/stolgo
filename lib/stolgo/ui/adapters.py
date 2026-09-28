@@ -17,7 +17,7 @@ def run_summary(manifest: dict) -> dict:
     timeframe = p.get("interval") or (f"{dte_val}DTE" if dte_val is not None else "-")
     return {
         "id": manifest["run_id"],
-        "strategy": manifest["strategy"],
+        "strategy": manifest.get("strategy") or manifest.get("name", "Unknown"),
         "market": market,
         "timeframe": timeframe,
         "return": m.get("total_return", 0.0),
@@ -91,14 +91,14 @@ def trades(trades_df) -> list[dict]:
                 "id": int(index) + 1,
                 "entryTime": _to_secs(row["entry_ts"]),
                 "exitTime": _to_secs(row["exit_ts"]),
-                "entryPrice": float(row["entry_price"]),
-                "exitPrice": float(row["exit_price"]),
+                "entryPrice": float(row.get("entry_price") if pd.notna(row.get("entry_price")) else row.get("underlying_entry", row.get("premium_entry", 0.0)) or 0.0),
+                "exitPrice": float(row.get("exit_price") if pd.notna(row.get("exit_price")) else row.get("underlying_exit", row.get("premium_exit", 0.0)) or 0.0),
                 "qty": float(row["qty"]),
                 "pnl": pnl,
                 "grossPnl": gross_pnl,
                 "commission": commission,
                 "r": round(float(row.get("r_multiple", 0.0)), 2),
-                "side": str(side),
+                "side": str(side).capitalize(),
                 "tag": str(row.get("tag") or ""),
                 "pnlClass": "positive" if pnl >= 0 else "negative",
             }
