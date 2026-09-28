@@ -45,13 +45,14 @@ def build_calendar_files(runs_dir: Path) -> dict[str, int]:
     Writes runs/_calendars/NSE.parquet and BSE.parquet. Returns {exchange: n_sessions}.
     """
     runs_dir = Path(runs_dir)
+    scan_dir = runs_dir / "_backup_v1" if (runs_dir / "_backup_v1").is_dir() else runs_dir
     out_dir = runs_dir / "_calendars"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     nse_sessions: set[pd.Timestamp] = set()
     bse_sessions: set[pd.Timestamp] = set()
 
-    for p in runs_dir.glob("*/parquet/ohlcv.parquet"):
+    for p in scan_dir.glob("*/parquet/ohlcv.parquet"):
         run_dir = p.parent.parent
         name = run_dir.name.lower()
         exchange = "NSE"

@@ -117,7 +117,11 @@ def normalize_trades(
         res = res.sort_values("entry_ts").reset_index(drop=True)
         res["trade_id"] = np.arange(1, len(res) + 1, dtype=np.int64)
     else:
-        res["trade_id"] = res["trade_id"].astype(np.int64)
+        try:
+            res["trade_id"] = res["trade_id"].astype(np.int64)
+        except (ValueError, TypeError):
+            res = res.sort_values("entry_ts").reset_index(drop=True)
+            res["trade_id"] = np.arange(1, len(res) + 1, dtype=np.int64)
 
     # session_date: from entry_ts in IST YYYY-MM-DD
     ist_entry = res["entry_ts"].dt.tz_convert(IST)
