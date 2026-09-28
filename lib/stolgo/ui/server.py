@@ -329,7 +329,21 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
 
     dist = Path(frontend_dist) if frontend_dist is not None else _default_frontend_dist()
     if dist.exists():
-        app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+        assets_dir = dist / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        @app.get("/{full_path:path}")
+        def spa_fallback(full_path: str):
+            if full_path.startswith("api/") or full_path == "api":
+                raise HTTPException(status_code=404, detail="Not found")
+            file_path = dist / full_path
+            if file_path.is_file():
+                return FileResponse(file_path)
+            index_html = dist / "index.html"
+            if index_html.is_file():
+                return FileResponse(index_html)
+            raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
     return app
 

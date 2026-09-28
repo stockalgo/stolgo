@@ -215,3 +215,36 @@ def test_error_contracts_and_sweeps(tmp_path: Path) -> None:
 
     sweep = client.get("/api/sweeps/sweep-1").json()
     assert sweep["rows"] == [{"period": 10, "sharpe": 1.2}]
+
+
+def test_spa_fallback_serves_index_html(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<!doctype html><html><body>Stolgo</body></html>")
+    (dist_dir / "assets").mkdir()
+    (dist_dir / "assets" / "style.css").write_text("body { color: red; }")
+
+    app = create_app(runs_dir, frontend_dist=dist_dir)
+    client = TestClient(app)
+
+    # Root serves index.html
+    root_res = client.get("/")
+    assert root_res.status_code == 200
+    assert "Stolgo" in root_res.text
+
+    # Deep-linked client-side route serves index.html
+    deep_res = client.get("/runs/run-1")
+    assert deep_res.status_code == 200
+    assert "Stolgo" in deep_res.text
+
+    # Static asset served
+    asset_res = client.get("/assets/style.css")
+    assert asset_res.status_code == 200
+    assert "color: red" in asset_res.text
+
+    # Unknown API route still returns 404, not index.html
+    api_res = client.get("/api/unknown")
+    assert api_res.status_code == 404
+
