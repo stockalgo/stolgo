@@ -12,6 +12,7 @@ export function GroupsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    document.title = "Groups · Stolgo";
     let cancelled = false;
     setLoading(true);
     setError(null);

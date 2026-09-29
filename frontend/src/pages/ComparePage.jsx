@@ -48,6 +48,10 @@ export function ComparePage() {
   const [loadedData, setLoadedData] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    document.title = "Compare · Stolgo";
+  }, []);
+
   // Fetch runs and daily data in parallel
   useEffect(() => {
     if (runIds.length === 0) {

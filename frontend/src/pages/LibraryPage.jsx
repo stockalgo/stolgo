@@ -28,6 +28,7 @@ export function LibraryPage() {
   // Migration report check
   const [hasMigrationReport, setHasMigrationReport] = useState(true);
   useEffect(() => {
+    document.title = "Library · Stolgo";
     fetch("/api/migration-report", { method: "HEAD" })
       .then((res) => {
         if (!res.ok) setHasMigrationReport(false);

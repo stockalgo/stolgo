@@ -50,6 +50,11 @@ export function GroupPage() {
   }, [groupId, setCrumbs]);
 
   useEffect(() => {
+    const title = group?.label || group?.id || groupId || "Group";
+    document.title = `${title} · Stolgo`;
+  }, [group, groupId]);
+
+  useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);

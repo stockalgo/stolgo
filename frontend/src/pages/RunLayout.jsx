@@ -33,6 +33,9 @@ export function RunLayout() {
 
   useEffect(() => {
     if (run) {
+      const runTitle = run.name || run.id || "Run";
+      document.title = `${runTitle} · Stolgo`;
+
       const marketsStr = (run.markets || []).join("+");
       const structStr = (run.structure || "").replace(/_/g, " ");
       const groupLabel =

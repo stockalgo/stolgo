@@ -18,6 +18,7 @@ export function NewRunPage() {
   const [existingRunIds, setExistingRunIds] = useState(new Set());
 
   useEffect(() => {
+    document.title = "New Run · Stolgo";
     let cancelled = false;
     listRuns()
       .then((data) => {

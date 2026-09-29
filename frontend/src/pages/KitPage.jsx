@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "../components/ui/Button.jsx";
 import { Seg } from "../components/ui/Seg.jsx";
 import { Tabs } from "../components/ui/Tabs.jsx";
@@ -14,6 +14,10 @@ import { Tooltip } from "../components/ui/Tooltip.jsx";
 export function KitPage() {
   const [segVal, setSegVal] = useState("Price");
   const [tabVal, setTabVal] = useState("overview");
+
+  useEffect(() => {
+    document.title = "UI Kit · Stolgo";
+  }, []);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--gap)" }}>
