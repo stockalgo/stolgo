@@ -106,21 +106,33 @@ def classify_run(run_id: str) -> tuple[str, dict[str, Any]]:
         }
 
     if G3_RE.match(run_id):
-        return "G3", {
+        g3_meta = {
             "group": "G3",
             "market": "NIFTY",
             "exchange": "NSE",
             "structure": "unknown",  # will be derived from side/tag
         }
+        if "-0plus1-" in run_id:
+            g3_meta["dte"] = [0, 1]
+        elif "-0-" in run_id:
+            g3_meta["dte"] = [0]
+        elif "-1-" in run_id:
+            g3_meta["dte"] = [1]
+        return "G3", g3_meta
 
     if G4_RE.match(run_id):
-        return "G4", {
+        g4_meta = {
             "group": "G4",
             "market": "NIFTY",
             "exchange": "NSE",
             "structure": "bear_call_spread",
             "superseded": True,
         }
+        if "0dte" in run_id:
+            g4_meta["dte"] = [0]
+        elif "1dte" in run_id:
+            g4_meta["dte"] = [1]
+        return "G4", g4_meta
 
     m5 = G5_RE.match(run_id)
     if m5:
@@ -397,12 +409,20 @@ def migrate_run(
 
     # Config & Instrument
     markets_list = meta.get("markets") or ([meta["market"]] if "market" in meta else ["NIFTY"])
+    dte_list = meta.get("dte", [])
+    if not trades_v2.empty and "dte" in trades_v2.columns and not trades_v2["dte"].dropna().empty:
+        valid_dtes = trades_v2["dte"].dropna().unique()
+        try:
+            dte_list = sorted([int(x) for x in valid_dtes])
+        except Exception:
+            dte_list = sorted(list(valid_dtes))
+
     inst = {
         "asset_class": "index_options",
         "markets": markets_list,
         "exchange": meta.get("exchange", "NSE"),
         "structure": struct,
-        "dte": meta.get("dte", []),
+        "dte": dte_list,
         "lot_size": lot_size,
         "currency": "INR",
         "timezone": "Asia/Kolkata",
