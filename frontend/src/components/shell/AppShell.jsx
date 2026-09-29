@@ -1,14 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { Rail } from "./Rail.jsx";
 import { TopBar } from "./TopBar.jsx";
 import { MinWidthNotice } from "./MinWidthNotice.jsx";
+import { CommandPalette } from "./CommandPalette.jsx";
 import { BreadcrumbProvider, useBreadcrumbs } from "../../context/BreadcrumbContext.jsx";
+import { ToastProvider } from "../../context/ToastContext.jsx";
 
 function AppShellInner() {
   const location = useLocation();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const { crumbs: customCrumbs } = useBreadcrumbs();
+
+  // Global ⌘K / Ctrl+K shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Compute breadcrumb based on current path
   const path = location.pathname;
@@ -35,12 +49,19 @@ function AppShellInner() {
       <div className="app">
         <Rail />
         <div className="main">
-          <TopBar crumbs={effectiveCrumbs} onOpenPalette={() => setPaletteOpen(true)} />
+          <TopBar
+            crumbs={effectiveCrumbs}
+            onOpenPalette={() => setPaletteOpen(true)}
+          />
           <main className="page">
             <Outlet />
           </main>
         </div>
       </div>
+      <CommandPalette
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+      />
     </>
   );
 }
@@ -48,7 +69,9 @@ function AppShellInner() {
 export function AppShell() {
   return (
     <BreadcrumbProvider>
-      <AppShellInner />
+      <ToastProvider>
+        <AppShellInner />
+      </ToastProvider>
     </BreadcrumbProvider>
   );
 }

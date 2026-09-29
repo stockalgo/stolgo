@@ -8,6 +8,7 @@ import { EquityChart } from "./EquityChart.jsx";
 import { DrawdownChart } from "./DrawdownChart.jsx";
 import { IndicatorsMenu } from "./IndicatorsMenu.jsx";
 import { sessionShort } from "../../lib/format.js";
+import { Tooltip } from "../ui/Tooltip.jsx";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -102,15 +103,16 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
       <div className="panel__head" style={{ marginBottom: "8px", alignItems: "center" }}>
         {/* Main Segment Switch: Price vs Equity */}
         <div className="seg">
-          <button
-            className={`seg__item ${activeView === "price" ? "seg__item--active" : ""}`}
-            aria-selected={activeView === "price"}
-            disabled={!hasOhlcv}
-            title={!hasOhlcv ? "No price data exported for this run" : undefined}
-            onClick={() => handleViewChange("price")}
-          >
-            Price · candles
-          </button>
+          <Tooltip content={!hasOhlcv ? "No price data exported for this run" : null}>
+            <button
+              className={`seg__item ${activeView === "price" ? "seg__item--active" : ""}`}
+              aria-selected={activeView === "price"}
+              disabled={!hasOhlcv}
+              onClick={() => handleViewChange("price")}
+            >
+              Price · candles
+            </button>
+          </Tooltip>
           <button
             className={`seg__item ${activeView === "equity" ? "seg__item--active" : ""}`}
             aria-selected={activeView === "equity"}

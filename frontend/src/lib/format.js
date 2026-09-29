@@ -148,14 +148,23 @@ export function dateIST(epochSec) {
   return `${day} ${month} ${year}`;
 }
 
-export function timeIST(epochSec) {
-  if (isNil(epochSec)) return "—";
+export function timeIST(val) {
+  if (isNil(val)) return "—";
+  let date;
+  if (typeof val === "number") {
+    date = new Date(val * 1000);
+  } else if (!isNaN(Number(val))) {
+    date = new Date(Number(val) * 1000);
+  } else {
+    date = new Date(val);
+  }
+  if (isNaN(date.getTime())) return "—";
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Kolkata",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-  }).format(new Date(epochSec * 1000));
+  }).format(date);
 }
 
 export function sessionLabel(sessionDate) {
