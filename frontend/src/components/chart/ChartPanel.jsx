@@ -70,7 +70,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
   };
 
   // Symbol label
-  const symbol = run?.instrument?.markets?.[0] || run?.markets?.[0] || "NIFTY";
+  const symbol = run?.has?.ohlcv_market || run?.instrument?.markets?.[0] || run?.markets?.[0] || "—";
 
   // OHLC readout
   const ohlcReadout = useMemo(() => {

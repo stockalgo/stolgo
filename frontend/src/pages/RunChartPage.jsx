@@ -97,7 +97,11 @@ export function RunChartPage() {
     }
   };
 
-  const market = (run?.markets && run.markets[0]) || "NIFTY";
+  const market =
+    run?.has?.ohlcv_market ||
+    run?.instrument?.markets?.[0] ||
+    (run?.markets && run.markets[0]) ||
+    "—";
 
   return (
     <div

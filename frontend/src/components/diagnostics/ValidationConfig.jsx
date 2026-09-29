@@ -19,9 +19,7 @@ export function ValidationConfig({ run }) {
   const limitations = validation.limitations || [];
   const caveats = validation.caveats || [];
 
-  const executionModel =
-    run?.execution_model ||
-    "Stolgo options replay / SimBroker; sequential next-open fills";
+  const executionModel = run?.config?.execution ?? null;
 
   const win = run?.window || {};
   const windowStr =
@@ -31,7 +29,7 @@ export function ValidationConfig({ run }) {
       ? `${win.start} \u2192 ${win.end} (${win.sessions ?? "—"} sessions)`
       : "null \u2190 not recorded by generator";
 
-  const metricBasis = run?.metric_basis || "calendar_daily";
+  const metricBasis = run?.metrics?.basis ?? null;
   const orders = diag.orders ?? run?.metrics?.orders;
   const validationStatus = validation.status ?? run?.validation_status;
 
@@ -51,9 +49,9 @@ export function ValidationConfig({ run }) {
   const groupLabel = group.label || group.id || "";
   const family = group.axes?.family || "";
   const groupStr =
-    groupLabel || family
+    group?.id
       ? `${groupLabel}${family ? ` \u00b7 family ${family}` : ""}`
-      : "null \u2190 not recorded by generator";
+      : "none";
 
   const cap = run?.capital ?? run?.config?.capital;
   const capitalStr = cap != null ? inr(cap) : "null \u2190 not recorded by generator";
@@ -115,7 +113,13 @@ export function ValidationConfig({ run }) {
                 maxWidth: "340px",
               }}
             >
-              {executionModel}
+              {executionModel ? (
+                executionModel
+              ) : (
+                <span>
+                  — <span className="muted" style={{ fontWeight: "normal" }}>not recorded by generator</span>
+                </span>
+              )}
             </span>
           </div>
 
@@ -127,7 +131,11 @@ export function ValidationConfig({ run }) {
           <div className="kv kv--divided">
             <span>Metric basis</span>
             <span>
-              <span className="badge badge--info">{metricBasis}</span>
+              {metricBasis ? (
+                <span className="badge badge--info">{metricBasis}</span>
+              ) : (
+                "—"
+              )}
             </span>
           </div>
 

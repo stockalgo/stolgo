@@ -109,7 +109,7 @@ export function TradeRowDetail({ runId, trade }) {
                     <td className="num">
                       {leg.strike ? leg.strike.toLocaleString() : "—"}
                     </td>
-                    <td>{leg.action || "SELL"}</td>
+                    <td>{leg.action || "—"}</td>
                     <td className="num">{premium(leg.entry_premium)}</td>
                     <td className="num">{premium(leg.exit_premium)}</td>
                     <td className={`num ${isPos ? "pos" : "neg"}`}>
