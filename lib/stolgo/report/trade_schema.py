@@ -341,6 +341,11 @@ def normalize_trades(
         if c in res.columns and c not in ordered_cols:
             ordered_cols.append(c)
 
+    # Drop duplicate tag column if source_tag holds the exact same values (Plan 03 R14)
+    if "tag" in res.columns and "source_tag" in res.columns:
+        if (res["tag"].fillna("").astype(str) == res["source_tag"].fillna("").astype(str)).all():
+            res = res.drop(columns=["tag"])
+
     for c in res.columns:
         if c not in ordered_cols and c != "commission":
             ordered_cols.append(c)

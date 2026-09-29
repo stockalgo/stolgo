@@ -135,3 +135,30 @@ def test_trade_schema_case4_g1_premium():
     assert trades_v2.iloc[0]["premium_entry"] == 391.29
     assert "entry_price" not in trades_v2.columns
     assert legs_v2 is None
+
+
+def test_trade_schema_drops_duplicate_tag():
+    df = pd.DataFrame([
+        {
+            "entry_ts": "2024-01-01 04:00:00+00:00",
+            "exit_ts": "2024-01-01 09:15:00+00:00",
+            "entry_price": 100.0,
+            "exit_price": 50.0,
+            "qty": 50.0,
+            "gross_pnl": 2500.0,
+            "net_pnl": 2450.0,
+            "fees": 50.0,
+            "tag": "my_tag",
+        }
+    ])
+    mapping = SourceMapping(
+        price_columns="premium",
+        structure="short_strangle",
+        market="NIFTY",
+        lot_size=50,
+        side="SHORT",
+    )
+    trades_v2, _ = normalize_trades(df, mapping)
+    assert "source_tag" in trades_v2.columns
+    assert trades_v2.iloc[0]["source_tag"] == "my_tag"
+    assert "tag" not in trades_v2.columns
