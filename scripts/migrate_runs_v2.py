@@ -426,7 +426,7 @@ def migrate_run(
     }
 
     # Human readable name
-    name = manifest.get("name") or run_id.replace("-", " ").title()
+    name = manifest.get("name") or manifest.get("strategy") or run_id
 
     # Determine status & reasons
     status, status_reasons = run_status(
