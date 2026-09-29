@@ -84,7 +84,7 @@ export function EdgeIntegrity({ run }) {
             p95={pfHigh ?? 3}
             point={pfPoint ?? 1.0}
             min={0}
-            max={3}
+            max={Math.max(3, (pfHigh ?? 3) * 1.1)}
             breakEven={1.0}
             height={26}
           />
