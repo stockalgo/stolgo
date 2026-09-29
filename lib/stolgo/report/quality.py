@@ -29,6 +29,8 @@ def run_status(
     trades_total = dq.get("trades_total", metrics.get("num_trades", 0))
     trades_with_missing_data = dq.get("trades_with_missing_data", 0)
     unresolved_sessions = dq.get("unresolved_sessions", 0)
+    pnl_reconciles = dq.get("pnl_reconciles", True)
+    pnl_unreconciled_inr = dq.get("pnl_unreconciled_inr", 0.0)
 
     is_empty = (trades_total == 0)
     is_superseded = name.startswith("INVALID") or (raw_params.get("superseded") is True)
@@ -37,7 +39,8 @@ def run_status(
         and (trades_with_missing_data / trades_total) > DATA_ISSUE_THRESHOLD
     )
     has_unresolved = (unresolved_sessions > 0)
-    is_data_issues = has_missing_data or has_unresolved
+    has_unreconciled_pnl = (pnl_reconciles is False)
+    is_data_issues = has_missing_data or has_unresolved or has_unreconciled_pnl
     is_low_sample = (trades_total < MIN_TRADES_OK)
     is_short_window = (sessions < MIN_SESSIONS_OK)
 
@@ -52,6 +55,9 @@ def run_status(
         )
     if has_unresolved:
         reasons.append(f"{unresolved_sessions} unresolved sessions")
+    if has_unreconciled_pnl:
+        abs_diff = abs(pnl_unreconciled_inr)
+        reasons.append(f"net P&L differs from gross − fees by ₹{abs_diff:,.0f}")
     if is_low_sample and not is_empty:
         reasons.append(f"{trades_total} trades < 100")
     if is_short_window:

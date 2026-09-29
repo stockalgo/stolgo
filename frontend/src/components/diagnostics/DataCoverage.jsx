@@ -1,5 +1,6 @@
 import React from "react";
 import { Banner } from "../ui/Banner.jsx";
+import { inr } from "../../lib/format.js";
 
 export function DataCoverage({ run }) {
   const diag = run?.diagnostics || {};
@@ -25,6 +26,14 @@ export function DataCoverage({ run }) {
       <div className="panel__head">
         <span className="eyebrow">Data coverage</span>
       </div>
+
+      {dq.pnl_reconciles === false && (
+        <Banner variant="bad" style={{ marginBottom: "12px" }}>
+          <span>
+            <b>P&amp;L does not reconcile.</b> Net P&amp;L is {inr(Math.abs(dq.pnl_unreconciled_inr || 0))} higher than gross − fees − slippage across {tradesTotal} trades. Metrics for this run may be overstated.
+          </span>
+        </Banner>
+      )}
 
       {missingTrades > 0 && (
         <Banner variant="warn" style={{ marginBottom: "12px" }}>

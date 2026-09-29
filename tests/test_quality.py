@@ -73,3 +73,22 @@ def test_quality_ok():
     )
     assert status == "ok"
     assert reasons == []
+
+
+def test_quality_pnl_unreconciled():
+    status, reasons = run_status(
+        name="Test PnL Unreconciled",
+        metrics={"num_trades": 150},
+        diagnostics={
+            "data_quality": {
+                "trades_total": 150,
+                "trades_with_missing_data": 0,
+                "pnl_reconciles": False,
+                "pnl_unreconciled_inr": -17086.0,
+            }
+        },
+        sessions=300,
+    )
+    assert status == "data_issues"
+    assert "net P&L differs from gross − fees by ₹17,086" in reasons
+

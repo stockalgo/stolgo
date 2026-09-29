@@ -1,7 +1,13 @@
 import React, { useMemo } from "react";
 import { inr } from "../../lib/format.js";
+import { Banner } from "../ui/Banner.jsx";
 
 export function CostBreakdown({ run, trades = [] }) {
+  const dq = run?.diagnostics?.data_quality || {};
+  const pnlReconciles = dq.pnl_reconciles ?? true;
+  const pnlUnreconciled = dq.pnl_unreconciled_inr ?? 0;
+  const tradesTotal = dq.trades_total ?? (trades ? trades.length : 0);
+
   const { gross, fees, slippage, net, avgStop, avgTarget } = useMemo(() => {
     if (trades && trades.length > 0) {
       const g = trades.reduce((acc, t) => acc + (t.gross_pnl ?? 0), 0);
@@ -68,6 +74,21 @@ export function CostBreakdown({ run, trades = [] }) {
 
   const hasStopLossBias =
     avgStop != null && avgTarget != null && Math.abs(avgStop) > avgTarget;
+
+  if (pnlReconciles === false) {
+    return (
+      <section className="panel">
+        <div className="panel__head">
+          <span className="eyebrow">Where the money went</span>
+        </div>
+        <Banner variant="bad" style={{ margin: "12px 0" }}>
+          <span>
+            <b>P&amp;L does not reconcile.</b> Net P&amp;L is {inr(Math.abs(pnlUnreconciled))} higher than gross − fees − slippage across {tradesTotal} trades. Metrics for this run may be overstated.
+          </span>
+        </Banner>
+      </section>
+    );
+  }
 
   return (
     <section className="panel">

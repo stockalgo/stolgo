@@ -53,6 +53,20 @@ def build_diagnostics(
     skipped_sessions = source_metrics.get("skipped", source_params.get("skipped_sessions", 0))
     eligible_sessions = source_metrics.get("eligible", source_params.get("eligible_sessions", None))
 
+    if not trades_v2.empty and {"gross_pnl", "net_pnl"}.issubset(trades_v2.columns):
+        fees = trades_v2["fees"] if "fees" in trades_v2.columns else pd.Series(0.0, index=trades_v2.index)
+        slippage = trades_v2["slippage"] if "slippage" in trades_v2.columns else pd.Series(0.0, index=trades_v2.index)
+        fees_val = pd.to_numeric(fees, errors="coerce").fillna(0.0)
+        slippage_val = pd.to_numeric(slippage, errors="coerce").fillna(0.0)
+        gross_val = pd.to_numeric(trades_v2["gross_pnl"], errors="coerce").fillna(0.0)
+        net_val = pd.to_numeric(trades_v2["net_pnl"], errors="coerce").fillna(0.0)
+        diff_sum = float((gross_val - fees_val - slippage_val - net_val).sum())
+        pnl_unreconciled_inr = round(diff_sum, 2)
+        pnl_reconciles = bool(abs(pnl_unreconciled_inr) <= 0.05 * trades_total)
+    else:
+        pnl_unreconciled_inr = 0.0
+        pnl_reconciles = True
+
     data_quality = {
         "trades_total": trades_total,
         "trades_with_missing_data": trades_with_missing_data,
@@ -60,6 +74,8 @@ def build_diagnostics(
         "unresolved_sessions": int(unresolved_sessions) if unresolved_sessions is not None else 0,
         "skipped_sessions": int(skipped_sessions) if skipped_sessions is not None else 0,
         "eligible_sessions": int(eligible_sessions) if eligible_sessions is not None else None,
+        "pnl_unreconciled_inr": pnl_unreconciled_inr,
+        "pnl_reconciles": pnl_reconciles,
     }
 
     # 3. stability: split trades by trade_id into first ceil(n/2) and rest
