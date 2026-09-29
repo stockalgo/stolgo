@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useApi } from "../hooks/useApi.js";
 import { getTrades, getMonthly } from "../api/endpoints.js";
@@ -7,9 +7,11 @@ import { EdgeIntegrity } from "../components/overview/EdgeIntegrity.jsx";
 import { Histogram } from "../components/overview/Histogram.jsx";
 import { MonthlyHeatmap } from "../components/overview/MonthlyHeatmap.jsx";
 import { ChartPanel } from "../components/chart/ChartPanel.jsx";
+import { TradeInspector } from "../components/inspector/TradeInspector.jsx";
 
 export function RunOverviewPage() {
   const { run } = useOutletContext();
+  const [selectedTradeId, setSelectedTradeId] = useState(null);
 
   const fetchTrades = useCallback(() => (run?.id ? getTrades(run.id) : Promise.resolve([])), [run?.id]);
   const fetchMonthly = useCallback(() => (run?.id ? getMonthly(run.id) : Promise.resolve([])), [run?.id]);
@@ -18,6 +20,9 @@ export function RunOverviewPage() {
   const { data: monthly } = useApi(fetchMonthly);
 
   if (!run) return null;
+
+  const currentTradeId =
+    selectedTradeId ?? (trades && trades.length > 0 ? trades[trades.length - 1].trade_id : null);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
@@ -29,7 +34,12 @@ export function RunOverviewPage() {
         className="grid"
         style={{ gridTemplateColumns: "minmax(0, 1fr) 330px", gap: "14px" }}
       >
-        <ChartPanel run={run} trades={trades || []} />
+        <ChartPanel
+          run={run}
+          trades={trades || []}
+          selectedTradeId={currentTradeId}
+          onSelectTrade={setSelectedTradeId}
+        />
         <EdgeIntegrity run={run} />
       </div>
 
@@ -40,27 +50,12 @@ export function RunOverviewPage() {
       >
         <Histogram trades={trades || []} />
         <MonthlyHeatmap monthly={monthly || []} />
-
-        <section
-          className="panel"
-          style={{ display: "flex", flexDirection: "column", gap: "8px" }}
-        >
-          <div className="panel__head" style={{ margin: 0 }}>
-            <span className="eyebrow">Trade inspector</span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flex: 1,
-              minHeight: "220px",
-            }}
-            className="muted"
-          >
-            Trade inspector (U9)
-          </div>
-        </section>
+        <TradeInspector
+          runId={run.id}
+          trades={trades || []}
+          selectedTradeId={currentTradeId}
+          onSelectTrade={setSelectedTradeId}
+        />
       </div>
     </div>
   );
