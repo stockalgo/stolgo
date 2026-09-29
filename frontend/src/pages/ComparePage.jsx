@@ -9,6 +9,7 @@ import { Banner } from "../components/ui/Banner.jsx";
 import { EmptyState } from "../components/ui/EmptyState.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { CompareChart } from "../components/chart/CompareChart.jsx";
+import { copyText } from "../lib/clipboard.js";
 
 const MONTH_NAMES = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -89,11 +90,12 @@ export function ComparePage() {
     }
   }, [showAddModal, allAvailableRuns.length]);
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
+  const handleCopyLink = async () => {
+    const success = await copyText(window.location.href);
+    if (success) {
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2000);
-    });
+    }
   };
 
   const handleRemoveRun = (idToRemove) => {

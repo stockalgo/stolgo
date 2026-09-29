@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useOutletContext } from "react-router-dom";
 import { useApi } from "../hooks/useApi.js";
 import { getTrades, getMonthly } from "../api/endpoints.js";
@@ -16,8 +16,17 @@ export function RunOverviewPage() {
   const fetchTrades = useCallback(() => (run?.id ? getTrades(run.id) : Promise.resolve([])), [run?.id]);
   const fetchMonthly = useCallback(() => (run?.id ? getMonthly(run.id) : Promise.resolve([])), [run?.id]);
 
-  const { data: trades } = useApi(fetchTrades);
-  const { data: monthly } = useApi(fetchMonthly);
+  const { data: rawTrades } = useApi(fetchTrades);
+  const { data: rawMonthly } = useApi(fetchMonthly);
+
+  const trades = useMemo(
+    () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),
+    [rawTrades]
+  );
+  const monthly = useMemo(
+    () => (Array.isArray(rawMonthly) ? rawMonthly : rawMonthly?.rows || []),
+    [rawMonthly]
+  );
 
   if (!run) return null;
 

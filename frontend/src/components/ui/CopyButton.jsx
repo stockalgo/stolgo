@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Button } from "./Button.jsx";
+import { copyText } from "../../lib/clipboard.js";
 
 export function CopyButton({
   text,
@@ -13,13 +14,11 @@ export function CopyButton({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
+    const success = await copyText(text);
+    if (success) {
       setCopied(true);
       if (onCopied) onCopied();
       setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
     }
   };
 

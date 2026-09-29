@@ -22,8 +22,11 @@ export function RunDiagnosticsPage() {
     [run?.id]
   );
 
-  const { data: trades } = useApi(fetchTrades);
-  const { data: monthly } = useApi(fetchMonthly);
+  const { data: rawTrades } = useApi(fetchTrades);
+  const { data: rawMonthly } = useApi(fetchMonthly);
+
+  const trades = Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || [];
+  const monthly = Array.isArray(rawMonthly) ? rawMonthly : rawMonthly?.rows || [];
 
   if (!run) return null;
 

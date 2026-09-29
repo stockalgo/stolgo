@@ -63,7 +63,10 @@ export function RunTradesPage() {
     [run?.id]
   );
   const { data: rawTrades, loading } = useApi(fetchTrades);
-  const trades = useMemo(() => rawTrades || [], [rawTrades]);
+  const trades = useMemo(
+    () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),
+    [rawTrades]
+  );
 
   // Read filter state from URL
   const filterResult = searchParams.get("result") || "all";

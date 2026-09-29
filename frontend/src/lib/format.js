@@ -133,9 +133,17 @@ export function level(v) {
   }).format(v);
 }
 
-export function dateIST(epochSec) {
-  if (isNil(epochSec)) return "—";
-  const date = new Date(epochSec * 1000);
+export function dateIST(val) {
+  if (isNil(val)) return "—";
+  let date;
+  if (typeof val === "number") {
+    date = new Date(val * 1000);
+  } else if (!isNaN(Number(val))) {
+    date = new Date(Number(val) * 1000);
+  } else {
+    date = new Date(val);
+  }
+  if (isNaN(date.getTime())) return "—";
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Kolkata",
     day: "2-digit",

@@ -53,6 +53,27 @@ export function Kpi({
   );
 }
 
-export function KpiStrip({ children, className = "" }) {
-  return <section className={`kpis ${className}`}>{children}</section>;
+export function KpiStrip({ items, children, className = "" }) {
+  return (
+    <section className={`kpis ${className}`}>
+      {items
+        ? items.map((it, idx) => (
+            <Kpi
+              key={idx}
+              label={it.label}
+              value={it.value}
+              sub={it.sub}
+              pos={it.pos || it.className === "pos"}
+              neg={it.neg || it.className === "neg"}
+              muted={it.muted || it.className === "muted"}
+              warn={it.warn}
+              warnTooltip={it.warnTooltip}
+              loading={it.loading}
+              tooltip={it.tooltip}
+              className={it.className}
+            />
+          ))
+        : children}
+    </section>
+  );
 }

@@ -42,13 +42,19 @@ export function RunChartPage() {
     [runId]
   );
   const { data: rawTrades } = useApi(fetchTrades);
-  const trades = useMemo(() => rawTrades || [], [rawTrades]);
+  const trades = useMemo(
+    () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),
+    [rawTrades]
+  );
 
-  // Fetch candles
+  // Fetch candles (wait for run metadata to check run.has.ohlcv)
   const fetchCandles = useCallback(() => {
-    if (!runId) return Promise.resolve({ rows: [] });
+    if (!runId || !run) return Promise.resolve(null);
+    if (run.has && !run.has.ohlcv) {
+      return Promise.resolve({ rows: [], detail: "no_ohlcv" });
+    }
     return getCandles(runId, tf);
-  }, [runId, tf]);
+  }, [runId, run, tf]);
 
   const { data: candleData } = useApi(fetchCandles);
   const allCandles = useMemo(() => candleData?.rows || [], [candleData]);
@@ -184,15 +190,39 @@ export function RunChartPage() {
             overflow: "hidden",
           }}
         >
-          <CandleChart
-            candles={candles}
-            trades={trades}
-            selectedTradeId={selectedTradeId}
-            onSelectTrade={setSelectedTradeId}
-            activeIndicators={activeIndicators}
-            onVisibleRangeChange={setVisibleRange}
-            height="100%"
-          />
+          {candleData?.detail === "no_ohlcv" || run?.has?.ohlcv === false ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                height: "100%",
+                gap: 16,
+              }}
+            >
+              <div className="muted" style={{ fontSize: 14 }}>
+                No price data exported for this run
+              </div>
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => navigate(`/runs/${encodeURIComponent(runId)}`)}
+              >
+                Back to run overview
+              </button>
+            </div>
+          ) : (
+            <CandleChart
+              candles={candles}
+              trades={trades}
+              selectedTradeId={selectedTradeId}
+              onSelectTrade={setSelectedTradeId}
+              activeIndicators={activeIndicators}
+              onVisibleRangeChange={setVisibleRange}
+              height="100%"
+            />
+          )}
         </div>
 
         {/* Right Sidebar: Trades in view */}

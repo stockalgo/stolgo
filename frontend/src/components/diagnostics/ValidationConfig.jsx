@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { inr } from "../../lib/format.js";
+import { copyText } from "../../lib/clipboard.js";
 
 export function ValidationConfig({ run }) {
   const [copied, setCopied] = useState(false);
 
-  const handleCopyManifest = () => {
+  const handleCopyManifest = async () => {
     if (!run) return;
-    navigator.clipboard.writeText(JSON.stringify(run, null, 2)).then(() => {
+    const success = await copyText(JSON.stringify(run, null, 2));
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   };
 
   const diag = run?.diagnostics || {};

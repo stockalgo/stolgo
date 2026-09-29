@@ -251,7 +251,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
             "runs": runs,
         }
 
-    @app.get("/api/migration-report")
+    @app.api_route("/api/migration-report", methods=["GET", "HEAD"])
     def get_migration_report():
         report_path = (runs_dir / "_migration_report.md").resolve()
         if not report_path.is_file():

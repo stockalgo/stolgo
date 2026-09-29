@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { listRuns } from "../api/endpoints.js";
 import { useToast } from "../context/ToastContext.jsx";
+import { copyText } from "../lib/clipboard.js";
 
 const DEFAULT_FORM = {
   strategyFile: "examples/trend_breakout_backtest.py",
@@ -110,9 +111,11 @@ export function NewRunPage() {
   --output runs/${form.runId.trim() || "new-run"}`;
   }, [form]);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(command);
-    showToast("Copied");
+  const handleCopy = async () => {
+    const success = await copyText(command);
+    if (success) {
+      showToast("Copied");
+    }
   };
 
   return (

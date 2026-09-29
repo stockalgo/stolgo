@@ -185,6 +185,10 @@ export function CommandPalette({ isOpen, onClose }) {
 
   return (
     <div
+      className="command-palette-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
       style={{
         position: "fixed",
         inset: 0,
@@ -197,7 +201,7 @@ export function CommandPalette({ isOpen, onClose }) {
       onClick={onClose}
     >
       <div
-        className="panel"
+        className="panel command-palette"
         style={{
           width: 580,
           maxHeight: 460,
