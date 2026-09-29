@@ -1,7 +1,7 @@
 import React from "react";
 import { inr } from "../../lib/format.js";
 
-export function TradesFooter({ trades = [], filterDesc = "all" }) {
+export function TradesFooter({ trades = [], filterDesc = "all", hasMultipleMarkets = false }) {
   const n = trades.length;
   const winCount = trades.filter((t) => (t.net_pnl ?? 0) >= 0).length;
   const lossCount = n - winCount;
@@ -34,7 +34,7 @@ export function TradesFooter({ trades = [], filterDesc = "all" }) {
     <tfoot>
       <tr>
         <td />
-        <td colSpan="6">
+        <td colSpan={hasMultipleMarkets ? "7" : "6"}>
           {n} trades · {winCount} W / {lossCount} L · filtered: {filterDesc}
         </td>
         <td className={`num ${grossSum >= 0 ? "pos" : "neg"}`}>

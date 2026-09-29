@@ -19,8 +19,15 @@ export function TradesTable({
   page = 1,
   pageSize = 50,
   filterDesc = "all",
+  instrument = null,
+  markets = null,
 }) {
   const expandedRowRef = useRef(null);
+
+  const marketList = instrument?.markets || markets;
+  const hasMultipleMarkets = marketList
+    ? marketList.length > 1
+    : new Set(trades.map((t) => t.market).filter(Boolean)).size > 1;
 
   // Scroll expanded row into view when expandedTradeId changes
   useEffect(() => {
@@ -43,6 +50,7 @@ export function TradesTable({
             <th style={{ width: "36px" }} />
             <th>#</th>
             <th aria-sort="descending">Session</th>
+            {hasMultipleMarkets && <th>Market</th>}
             <th>Structure · legs</th>
             <th className="num">Underlying</th>
             <th className="num">Premium</th>
@@ -59,7 +67,7 @@ export function TradesTable({
         <tbody>
           {pageTrades.length === 0 ? (
             <tr>
-              <td colSpan="14" style={{ textAlign: "center", padding: "32px" }}>
+              <td colSpan={hasMultipleMarkets ? 15 : 14} style={{ textAlign: "center", padding: "32px" }}>
                 <span className="muted">No trades match the current filters</span>
               </td>
             </tr>
@@ -109,11 +117,18 @@ export function TradesTable({
                     </td>
                     <td className="mono">
                       {t.session_date}
-                      <span className="sub">
-                        {t.entry_ts ? timeIST(t.entry_ts) : "—"} &rarr;{" "}
-                        {t.exit_ts ? timeIST(t.exit_ts) : "—"} IST
-                      </span>
+                      {(t.entry_ts || t.exit_ts) && (
+                        <span className="sub">
+                          {t.entry_ts ? timeIST(t.entry_ts) : "—"} &rarr;{" "}
+                          {t.exit_ts ? timeIST(t.exit_ts) : "—"} IST
+                        </span>
+                      )}
                     </td>
+                    {hasMultipleMarkets && (
+                      <td className="mono">
+                        <span className="chip">{t.market || "—"}</span>
+                      </td>
+                    )}
                     <td>
                       <span className="chip">{structureLabel(t.structure)}</span>
                       {t.legs_label && (
@@ -124,15 +139,19 @@ export function TradesTable({
                     </td>
                     <td className="num">
                       {t.underlying_entry != null ? level(t.underlying_entry) : "—"}
-                      <span className="sub">
-                        &rarr; {t.underlying_exit != null ? level(t.underlying_exit) : "—"}
-                      </span>
+                      {t.underlying_exit != null && (
+                        <span className="sub">
+                          &rarr; {level(t.underlying_exit)}
+                        </span>
+                      )}
                     </td>
                     <td className="num">
                       {t.premium_entry != null ? premium(t.premium_entry) : "—"}
-                      <span className="sub">
-                        &rarr; {t.premium_exit != null ? premium(t.premium_exit) : "—"}
-                      </span>
+                      {t.premium_exit != null && (
+                        <span className="sub">
+                          &rarr; {premium(t.premium_exit)}
+                        </span>
+                      )}
                     </td>
                     <td className="num">
                       {t.qty}
@@ -183,7 +202,7 @@ export function TradesTable({
                   {isExpanded && (
                     <tr className="row-expanded">
                       <td />
-                      <td colSpan="13">
+                      <td colSpan={hasMultipleMarkets ? 14 : 13}>
                         <TradeRowDetail runId={runId} trade={t} />
                       </td>
                     </tr>
@@ -195,7 +214,7 @@ export function TradesTable({
         </tbody>
 
         {/* Sticky Reconciling Footer */}
-        <TradesFooter trades={filteredTrades} filterDesc={filterDesc} />
+        <TradesFooter trades={filteredTrades} filterDesc={filterDesc} hasMultipleMarkets={hasMultipleMarkets} />
       </table>
     </div>
   );

@@ -231,6 +231,8 @@ export function RunTradesPage() {
       {/* Trades Table */}
       <TradesTable
         runId={run?.id}
+        instrument={run?.instrument}
+        markets={run?.instrument?.markets}
         trades={trades}
         filteredTrades={sortedTrades}
         expandedTradeId={expandedTradeId}
