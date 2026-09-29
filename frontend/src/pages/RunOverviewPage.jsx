@@ -6,6 +6,7 @@ import { OverviewKpis } from "../components/overview/OverviewKpis.jsx";
 import { EdgeIntegrity } from "../components/overview/EdgeIntegrity.jsx";
 import { Histogram } from "../components/overview/Histogram.jsx";
 import { MonthlyHeatmap } from "../components/overview/MonthlyHeatmap.jsx";
+import { ChartPanel } from "../components/chart/ChartPanel.jsx";
 
 export function RunOverviewPage() {
   const { run } = useOutletContext();
@@ -28,23 +29,7 @@ export function RunOverviewPage() {
         className="grid"
         style={{ gridTemplateColumns: "minmax(0, 1fr) 330px", gap: "14px" }}
       >
-        <section className="panel" style={{ padding: "12px 16px 10px", minHeight: "380px" }}>
-          <div className="panel__head">
-            <span className="eyebrow">Price &amp; Equity Charts</span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: "300px",
-            }}
-            className="muted"
-          >
-            Chart panel (U8)
-          </div>
-        </section>
-
+        <ChartPanel run={run} trades={trades || []} />
         <EdgeIntegrity run={run} />
       </div>
 
