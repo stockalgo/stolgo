@@ -7,7 +7,7 @@ import {
   CrosshairMode,
   createSeriesMarkers,
 } from "lightweight-charts";
-import { calculateSMA, calculateEMA, calculateBollingerBands } from "../../utils/indicators.js";
+import { calculateSMA, calculateEMA, calculateBollingerBands } from "../../lib/indicators.js";
 
 export function CandleChart({
   candles = [],
@@ -17,6 +17,7 @@ export function CandleChart({
   activeIndicators = {},
   onHoverBar = null,
   onVisibleRangeChange = null,
+  height = 262,
 }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
@@ -34,7 +35,7 @@ export function CandleChart({
     try {
       const chart = createChart(containerRef.current, {
         width: containerRef.current.clientWidth || 900,
-        height: 262,
+        height: typeof height === "number" ? height : containerRef.current.clientHeight || 262,
         layout: {
           background: { type: ColorType.Solid, color: "transparent" },
           textColor: "#9aa3b2",
@@ -247,7 +248,7 @@ export function CandleChart({
     return (
       <div
         style={{
-          height: "262px",
+          height: typeof height === "number" ? `${height}px` : height,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -266,7 +267,7 @@ export function CandleChart({
       ref={containerRef}
       style={{
         width: "100%",
-        height: "262px",
+        height: typeof height === "number" ? `${height}px` : height,
         position: "relative",
       }}
     />
