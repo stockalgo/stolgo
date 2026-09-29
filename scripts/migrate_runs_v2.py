@@ -22,7 +22,7 @@ from stolgo.report.exporters import export_run_v2
 from stolgo.report.quality import run_status
 from stolgo.report.robustness import robustness
 from stolgo.report.run_metrics import compute_run_metrics
-from stolgo.report.trade_schema import SourceMapping, normalize_trades
+from stolgo.report.trade_schema import SourceMapping, assign_trade_markets_and_lots, normalize_trades
 from stolgo.report.validate import fix_ist_labelled_utc, looks_like_ist_labelled_utc
 
 G1_RE = re.compile(
@@ -282,6 +282,8 @@ def migrate_run(
         price_cols = "none"
         struct = "short_strangle"
 
+    markets_list = meta.get("markets") or ([meta["market"]] if "market" in meta else ["NIFTY"])
+
     mapping = SourceMapping(
         price_columns=price_cols,
         structure=struct,
@@ -291,6 +293,7 @@ def migrate_run(
     )
 
     trades_v2, legs_v2 = normalize_trades(trades_df, mapping)
+    trades_v2 = assign_trade_markets_and_lots(trades_v2, markets_list)
 
     # Load OHLCV or Calendar
     ohlcv_path = backup_run_dir / "parquet" / "ohlcv.parquet"

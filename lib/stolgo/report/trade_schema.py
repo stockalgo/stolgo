@@ -347,3 +347,43 @@ def normalize_trades(
 
     res = res[ordered_cols]
     return res, legs_df
+
+
+def assign_trade_markets_and_lots(trades_df: pd.DataFrame, markets: list[str]) -> pd.DataFrame:
+    """Assign market and lots per trade based on lot sizes and markets list (Plan 03 R3)."""
+    if trades_df.empty:
+        return trades_df
+
+    res = trades_df.copy()
+    if len(markets) > 1:
+        # Mixed-market run
+        assigned_markets = []
+        assigned_lots = []
+        for q in res.get("qty", []):
+            if pd.isna(q):
+                assigned_markets.append("UNKNOWN")
+                assigned_lots.append(pd.NA)
+            elif q % 20 == 0 and q < 65:
+                assigned_markets.append("SENSEX")
+                assigned_lots.append(int(q // 20))
+            elif q % 65 == 0:
+                assigned_markets.append("NIFTY")
+                assigned_lots.append(int(q // 65))
+            else:
+                assigned_markets.append("UNKNOWN")
+                assigned_lots.append(pd.NA)
+        res["market"] = assigned_markets
+        res["lots"] = pd.Series(assigned_lots, dtype="Int64", index=res.index)
+    elif len(markets) == 1:
+        single_mkt = markets[0]
+        res["market"] = single_mkt
+        lot_sz = 20 if single_mkt == "SENSEX" else (65 if single_mkt == "NIFTY" else None)
+        if lot_sz and "qty" in res.columns:
+            lots = []
+            for q in res["qty"]:
+                if pd.notna(q) and lot_sz > 0 and math.isclose(q / lot_sz, round(q / lot_sz)):
+                    lots.append(int(round(q / lot_sz)))
+                else:
+                    lots.append(pd.NA)
+            res["lots"] = pd.Series(lots, dtype="Int64", index=res.index)
+    return res
