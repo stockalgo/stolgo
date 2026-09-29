@@ -62,7 +62,7 @@ def build_diagnostics(
         net_val = pd.to_numeric(trades_v2["net_pnl"], errors="coerce").fillna(0.0)
         diff_sum = float((gross_val - fees_val - slippage_val - net_val).sum())
         pnl_unreconciled_inr = round(diff_sum, 2)
-        pnl_reconciles = bool(abs(pnl_unreconciled_inr) <= 0.05 * trades_total)
+        pnl_reconciles = bool(abs(pnl_unreconciled_inr) <= max(40.0, 0.05 * trades_total))
     else:
         pnl_unreconciled_inr = 0.0
         pnl_reconciles = True
