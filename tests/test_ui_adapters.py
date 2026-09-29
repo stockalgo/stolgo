@@ -74,6 +74,7 @@ def test_run_summary_v2_and_detail_v2() -> None:
     assert summary["robustness"]["p_net_positive"] == 0.95
     assert summary["data_quality"]["trades_with_missing_data"] == 0
     assert summary["has"]["ohlcv"] is True
+    assert summary["migrated_changed_basis"] is False
 
     detail = adapters.run_detail_v2(manifest)
     assert "instrument" in detail

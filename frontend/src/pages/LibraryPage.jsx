@@ -116,8 +116,10 @@ export function LibraryPage() {
         sCounts[st] += 1;
       }
 
-      if (item.migrated_at) {
+      if (item.migrated_changed_basis) {
         migCount += 1;
+      }
+      if (item.migrated_at) {
         if (!latestMigrated || item.migrated_at > latestMigrated) {
           latestMigrated = item.migrated_at;
         }

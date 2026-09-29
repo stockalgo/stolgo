@@ -102,6 +102,7 @@ def run_summary_v2(manifest: dict) -> dict:
         },
         "created_at": manifest.get("created_at"),
         "migrated_at": manifest.get("migrated_at"),
+        "migrated_changed_basis": manifest.get("migrated_changed_basis", False),
     }
     return _clean(raw)
 

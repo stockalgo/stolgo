@@ -469,6 +469,7 @@ def migrate_run(
             extra_files[fname] = fpath
 
     migrated_at = dt.datetime.now(dt.timezone.utc).isoformat()
+    migrated_changed_basis = group_name in ("G1", "G2", "G4")
 
     ohlcv_mkt = meta.get("ohlcv_market")
     if not ohlcv_mkt and len(markets_list) == 1:
@@ -496,6 +497,7 @@ def migrate_run(
             extra_files=extra_files,
             created_at=manifest.get("created_at"),
             migrated_at=migrated_at,
+            migrated_changed_basis=migrated_changed_basis,
         )
 
     old_total_return = source_metrics.get("total_return")

@@ -104,6 +104,7 @@ def export_run_v2(
     extra_files: dict[str, Path] | None = None,
     created_at: str | None = None,
     migrated_at: str | None = None,
+    migrated_changed_basis: bool | None = None,
 ) -> dict[str, Any]:
     """Write run directory layout according to v2 specification (§2).
 
@@ -205,6 +206,8 @@ def export_run_v2(
     }
     if migrated_at:
         manifest["migrated_at"] = migrated_at
+    if migrated_changed_basis is not None:
+        manifest["migrated_changed_basis"] = bool(migrated_changed_basis)
 
     # Writing manifest with allow_nan=False raises ValueError on any NaN/Inf
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str, allow_nan=False))
