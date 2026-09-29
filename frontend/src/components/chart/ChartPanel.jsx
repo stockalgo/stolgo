@@ -235,6 +235,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
           <CandleChart
             candles={candles}
             trades={trades}
+            market={run?.has?.ohlcv_market || run?.instrument?.markets?.[0]}
             selectedTradeId={selectedTradeId}
             onSelectTrade={onSelectTrade}
             activeIndicators={activeIndicators}

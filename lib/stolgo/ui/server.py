@@ -107,8 +107,22 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         legs_df = pd.read_parquet(legs_path) if legs_path.is_file() else None
         ohlcv_path = run_dir / "parquet" / "ohlcv.parquet"
         ohlcv_df = pd.read_parquet(ohlcv_path) if ohlcv_path.is_file() else None
+
+        has_block = manifest.get("has", {})
+        ohlcv_market = has_block.get("ohlcv_market")
+        if not ohlcv_market:
+            markets = manifest.get("instrument", {}).get("markets", [])
+            if len(markets) == 1:
+                ohlcv_market = markets[0]
+
         try:
-            return adapters.trade_detail(trades_df, legs_df, ohlcv_df, trade_id)
+            return adapters.trade_detail(
+                trades_df,
+                legs_df,
+                ohlcv_df,
+                trade_id,
+                ohlcv_market=ohlcv_market,
+            )
         except KeyError:
             raise HTTPException(status_code=404, detail=f"trade {trade_id} not found")
 

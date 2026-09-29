@@ -216,6 +216,7 @@ export function RunChartPage() {
             <CandleChart
               candles={candles}
               trades={trades}
+              market={run?.has?.ohlcv_market || run?.instrument?.markets?.[0]}
               selectedTradeId={selectedTradeId}
               onSelectTrade={setSelectedTradeId}
               activeIndicators={activeIndicators}

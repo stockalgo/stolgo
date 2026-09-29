@@ -99,6 +99,7 @@ def export_run_v2(
     robustness: dict[str, Any],
     diagnostics: dict[str, Any],
     ohlcv: pd.DataFrame | None = None,
+    ohlcv_market: str | None = None,
     intraday_equity: pd.Series | pd.DataFrame | None = None,
     extra_files: dict[str, Path] | None = None,
     created_at: str | None = None,
@@ -167,15 +168,23 @@ def export_run_v2(
         raw_params=config.get("raw_params"),
     )
 
+    has_ohlcv = (ohlcv is not None and not ohlcv.empty) or (parquet_dir / "ohlcv.parquet").is_file()
     has_block = {
-        "ohlcv": (ohlcv is not None and not ohlcv.empty)
-        or (parquet_dir / "ohlcv.parquet").is_file(),
+        "ohlcv": has_ohlcv,
         "legs": (legs_v2 is not None and not legs_v2.empty)
         or (parquet_dir / "legs.parquet").is_file(),
         "intraday_equity": (intraday_equity is not None and not intraday_equity.empty)
         or (parquet_dir / "equity.parquet").is_file(),
         "audit": (tmp / "audit.html").is_file(),
     }
+    if has_ohlcv:
+        mkt = ohlcv_market
+        if not mkt:
+            mkts = instrument.get("markets", [])
+            if len(mkts) == 1:
+                mkt = mkts[0]
+        if mkt:
+            has_block["ohlcv_market"] = mkt
 
     manifest = {
         "schema_version": 2,

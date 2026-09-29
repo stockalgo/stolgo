@@ -286,6 +286,7 @@ def trade_detail(
     legs_df: pd.DataFrame | None,
     ohlcv: pd.DataFrame | None,
     trade_id: int,
+    ohlcv_market: str | None = None,
 ) -> dict:
     """Format single trade detail with optional legs and session bars as §4.6 response."""
     match = trades_df[trades_df["trade_id"] == trade_id]
@@ -307,8 +308,13 @@ def trade_detail(
             legs_rows = work_legs.to_dict(orient="records")
 
     bars: list[dict] = []
+    trade_market = trade_row.get("market")
+    market_matches = True
+    if ohlcv_market is not None and trade_market is not None and str(trade_market).strip() != "":
+        market_matches = (str(trade_market).strip().upper() == str(ohlcv_market).strip().upper())
+
     session_date = str(trade_row.get("session_date", ""))
-    if ohlcv is not None and not ohlcv.empty and session_date:
+    if market_matches and ohlcv is not None and not ohlcv.empty and session_date:
         work_ohlcv = ohlcv.copy()
         if not isinstance(work_ohlcv.index, pd.DatetimeIndex):
             if "timestamp" in work_ohlcv.columns:

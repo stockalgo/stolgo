@@ -63,6 +63,7 @@ def classify_run(run_id: str) -> tuple[str, dict[str, Any]]:
                     "dte": [0, 1, 2],
                     "structure": "short_strangle",
                     "lot_size": 65,
+                    "ohlcv_market": "NIFTY",
                 }
             )
         else:
@@ -449,6 +450,12 @@ def migrate_run(
 
     migrated_at = dt.datetime.now(dt.timezone.utc).isoformat()
 
+    ohlcv_mkt = meta.get("ohlcv_market")
+    if not ohlcv_mkt and len(markets_list) == 1:
+        ohlcv_mkt = markets_list[0]
+    elif not ohlcv_mkt and len(markets_list) > 1:
+        ohlcv_mkt = "NIFTY"
+
     if not dry_run:
         export_run_v2(
             target_run_dir,
@@ -464,6 +471,7 @@ def migrate_run(
             robustness=robustness_dict,
             diagnostics=diagnostics_dict,
             ohlcv=ohlcv_df,
+            ohlcv_market=ohlcv_mkt,
             intraday_equity=intraday_equity,
             extra_files=extra_files,
             created_at=manifest.get("created_at"),

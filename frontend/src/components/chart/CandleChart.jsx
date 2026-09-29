@@ -12,6 +12,7 @@ import { calculateSMA, calculateEMA, calculateBollingerBands } from "../../lib/i
 export function CandleChart({
   candles = [],
   trades = [],
+  market = null,
   selectedTradeId = null,
   onSelectTrade = null,
   activeIndicators = {},
@@ -151,6 +152,9 @@ export function CandleChart({
     const markers = [];
 
     for (const t of trades) {
+      if (market && t.market && t.market !== market) {
+        continue;
+      }
       let tTime = null;
       if (t.entry_ts) {
         tTime = typeof t.entry_ts === "number" ? t.entry_ts : Math.floor(new Date(t.entry_ts).getTime() / 1000);
@@ -199,7 +203,7 @@ export function CandleChart({
     } catch {
       // ignore
     }
-  }, [trades, selectedTradeId, candles]);
+  }, [trades, selectedTradeId, candles, market]);
 
   // Render indicator overlays
   useEffect(() => {

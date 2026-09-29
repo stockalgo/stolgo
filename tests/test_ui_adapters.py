@@ -175,5 +175,16 @@ def test_candles_and_trade_detail() -> None:
     assert len(detail["legs"]) == 2
     assert len(detail["bars"]) == 5
 
+    # With matching market
+    trades_df_mkt = trades_df.copy()
+    trades_df_mkt["market"] = "NIFTY"
+    detail_matching = adapters.trade_detail(trades_df_mkt, legs_df, ohlcv, trade_id=1, ohlcv_market="NIFTY")
+    assert len(detail_matching["bars"]) == 5
+
+    # With mismatched market (e.g. SENSEX trade with NIFTY bars)
+    trades_df_mkt["market"] = "SENSEX"
+    detail_mismatch = adapters.trade_detail(trades_df_mkt, legs_df, ohlcv, trade_id=1, ohlcv_market="NIFTY")
+    assert len(detail_mismatch["bars"]) == 0
+
     with pytest.raises(KeyError):
         adapters.trade_detail(trades_df, legs_df, ohlcv, trade_id=999)
