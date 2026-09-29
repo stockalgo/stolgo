@@ -84,6 +84,14 @@ export function pct(v, { dec = 1, signed = true } = {}) {
   return `${prefix}${num.toFixed(dec)}%`;
 }
 
+export function prob(v) {
+  if (isNil(v)) return "—";
+  const num = Number(v);
+  if (num >= 0.999) return ">99.9%";
+  if (num <= 0.001) return "<0.1%";
+  return pct(num, { dec: 1, signed: false });
+}
+
 export function ratio(v, dec = 2) {
   if (isNil(v)) return "—";
   const num = Number(v);

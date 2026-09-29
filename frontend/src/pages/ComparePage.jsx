@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { getRun, getDaily, listRuns } from "../api/endpoints.js";
 import { seriesColor } from "../lib/colors.js";
 import { isComparable, isBestComparableValue } from "../lib/verdict.js";
-import { inr, pct, ratio, sessionShort } from "../lib/format.js";
+import { inr, pct, ratio, sessionShort, prob } from "../lib/format.js";
 import { StatusBadge } from "../components/ui/StatusBadge.jsx";
 import { Banner } from "../components/ui/Banner.jsx";
 import { EmptyState } from "../components/ui/EmptyState.jsx";
@@ -575,7 +575,7 @@ export function ComparePage() {
                         : {}
                     }
                   >
-                    {pct(pVal, { signed: false })}
+                    {prob(pVal)}
                   </td>
                 );
               })}

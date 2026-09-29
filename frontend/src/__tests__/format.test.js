@@ -14,6 +14,7 @@ import {
   sessionLabel,
   sessionShort,
   formatMetric,
+  prob,
 } from "../lib/format.js";
 
 describe("format library (§5)", () => {
@@ -94,5 +95,17 @@ describe("format library (§5)", () => {
     expect(formatMetric("fees", 200, defs)).toBe("₹200");
     expect(formatMetric("sharpe", 1.25, defs)).toBe("1.25");
     expect(formatMetric("total_return", 0.05, defs)).toBe("+5.0%");
+  });
+
+  it("prob formats probabilities correctly (§Plan 03 R10)", () => {
+    expect(prob(0.99975)).toBe(">99.9%");
+    expect(prob(0.999)).toBe(">99.9%");
+    expect(prob(0.0005)).toBe("<0.1%");
+    expect(prob(0.001)).toBe("<0.1%");
+    expect(prob(0.854)).toBe("85.4%");
+    expect(prob(0.2425)).toBe("24.3%");
+    expect(prob(null)).toBe("—");
+    expect(prob(undefined)).toBe("—");
+    expect(prob(NaN)).toBe("—");
   });
 });

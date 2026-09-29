@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { StatusBadge } from "../ui/StatusBadge.jsx";
 import { marketColor } from "../../lib/colors.js";
-import { pct, ratio } from "../../lib/format.js";
+import { pct, ratio, prob } from "../../lib/format.js";
 
 export function RunsTable({
   runs = [],
@@ -273,9 +273,7 @@ export function RunsTable({
                   <td className={maxDdClass}>{pct(maxDdVal)}</td>
                   <td className="num">{ratio(run.metrics?.profit_factor)}</td>
                   <td className="num">
-                    {run.robustness?.p_net_positive != null
-                      ? pct(run.robustness.p_net_positive, { signed: false })
-                      : "—"}
+                    {prob(run.robustness?.p_net_positive)}
                   </td>
                 </tr>
               );

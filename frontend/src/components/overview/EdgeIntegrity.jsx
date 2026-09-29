@@ -2,7 +2,7 @@ import React from "react";
 import { Meter } from "../ui/Meter.jsx";
 import { RangeBand } from "../ui/RangeBand.jsx";
 import { KV } from "../ui/KV.jsx";
-import { inr, pct, ratio } from "../../lib/format.js";
+import { inr, pct, ratio, prob } from "../../lib/format.js";
 import { getAutoInsight } from "../../lib/verdict.js";
 
 export function EdgeIntegrity({ run }) {
@@ -16,7 +16,7 @@ export function EdgeIntegrity({ run }) {
 
   // P(net > 0)
   const pNetPos = rob.p_net_positive;
-  const pNetPosPct = pNetPos != null ? pct(pNetPos, { signed: false }) : "—";
+  const pNetPosPct = prob(pNetPos);
   const meterVal = pNetPos != null ? Math.round(pNetPos * 100) : 0;
 
   // PF 90% band
