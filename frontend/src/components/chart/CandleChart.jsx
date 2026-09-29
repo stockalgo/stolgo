@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   createChart,
   CandlestickSeries,
@@ -18,6 +18,7 @@ export function CandleChart({
   activeIndicators = {},
   onHoverBar = null,
   onVisibleRangeChange = null,
+  onTimeScaleChange = null,
   height = 262,
 }) {
   const containerRef = useRef(null);
@@ -28,6 +29,27 @@ export function CandleChart({
 
   const isTest = typeof process !== "undefined" && process.env?.NODE_ENV === "test";
   const [canvasSupported, setCanvasSupported] = useState(true);
+
+  const onTimeScaleChangeRef = useRef(onTimeScaleChange);
+  onTimeScaleChangeRef.current = onTimeScaleChange;
+
+  const emitTimeScaleChange = useCallback(() => {
+    if (!chartRef.current || !onTimeScaleChangeRef.current) return;
+    try {
+      const ts = chartRef.current.timeScale();
+      const fn = (time) => {
+        try {
+          return ts.timeToCoordinate(time);
+        } catch {
+          return null;
+        }
+      };
+      const w = ts.width ? ts.width() : containerRef.current?.clientWidth || 880;
+      onTimeScaleChangeRef.current(fn, w);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   // Initialize chart
   useEffect(() => {
@@ -99,6 +121,7 @@ export function CandleChart({
         if (range && onVisibleRangeChange) {
           onVisibleRangeChange(range);
         }
+        emitTimeScaleChange();
       });
 
       // Resize observer
@@ -107,9 +130,11 @@ export function CandleChart({
         const { width } = entries[0].contentRect;
         if (width > 0) {
           chart.applyOptions({ width });
+          emitTimeScaleChange();
         }
       });
       resizeObserver.observe(containerRef.current);
+      emitTimeScaleChange();
 
       return () => {
         resizeObserver.disconnect();
@@ -122,7 +147,7 @@ export function CandleChart({
       // In non-canvas environments (e.g. tests)
       setCanvasSupported(false);
     }
-  }, []);
+  }, [emitTimeScaleChange]);
 
   // Set candle data
   useEffect(() => {
@@ -136,6 +161,7 @@ export function CandleChart({
     candleSeriesRef.current.setData(sorted);
     if (chartRef.current) {
       chartRef.current.timeScale().fitContent();
+      emitTimeScaleChange();
     }
     // Set default hover readout to last candle
     if (sorted.length > 0) {

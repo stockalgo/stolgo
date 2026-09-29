@@ -1,62 +1,139 @@
 import React, { useMemo } from "react";
 import { inr } from "../../lib/format.js";
 
-export function PnlStepChart({ trades = [], visibleRange = null }) {
-  const { polylinePoints, zeroY, endSum, endLabelClass } = useMemo(() => {
-    // Filter trades in visible time range if specified
-    let filtered = trades;
-    if (visibleRange && visibleRange.from && visibleRange.to) {
-      filtered = trades.filter((t) => {
-        if (!t.session_date) return true;
-        const sTime = new Date(t.session_date).getTime() / 1000;
-        return sTime >= visibleRange.from && sTime <= visibleRange.to;
+const dtf = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" });
+
+export function PnlStepChart({
+  trades = [],
+  candles = [],
+  visibleRange = null,
+  timeToCoordinate = null,
+  timeScaleWidth = 880,
+}) {
+  const { polylinePoints, zeroY, endSum, endLabelClass, plotWidth, totalWidth } = useMemo(() => {
+    const plotW = Math.max(100, timeScaleWidth || 880);
+    const totalW = plotW + 60;
+
+    if (!trades || trades.length === 0) {
+      return {
+        polylinePoints: `0,27 ${plotW},27`,
+        zeroY: 27,
+        endSum: 0,
+        endLabelClass: "faint",
+        plotWidth: plotW,
+        totalWidth: totalW,
+      };
+    }
+
+    // 1. Group trade net_pnl by session_date
+    const pnlByDate = {};
+    for (const t of trades) {
+      if (t.session_date) {
+        pnlByDate[t.session_date] = (pnlByDate[t.session_date] || 0) + (t.net_pnl || 0);
+      }
+    }
+
+    // 2. Prepare series of sessions
+    // If candles are provided, use candle sessions for date alignment
+    let sessionPoints = [];
+    if (candles && candles.length > 0) {
+      const sortedCandles = [...candles]
+        .filter((c) => c && c.time)
+        .sort((a, b) => a.time - b.time);
+
+      let running = 0;
+      for (const c of sortedCandles) {
+        let dateStr = "";
+        try {
+          dateStr = dtf.format(new Date(c.time * 1000));
+        } catch {
+          dateStr = new Date(c.time * 1000).toISOString().slice(0, 10);
+        }
+        const dayPnl = pnlByDate[dateStr] || 0;
+        running += dayPnl;
+        sessionPoints.push({
+          time: c.time,
+          sessionDate: dateStr,
+          cumPnl: running,
+        });
+      }
+    } else {
+      // Fallback if no candles: sort trades by date/entry_ts
+      const sortedTrades = [...trades].sort((a, b) => {
+        const ta = a.session_date || a.entry_ts || 0;
+        const tb = b.session_date || b.entry_ts || 0;
+        return ta < tb ? -1 : 1;
       });
+      let running = 0;
+      for (const t of sortedTrades) {
+        running += t.net_pnl || 0;
+        sessionPoints.push({
+          time: t.entry_ts || (t.session_date ? new Date(t.session_date).getTime() / 1000 : null),
+          sessionDate: t.session_date || "",
+          cumPnl: running,
+        });
+      }
     }
 
-    if (filtered.length === 0) {
-      return { polylinePoints: "", zeroY: 27, endSum: 0, endLabelClass: "faint" };
+    if (sessionPoints.length === 0) {
+      return {
+        polylinePoints: `0,27 ${plotW},27`,
+        zeroY: 27,
+        endSum: 0,
+        endLabelClass: "faint",
+        plotWidth: plotW,
+        totalWidth: totalW,
+      };
     }
 
-    // Sort chronologically
-    const sorted = [...filtered].sort((a, b) => {
-      const ta = a.session_date || a.entry_ts || 0;
-      const tb = b.session_date || b.entry_ts || 0;
-      return ta < tb ? -1 : 1;
-    });
-
-    let running = 0;
-    const series = [];
-    for (const t of sorted) {
-      running += t.net_pnl || 0;
-      series.push(running);
-    }
-
-    const minVal = Math.min(0, ...series);
-    const maxVal = Math.max(0, ...series);
+    const cumValues = sessionPoints.map((s) => s.cumPnl);
+    const minVal = Math.min(0, ...cumValues);
+    const maxVal = Math.max(0, ...cumValues);
     const valRange = maxVal - minVal || 1;
 
     // Scale Y into [46, 8] (inverted SVG: 8 is top, 46 is bottom)
     const getY = (val) => 46 - ((val - minVal) / valRange) * 38;
     const zeroLineY = getY(0);
 
-    // Scale X into [0, 880]
-    const xStep = 880 / Math.max(1, series.length - 1);
-
     const pts = [];
-    for (let i = 0; i < series.length; i++) {
-      const curX = i * xStep;
-      const curY = getY(series[i]);
-      if (i === 0) {
-        pts.push(`0,${zeroLineY.toFixed(1)}`);
-        pts.push(`0,${curY.toFixed(1)}`);
-      } else {
-        const prevX = (i - 1) * xStep;
-        pts.push(`${curX.toFixed(1)},${getY(series[i - 1]).toFixed(1)}`);
-        pts.push(`${curX.toFixed(1)},${curY.toFixed(1)}`);
+    const n = sessionPoints.length;
+    let prevX = null;
+    let prevY = zeroLineY;
+
+    for (let i = 0; i < n; i++) {
+      const sp = sessionPoints[i];
+      let curX = null;
+      if (typeof timeToCoordinate === "function" && sp.time) {
+        curX = timeToCoordinate(sp.time);
       }
+      if (curX === null || isNaN(curX)) {
+        curX = (i / Math.max(1, n - 1)) * plotW;
+      }
+      const curY = getY(sp.cumPnl);
+
+      if (i === 0) {
+        if (curX > 0) {
+          pts.push(`0,${zeroLineY.toFixed(1)}`);
+        }
+        pts.push(`${curX.toFixed(1)},${zeroLineY.toFixed(1)}`);
+        if (curY !== zeroLineY) {
+          pts.push(`${curX.toFixed(1)},${curY.toFixed(1)}`);
+        }
+      } else {
+        pts.push(`${curX.toFixed(1)},${prevY.toFixed(1)}`);
+        if (curY !== prevY) {
+          pts.push(`${curX.toFixed(1)},${curY.toFixed(1)}`);
+        }
+      }
+      prevX = curX;
+      prevY = curY;
     }
 
-    const finalSum = series[series.length - 1];
+    if (prevX !== null && prevX < plotW) {
+      pts.push(`${plotW.toFixed(1)},${prevY.toFixed(1)}`);
+    }
+
+    const finalSum = sessionPoints[sessionPoints.length - 1].cumPnl;
     const lblClass = finalSum >= 0 ? "pos" : "neg";
 
     return {
@@ -64,8 +141,10 @@ export function PnlStepChart({ trades = [], visibleRange = null }) {
       zeroY: zeroLineY,
       endSum: finalSum,
       endLabelClass: lblClass,
+      plotWidth: plotW,
+      totalWidth: totalW,
     };
-  }, [trades, visibleRange]);
+  }, [trades, candles, timeToCoordinate, timeScaleWidth]);
 
   const strokeColor = endSum >= 0 ? "var(--pos, #3ddc97)" : "var(--neg, #e5484d)";
 
@@ -108,9 +187,9 @@ export function PnlStepChart({ trades = [], visibleRange = null }) {
       </div>
 
       {/* 54px Step Chart */}
-      <svg viewBox="0 0 940 54" width="100%" height="54" style={{ display: "block" }}>
+      <svg viewBox={`0 0 ${totalWidth} 54`} width="100%" height="54" style={{ display: "block", overflow: "hidden" }}>
         {/* Zero baseline */}
-        <line x1="0" x2="880" y1={zeroY} y2={zeroY} stroke="var(--line, #22272d)" />
+        <line x1="0" x2={plotWidth} y1={zeroY} y2={zeroY} stroke="var(--line, #22272d)" />
 
         {/* Step polyline */}
         {polylinePoints && (
@@ -125,7 +204,7 @@ export function PnlStepChart({ trades = [], visibleRange = null }) {
 
         {/* End sum readout */}
         <text
-          x="936"
+          x={totalWidth - 4}
           y={Math.max(12, Math.min(48, zeroY - 14))}
           textAnchor="end"
           fill={strokeColor}

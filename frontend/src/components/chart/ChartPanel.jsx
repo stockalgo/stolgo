@@ -40,6 +40,11 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
   const [activeIndicators, setActiveIndicators] = useState({});
   const [hoveredBar, setHoveredBar] = useState(null);
   const [visibleRange, setVisibleRange] = useState(null);
+  const [timeScaleInfo, setTimeScaleInfo] = useState({ fn: null, width: 880 });
+
+  const handleTimeScaleChange = useCallback((fn, width) => {
+    setTimeScaleInfo({ fn, width });
+  }, []);
 
   // Equity view state
   const [range, setRange] = useState("ALL");
@@ -241,8 +246,15 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
             activeIndicators={activeIndicators}
             onHoverBar={setHoveredBar}
             onVisibleRangeChange={setVisibleRange}
+            onTimeScaleChange={handleTimeScaleChange}
           />
-          <PnlStepChart trades={trades} visibleRange={visibleRange} />
+          <PnlStepChart
+            trades={trades}
+            candles={candles}
+            visibleRange={visibleRange}
+            timeToCoordinate={timeScaleInfo.fn}
+            timeScaleWidth={timeScaleInfo.width}
+          />
         </div>
       ) : (
         <div>
