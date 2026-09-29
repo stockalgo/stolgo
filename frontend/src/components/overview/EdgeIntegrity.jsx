@@ -121,7 +121,7 @@ export function EdgeIntegrity({ run }) {
         />
         <KV
           label="Fees ÷ gross profit"
-          value={feeRatio != null ? pct(feeRatio) : "—"}
+          value={feeRatio != null ? pct(feeRatio, { signed: false }) : "—"}
           className={feeRatio != null && feeRatio > 0.4 ? "accent" : ""}
         />
         <KV
