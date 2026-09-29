@@ -40,3 +40,28 @@ export function seriesColor(slotIndex) {
   };
   return readCssVar(`--series-${i}`, fallbacks[i]);
 }
+
+export const COLORS = {
+  pos: "#3ddc97",
+  neg: "#e5484d",
+  negText: "#ff7a7e",
+  accent: "#f5a524",
+  info: "#5ab0ff",
+  purple: "#c792ff",
+  text1: "#e6e8ea",
+  text2: "#c9ced3",
+  text3: "#a7aeb5",
+  textMuted: "#8a929b",
+  textFaint: "#6b737c",
+  line: "#1b1f24",
+  lineStrong: "#2a3037",
+  bgApp: "#0a0c0e",
+  bgPanel: "#0d1013",
+  bgRaised: "#14181c",
+  marketOther: "#9aa3b2",
+  marketNifty0: "#7cc4ff",
+  marketNifty1: "#2f6fd6",
+  marketSensex0: "#ffb35c",
+  marketSensex1: "#c4561b",
+};
+

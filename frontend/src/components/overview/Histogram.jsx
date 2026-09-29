@@ -116,7 +116,7 @@ export function Histogram({ trades = [] }) {
           >
             {bins.map((bin, i) => {
               const heightPct = bin.count > 0 ? Math.max(2, (bin.count / maxCount) * 110) : 0;
-              const barColor = bin.isNegative ? "var(--neg, #e5484d)" : "var(--pos, #3ddc97)";
+              const barColor = bin.isNegative ? "var(--neg)" : "var(--pos)";
 
               return (
                 <div

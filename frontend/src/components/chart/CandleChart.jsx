@@ -8,6 +8,7 @@ import {
   createSeriesMarkers,
 } from "lightweight-charts";
 import { calculateSMA, calculateEMA, calculateBollingerBands } from "../../lib/indicators.js";
+import { COLORS } from "../../lib/colors.js";
 
 export function CandleChart({
   candles = [],
@@ -61,7 +62,7 @@ export function CandleChart({
         height: typeof height === "number" ? height : containerRef.current.clientHeight || 262,
         layout: {
           background: { type: ColorType.Solid, color: "transparent" },
-          textColor: "#9aa3b2",
+          textColor: COLORS.marketOther,
           fontFamily: "IBM Plex Mono, monospace",
           fontSize: 10,
         },
@@ -87,12 +88,12 @@ export function CandleChart({
       });
 
       const candleSeries = chart.addSeries(CandlestickSeries, {
-        upColor: "#3ddc97",
-        downColor: "#e5484d",
-        borderUpColor: "#3ddc97",
-        borderDownColor: "#e5484d",
-        wickUpColor: "#3ddc97",
-        wickDownColor: "#e5484d",
+        upColor: COLORS.pos,
+        downColor: COLORS.neg,
+        borderUpColor: COLORS.pos,
+        borderDownColor: COLORS.neg,
+        wickUpColor: COLORS.pos,
+        wickDownColor: COLORS.neg,
       });
 
       chartRef.current = chart;
@@ -209,7 +210,7 @@ export function CandleChart({
         markers.push({
           time: closestTime,
           position: "belowBar",
-          color: isSelected ? "var(--accent, #f5a524)" : isWin ? "#3ddc97" : "#e5484d",
+          color: isSelected ? COLORS.accent : isWin ? COLORS.pos : COLORS.neg,
           shape: "circle",
           text: "",
           id: t.trade_id,
@@ -260,11 +261,11 @@ export function CandleChart({
       indicatorSeriesRef.current.push(s);
     };
 
-    if (activeIndicators.ema20) addLine(calculateEMA(sortedCandles, 20), "#5ab0ff");
-    if (activeIndicators.ema50) addLine(calculateEMA(sortedCandles, 50), "#f5a524");
-    if (activeIndicators.ema200) addLine(calculateEMA(sortedCandles, 200), "#c792ff");
-    if (activeIndicators.sma20) addLine(calculateSMA(sortedCandles, 20), "#3ddc97");
-    if (activeIndicators.sma50) addLine(calculateSMA(sortedCandles, 50), "#ff7a7e");
+    if (activeIndicators.ema20) addLine(calculateEMA(sortedCandles, 20), COLORS.info);
+    if (activeIndicators.ema50) addLine(calculateEMA(sortedCandles, 50), COLORS.accent);
+    if (activeIndicators.ema200) addLine(calculateEMA(sortedCandles, 200), COLORS.purple);
+    if (activeIndicators.sma20) addLine(calculateSMA(sortedCandles, 20), COLORS.pos);
+    if (activeIndicators.sma50) addLine(calculateSMA(sortedCandles, 50), COLORS.negText);
 
     if (activeIndicators.bollinger) {
       const bb = calculateBollingerBands(sortedCandles, 20, 2);

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { COLORS } from "../../lib/colors.js";
 
 export function IndicatorsMenu({ activeIndicators = {}, onToggleIndicator, hasVolume = false }) {
   const [open, setOpen] = useState(false);
@@ -19,14 +20,14 @@ export function IndicatorsMenu({ activeIndicators = {}, onToggleIndicator, hasVo
   }, [open]);
 
   const indicators = [
-    { key: "ema20", label: "EMA 20", color: "#5ab0ff" },
-    { key: "ema50", label: "EMA 50", color: "#f5a524" },
-    { key: "ema200", label: "EMA 200", color: "#c792ff" },
-    { key: "sma20", label: "SMA 20", color: "#3ddc97" },
-    { key: "sma50", label: "SMA 50", color: "#ff7a7e" },
-    { key: "bollinger", label: "Bollinger Bands (20, 2)", color: "#7cc4ff" },
-    { key: "rsi", label: "RSI (14)", color: "#e6e8ea" },
-    ...(hasVolume ? [{ key: "volume_ma", label: "Volume MA (20)", color: "#9aa3b2" }] : []),
+    { key: "ema20", label: "EMA 20", color: COLORS.info },
+    { key: "ema50", label: "EMA 50", color: COLORS.accent },
+    { key: "ema200", label: "EMA 200", color: COLORS.purple },
+    { key: "sma20", label: "SMA 20", color: COLORS.pos },
+    { key: "sma50", label: "SMA 50", color: COLORS.negText },
+    { key: "bollinger", label: "Bollinger Bands (20, 2)", color: COLORS.marketNifty0 },
+    { key: "rsi", label: "RSI (14)", color: COLORS.text1 },
+    ...(hasVolume ? [{ key: "volume_ma", label: "Volume MA (20)", color: COLORS.marketOther }] : []),
   ];
 
   const activeCount = Object.values(activeIndicators).filter(Boolean).length;
@@ -47,8 +48,8 @@ export function IndicatorsMenu({ activeIndicators = {}, onToggleIndicator, hasVo
             position: "absolute",
             top: "calc(100% + 4px)",
             left: 0,
-            background: "var(--bg-overlay, #161b21)",
-            border: "1px solid var(--line, #2a3650)",
+            background: "var(--bg-overlay)",
+            border: "1px solid var(--line)",
             borderRadius: "6px",
             padding: "8px",
             minWidth: "200px",

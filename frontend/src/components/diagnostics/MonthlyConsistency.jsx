@@ -90,7 +90,7 @@ export function MonthlyConsistency({ run, monthly = [] }) {
                   className="hbar__fill"
                   style={{
                     width: `${((d.count / maxDecision) * 100).toFixed(1)}%`,
-                    background: "var(--text-3, #a7aeb5)",
+                    background: "var(--text-3)",
                   }}
                 />
               </div>

@@ -88,7 +88,7 @@ export function EquityChart({ daily = [], capital = 0, trades = [], range = "ALL
           x2="940"
           y1={zeroY.toFixed(1)}
           y2={zeroY.toFixed(1)}
-          stroke="var(--line-strong, #2a3037)"
+          stroke="var(--line-strong)"
           strokeDasharray="3 4"
         />
 
@@ -96,7 +96,7 @@ export function EquityChart({ daily = [], capital = 0, trades = [], range = "ALL
         {polygonPoints && (
           <polygon
             points={polygonPoints}
-            fill="var(--pos, #3ddc97)"
+            fill="var(--pos)"
             fillOpacity="0.08"
           />
         )}
@@ -106,7 +106,7 @@ export function EquityChart({ daily = [], capital = 0, trades = [], range = "ALL
           <polyline
             points={polylinePoints}
             fill="none"
-            stroke="var(--pos, #3ddc97)"
+            stroke="var(--pos)"
             strokeWidth="1.6"
             strokeLinejoin="round"
           />
@@ -119,8 +119,8 @@ export function EquityChart({ daily = [], capital = 0, trades = [], range = "ALL
             cx={m.cx.toFixed(1)}
             cy={m.cy.toFixed(1)}
             r="5.5"
-            fill="var(--bg-app, #0d1013)"
-            stroke="var(--accent, #f5a524)"
+            fill="var(--bg-app)"
+            stroke="var(--accent)"
             strokeWidth="2"
           >
             <title>

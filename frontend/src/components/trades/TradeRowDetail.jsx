@@ -140,7 +140,7 @@ export function TradeRowDetail({ runId, trade }) {
         </div>
         <div
           style={{
-            background: "#0d1013",
+            background: "var(--bg-panel)",
             border: "1px solid var(--line)",
             borderRadius: "8px",
             overflow: "hidden",

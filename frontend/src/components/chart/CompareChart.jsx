@@ -149,14 +149,14 @@ export function CompareChart({ runsWithDaily = [], metricMode = "% return" }) {
                 x2="990"
                 y1={y}
                 y2={y}
-                stroke="#14181c"
+                stroke="var(--bg-raised)"
                 strokeWidth="1"
               />
               <text
                 x="44"
                 y={y + 3}
                 textAnchor="end"
-                fill="#6b737c"
+                fill="var(--text-faint)"
                 fontSize="10"
                 fontFamily="var(--font-mono, IBM Plex Mono)"
               >
@@ -174,13 +174,13 @@ export function CompareChart({ runsWithDaily = [], metricMode = "% return" }) {
               x2={ym.x}
               y1="0"
               y2="242"
-              stroke="#14181c"
+              stroke="var(--bg-raised)"
               strokeWidth="1"
             />
             <text
               x={ym.x + 4}
               y="256"
-              fill="#6b737c"
+              fill="var(--text-faint)"
               fontSize="10"
               fontFamily="var(--font-mono, IBM Plex Mono)"
             >
@@ -195,7 +195,7 @@ export function CompareChart({ runsWithDaily = [], metricMode = "% return" }) {
           x2="990"
           y1={zeroY}
           y2={zeroY}
-          stroke="#2a3037"
+          stroke="var(--line-strong)"
           strokeWidth="1.2"
         />
 
@@ -238,14 +238,14 @@ export function CompareChart({ runsWithDaily = [], metricMode = "% return" }) {
             x2="990"
             y1="4.0"
             y2="4.0"
-            stroke="#2a3037"
+            stroke="var(--line-strong)"
             strokeWidth="1"
           />
           <text
             x="44"
             y="61.7"
             textAnchor="end"
-            fill="#6b737c"
+            fill="var(--text-faint)"
             fontSize="10"
             fontFamily="var(--font-mono, IBM Plex Mono)"
           >

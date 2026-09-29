@@ -146,7 +146,7 @@ export function KitPage() {
             <Chip selected as="button">
               Selected
             </Chip>
-            <Chip dotColor="#7cc4ff">NIFTY 0-DTE</Chip>
+            <Chip dotColor="var(--market-nifty-0)">NIFTY 0-DTE</Chip>
           </div>
 
           <div className="eyebrow" style={{ margin: "16px 0 8px" }}>
@@ -271,10 +271,10 @@ export function KitPage() {
               <td className="num pos">+₹1,155</td>
               <td className="muted">36px height</td>
             </tr>
-            <tr style={{ background: "#11151a" }}>
+            <tr style={{ background: "var(--bg-raised)" }}>
               <td>Hover</td>
               <td className="num neg">−₹902</td>
-              <td className="muted">#11151a</td>
+              <td className="muted">var(--bg-raised)</td>
             </tr>
             <tr aria-selected="true">
               <td>Selected</td>

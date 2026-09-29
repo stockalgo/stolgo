@@ -41,7 +41,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
     const candles = bars.map((b, i) => {
       const cx = getX(i);
       const isUp = (b.close ?? 0) >= (b.open ?? 0);
-      const color = isUp ? "var(--pos, #3ddc97)" : "var(--neg, #e5484d)";
+      const color = isUp ? "var(--pos)" : "var(--neg)";
       const topY = getY(Math.max(b.open, b.close));
       const botY = getY(Math.min(b.open, b.close));
       const bodyH = Math.max(1.5, botY - topY);
@@ -137,7 +137,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         y={0}
         width={holdingW}
         height={chartH}
-        fill="var(--accent, #f5a524)"
+        fill="var(--accent)"
         fillOpacity="0.05"
       />
 
@@ -149,14 +149,14 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
             x2={chartW}
             y1={ceY}
             y2={ceY}
-            stroke="var(--neg-text, #ff7a7e)"
+            stroke="var(--neg-text)"
             strokeDasharray="4 3"
           />
           <text
             x={width - 2}
             y={ceY + 3}
             textAnchor="end"
-            fill="var(--neg-text, #ff7a7e)"
+            fill="var(--neg-text)"
             fontSize="10"
             fontFamily="var(--font-mono, IBM Plex Mono)"
           >
@@ -173,14 +173,14 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
             x2={chartW}
             y1={peY}
             y2={peY}
-            stroke="var(--info, #5ab0ff)"
+            stroke="var(--info)"
             strokeDasharray="4 3"
           />
           <text
             x={width - 2}
             y={peY + 3}
             textAnchor="end"
-            fill="var(--info, #5ab0ff)"
+            fill="var(--info)"
             fontSize="10"
             fontFamily="var(--font-mono, IBM Plex Mono)"
           >
@@ -218,14 +218,14 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         x2={entryX}
         y1={0}
         y2={chartH}
-        stroke="var(--accent, #f5a524)"
+        stroke="var(--accent)"
         strokeWidth="1.2"
       />
       <text
         x={Math.max(28, Math.min(width - 28, entryX))}
         y={height - 6}
         textAnchor="middle"
-        fill="var(--accent, #f5a524)"
+        fill="var(--accent)"
         fontSize="10"
         fontFamily="var(--font-mono, IBM Plex Mono)"
       >
@@ -238,14 +238,14 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         x2={exitX}
         y1={0}
         y2={chartH}
-        stroke="var(--accent, #f5a524)"
+        stroke="var(--accent)"
         strokeWidth="1.2"
       />
       <text
         x={Math.max(28, Math.min(width - 28, exitX))}
         y={height - 6}
         textAnchor="middle"
-        fill="var(--accent, #f5a524)"
+        fill="var(--accent)"
         fontSize="10"
         fontFamily="var(--font-mono, IBM Plex Mono)"
       >

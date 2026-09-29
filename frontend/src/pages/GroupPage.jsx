@@ -457,7 +457,7 @@ export function GroupPage() {
                 width: 44,
                 height: 8,
                 borderRadius: 2,
-                background: "linear-gradient(90deg,#e07a45,#1a2233,#5ab0ff)",
+                background: "linear-gradient(90deg, var(--market-sensex-1), var(--bg-raised), var(--info))",
               }}
             ></span>
             {gridExtremes.minStr} … {gridExtremes.maxStr} · diverging blue/orange

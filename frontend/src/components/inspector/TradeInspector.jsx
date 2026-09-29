@@ -136,7 +136,7 @@ export function TradeInspector({
                 gap: 0,
                 justifyContent: "center",
                 background: isSelected ? "var(--bg-active)" : "transparent",
-                borderColor: isSelected ? "#3a424b" : "var(--line)",
+                borderColor: isSelected ? "var(--line-strong)" : "var(--line)",
               }}
               onClick={() => onSelectTrade?.(t.trade_id)}
             >

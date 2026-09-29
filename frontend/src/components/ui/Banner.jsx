@@ -16,7 +16,7 @@ export function Banner({
     defaultStyle = {
       borderColor: "rgba(90, 176, 255, 0.35)",
       background: "var(--info-bg)",
-      color: "#b9dcff",
+      color: "var(--info)",
     };
   }
 

@@ -59,15 +59,15 @@ export function LibraryScatter({ runs = [] }) {
             y="12"
             width="121.1"
             height="77.9"
-            fill="#7cc4ff"
+            fill="var(--market-nifty-0)"
             fillOpacity=".05"
-            stroke="#7cc4ff"
+            stroke="var(--market-nifty-0)"
             strokeOpacity=".25"
             strokeDasharray="3 4"
           />
 
           {/* Zero return line */}
-          <line x1="44" x2="710" y1="89.9" y2="89.9" stroke="var(--line, #2a3650)" />
+          <line x1="44" x2="710" y1="89.9" y2="89.9" stroke="var(--line)" />
 
           {/* X ticks */}
           {xTicks.map((t) => (
@@ -76,7 +76,7 @@ export function LibraryScatter({ runs = [] }) {
               x={t.x}
               y={322}
               textAnchor="middle"
-              fill="var(--text-3, #6b737c)"
+              fill="var(--text-3)"
               fontSize="10"
               fontFamily="var(--font-mono, IBM Plex Mono)"
             >
@@ -91,7 +91,7 @@ export function LibraryScatter({ runs = [] }) {
               x={36}
               y={t.y}
               textAnchor="end"
-              fill="var(--text-3, #6b737c)"
+              fill="var(--text-3)"
               fontSize="10"
               fontFamily="var(--font-mono, IBM Plex Mono)"
             >
@@ -138,13 +138,13 @@ export function LibraryScatter({ runs = [] }) {
               position: "fixed",
               left: tooltip.x + 12,
               top: tooltip.y + 12,
-              background: "var(--bg-overlay, #1b2028)",
-              border: "1px solid var(--line, #2a3650)",
+              background: "var(--bg-overlay)",
+              border: "1px solid var(--line)",
               borderRadius: "4px",
               padding: "8px 12px",
               fontSize: "12px",
               lineHeight: 1.4,
-              color: "var(--text-1, #e6e8ea)",
+              color: "var(--text-1)",
               pointerEvents: "none",
               zIndex: 1000,
               boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
@@ -154,7 +154,7 @@ export function LibraryScatter({ runs = [] }) {
             <div style={{ fontWeight: 600, marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {tooltip.run.name || tooltip.run.id}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 8px", fontSize: "11px", color: "var(--text-2, #9aa3b2)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "auto auto", gap: "2px 8px", fontSize: "11px", color: "var(--text-2)" }}>
               <span>Return:</span>
               <span className="mono" style={{ textAlign: "right", color: (tooltip.run.metrics?.total_return ?? 0) >= 0 ? "var(--pos)" : "var(--neg)" }}>
                 {pct(tooltip.run.metrics?.total_return)}
@@ -179,23 +179,23 @@ export function LibraryScatter({ runs = [] }) {
       {/* Legend chips */}
       <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "6px" }}>
         <span className="chip">
-          <span className="dot" style={{ background: "#7cc4ff" }}></span>
+          <span className="dot" style={{ background: "var(--market-nifty-0)" }}></span>
           NIFTY 0-DTE
         </span>
         <span className="chip">
-          <span className="dot" style={{ background: "#2f6fd6" }}></span>
+          <span className="dot" style={{ background: "var(--market-nifty-1)" }}></span>
           NIFTY 1-DTE
         </span>
         <span className="chip">
-          <span className="dot" style={{ background: "#ffb35c" }}></span>
+          <span className="dot" style={{ background: "var(--market-sensex-0)" }}></span>
           SENSEX 0-DTE
         </span>
         <span className="chip">
-          <span className="dot" style={{ background: "#c4561b" }}></span>
+          <span className="dot" style={{ background: "var(--market-sensex-1)" }}></span>
           SENSEX 1-DTE
         </span>
         <span className="chip">
-          <span className="dot" style={{ background: "#9aa3b2" }}></span>
+          <span className="dot" style={{ background: "var(--market-other)" }}></span>
           Other / mixed
         </span>
         <span className="chip" style={{ borderStyle: "dashed", borderColor: "rgba(124, 196, 255, 0.35)" }}>

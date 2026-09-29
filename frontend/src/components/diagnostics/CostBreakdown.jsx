@@ -125,7 +125,7 @@ export function CostBreakdown({ run, trades = [] }) {
                 top: 0,
                 bottom: 0,
                 borderRadius: "3px",
-                background: "#3ddc97",
+                background: "var(--pos)",
               }}
             />
           </div>
@@ -160,7 +160,7 @@ export function CostBreakdown({ run, trades = [] }) {
                 top: 0,
                 bottom: 0,
                 borderRadius: "3px",
-                background: "#e5484d",
+                background: "var(--neg)",
               }}
             />
           </div>
@@ -198,7 +198,7 @@ export function CostBreakdown({ run, trades = [] }) {
                   top: 0,
                   bottom: 0,
                   borderRadius: "3px",
-                  background: "#f5a524",
+                  background: "var(--warn)",
                 }}
               />
             </div>
@@ -245,7 +245,7 @@ export function CostBreakdown({ run, trades = [] }) {
                 top: 0,
                 bottom: 0,
                 borderRadius: "3px",
-                background: "#e6e8ea",
+                background: "var(--text-1)",
               }}
             />
           </div>

@@ -118,7 +118,7 @@ export function MonthlyHeatmap({ monthly = [] }) {
             width: "36px",
             height: "8px",
             borderRadius: "2px",
-            background: "linear-gradient(90deg, var(--neg, #e5484d), #111418, var(--pos, #3ddc97))",
+            background: "linear-gradient(90deg, var(--neg), var(--bg-raised), var(--pos))",
             flexShrink: 0,
           }}
         />

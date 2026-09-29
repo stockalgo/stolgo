@@ -353,7 +353,7 @@ export function LibraryPage() {
           style={{
             borderColor: "rgba(90,176,255,.35)",
             background: "var(--info-bg, rgba(90,176,255,.08))",
-            color: "#b9dcff",
+            color: "var(--info)",
             marginBottom: "16px",
           }}
         >

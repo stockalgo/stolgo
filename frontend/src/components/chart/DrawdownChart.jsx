@@ -84,7 +84,7 @@ export function DrawdownChart({ daily = [], run = null, range = "ALL" }) {
         {polygonPoints && (
           <polygon
             points={polygonPoints}
-            fill="var(--neg, #e5484d)"
+            fill="var(--neg)"
             fillOpacity="0.28"
           />
         )}
@@ -92,7 +92,7 @@ export function DrawdownChart({ daily = [], run = null, range = "ALL" }) {
           <polyline
             points={polylinePoints}
             fill="none"
-            stroke="var(--neg, #e5484d)"
+            stroke="var(--neg)"
             strokeWidth="1.6"
             strokeLinejoin="round"
           />

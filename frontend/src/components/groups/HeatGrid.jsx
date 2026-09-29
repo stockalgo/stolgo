@@ -12,7 +12,7 @@ export function HeatGrid({
   const getCellStyle = (cell) => {
     if (!cell || cell.count === 0) {
       return {
-        bg: "#111418",
+        bg: "var(--bg-raised)",
         color: "var(--text-3)",
         label: "—",
         count: 0,
@@ -48,7 +48,7 @@ export function HeatGrid({
     const bg = isPos
       ? `rgba(90, 176, 255, ${alpha.toFixed(2)})`
       : `rgba(224, 122, 69, ${alpha.toFixed(2)})`;
-    const color = alpha > 0.6 ? "#0a0c0e" : "#e6e8ea";
+    const color = alpha > 0.6 ? "var(--bg-app)" : "var(--text-1)";
 
     return { bg, color, label, count: cell.count };
   };

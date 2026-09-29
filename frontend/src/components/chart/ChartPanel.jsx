@@ -90,7 +90,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
 
     const fmt = (v) => (v != null ? Math.round(v).toLocaleString() : "—");
     const isUp = (hoveredBar.close ?? 0) >= (hoveredBar.open ?? 0);
-    const closeColor = isUp ? "var(--pos, #3ddc97)" : "var(--neg, #e5484d)";
+    const closeColor = isUp ? "var(--pos)" : "var(--neg)";
 
     return (
       <span className="mono" style={{ fontSize: "12px", color: "var(--text-3)" }}>
@@ -211,7 +211,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
                   width: "9px",
                   height: "9px",
                   borderRadius: "50%",
-                  border: "2px solid var(--accent, #f5a524)",
+                  border: "2px solid var(--accent)",
                 }}
               />
               Top 5 trades

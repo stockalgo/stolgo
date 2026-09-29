@@ -78,7 +78,7 @@ export function ExitReasons({ run, trades = [] }) {
                   className="hbar__fill"
                   style={{
                     width: `${widthPct}%`,
-                    background: isData ? "var(--accent, #f5a524)" : "var(--text-3, #a7aeb5)",
+                    background: isData ? "var(--accent)" : "var(--text-3)",
                   }}
                 />
               </div>

@@ -146,7 +146,7 @@ export function PnlStepChart({
     };
   }, [trades, candles, timeToCoordinate, timeScaleWidth]);
 
-  const strokeColor = endSum >= 0 ? "var(--pos, #3ddc97)" : "var(--neg, #e5484d)";
+  const strokeColor = endSum >= 0 ? "var(--pos)" : "var(--neg)";
 
   return (
     <div>
@@ -168,7 +168,7 @@ export function PnlStepChart({
               width: "8px",
               height: "8px",
               borderRadius: "50%",
-              background: "var(--pos, #3ddc97)",
+              background: "var(--pos)",
             }}
           />
           winning expiry
@@ -179,7 +179,7 @@ export function PnlStepChart({
               width: "8px",
               height: "8px",
               borderRadius: "50%",
-              background: "var(--neg, #e5484d)",
+              background: "var(--neg)",
             }}
           />
           losing expiry · click to inspect
@@ -189,7 +189,7 @@ export function PnlStepChart({
       {/* 54px Step Chart */}
       <svg viewBox={`0 0 ${totalWidth} 54`} width="100%" height="54" style={{ display: "block", overflow: "hidden" }}>
         {/* Zero baseline */}
-        <line x1="0" x2={plotWidth} y1={zeroY} y2={zeroY} stroke="var(--line, #22272d)" />
+        <line x1="0" x2={plotWidth} y1={zeroY} y2={zeroY} stroke="var(--line)" />
 
         {/* Step polyline */}
         {polylinePoints && (
