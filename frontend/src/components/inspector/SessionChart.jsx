@@ -27,12 +27,15 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
     const maxDomain = maxP + pMargin;
     const rangeP = maxDomain - minDomain || 1;
 
-    // SVG coordinates: usable height for bars is 156 (leaving 18px at bottom for labels)
-    const getY = (p) => 156 - ((p - minDomain) / rangeP) * 148;
+    const chartH = height - 20;
+    const chartW = width - 55;
+
+    // SVG coordinates: usable height for bars is chartH (leaving 20px at bottom for labels)
+    const getY = (p) => chartH - ((p - minDomain) / rangeP) * (chartH - 12);
 
     const n = bars.length;
-    // usable width for candles is 465 (leaving 55px on right for strike text)
-    const getX = (i) => 14 + (n > 1 ? (i / (n - 1)) * 440 : 220);
+    // usable width for candles is chartW (leaving 55px on right for strike text)
+    const getX = (i) => 14 + (n > 1 ? (i / (n - 1)) * (chartW - 28) : chartW / 2);
 
     // Candle bar elements
     const candles = bars.map((b, i) => {
@@ -56,7 +59,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
 
     // Timing window
     let entryX = 24;
-    let exitX = 420;
+    let exitX = chartW - 20;
     let entryLabel = "SELL";
     let exitLabel = "BUY";
 
@@ -102,10 +105,12 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         exitX,
         entryLabel,
         exitLabel,
+        chartH,
+        chartW,
       },
       noBars: false,
     };
-  }, [bars, legs, trade]);
+  }, [bars, legs, trade, width, height]);
 
   if (noBars || !chartData) {
     return (
@@ -116,7 +121,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
     );
   }
 
-  const { candles, ceLeg, peLeg, ceY, peY, entryX, exitX, entryLabel, exitLabel } = chartData;
+  const { candles, ceLeg, peLeg, ceY, peY, entryX, exitX, entryLabel, exitLabel, chartH, chartW } = chartData;
   const holdingW = Math.max(2, exitX - entryX);
 
   return (
@@ -131,7 +136,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         x={entryX}
         y={0}
         width={holdingW}
-        height={156}
+        height={chartH}
         fill="var(--accent, #f5a524)"
         fillOpacity="0.05"
       />
@@ -141,7 +146,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         <>
           <line
             x1="0"
-            x2="465"
+            x2={chartW}
             y1={ceY}
             y2={ceY}
             stroke="var(--neg-text, #ff7a7e)"
@@ -165,7 +170,7 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         <>
           <line
             x1="0"
-            x2="465"
+            x2={chartW}
             y1={peY}
             y2={peY}
             stroke="var(--info, #5ab0ff)"
@@ -212,13 +217,13 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         x1={entryX}
         x2={entryX}
         y1={0}
-        y2={156}
+        y2={chartH}
         stroke="var(--accent, #f5a524)"
         strokeWidth="1.2"
       />
       <text
-        x={entryX}
-        y={170}
+        x={Math.max(28, Math.min(width - 28, entryX))}
+        y={height - 6}
         textAnchor="middle"
         fill="var(--accent, #f5a524)"
         fontSize="10"
@@ -232,13 +237,13 @@ export function SessionChart({ tradeDetail, width = 520, height = 176 }) {
         x1={exitX}
         x2={exitX}
         y1={0}
-        y2={156}
+        y2={chartH}
         stroke="var(--accent, #f5a524)"
         strokeWidth="1.2"
       />
       <text
-        x={exitX}
-        y={170}
+        x={Math.max(28, Math.min(width - 28, exitX))}
+        y={height - 6}
         textAnchor="middle"
         fill="var(--accent, #f5a524)"
         fontSize="10"
