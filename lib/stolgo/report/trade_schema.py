@@ -104,7 +104,6 @@ def normalize_trades(
 
     res = df.copy()
 
-    # 1. trade_id: keep if present, else range(1, n+1) after sorting by entry_ts
     if "entry_ts" in res.columns:
         entry_ts = pd.to_datetime(res["entry_ts"])
         if entry_ts.dt.tz is None:
@@ -138,7 +137,7 @@ def normalize_trades(
     entry_in_tz = res["entry_ts"].dt.tz_convert(target_tz)
     res["session_date"] = entry_in_tz.dt.strftime("%Y-%m-%d")
 
-    # 2. fees ← commission (or fees if both exist and are equal)
+    # Fees and commission
     if "fees" in res.columns and "commission" in res.columns:
         # keep fees
         pass
@@ -155,7 +154,7 @@ def normalize_trades(
     elif "net_pnl" in res.columns:
         res["gross_pnl"] = res["net_pnl"].astype(float) + res["fees"]
 
-    # 3. slippage: from slippage column if present, else 0.0 if gross - fees == net (+/-0.05), else NaN
+    # Slippage
     if "slippage" in res.columns:
         res["slippage"] = res["slippage"].astype(float)
     else:
@@ -164,7 +163,7 @@ def normalize_trades(
 
     res["net_pnl"] = res["net_pnl"].astype(float)
 
-    # 4. entry_price/exit_price -> underlying_* or premium_* per mapping.price_columns
+    # Map prices per mapping.price_columns
     has_entry_price = "entry_price" in res.columns
     has_exit_price = "exit_price" in res.columns
 
@@ -227,7 +226,7 @@ def normalize_trades(
     # Drop entry_price and exit_price
     res = res.drop(columns=["entry_price", "exit_price"], errors="ignore")
 
-    # 5. r_multiple: keep if present, else NaN. Never fill with 0.
+    # Format r_multiple: keep if present, else NaN. Never fill with 0.
     if "r_multiple" in res.columns:
         res["r_multiple"] = res["r_multiple"].astype(float)
     else:
@@ -239,7 +238,7 @@ def normalize_trades(
     elif "source_tag" not in res.columns:
         res["source_tag"] = ""
 
-    # 6. exit_reason and data_flag
+    # Exit reason and data flag
     # Check if every exit is at the same clock time +/- 1 min
     exit_times = res["exit_ts"].dropna()
     exit_times_same = False
@@ -283,7 +282,7 @@ def normalize_trades(
     if "qty" in res.columns:
         res["qty"] = res["qty"].astype(float)
 
-    # 8. lots = qty / lot_size if exact integer
+    # Calculate lots from lot_size if exact integer
     if mapping.lot_size and "qty" in res.columns:
         lots_series = []
         for q in res["qty"]:
@@ -297,7 +296,7 @@ def normalize_trades(
                 lots_series.append(pd.NA)
         res["lots"] = pd.Series(lots_series, dtype="Int64", index=res.index)
 
-    # 7. Legs parsing from source_tag
+    # Parse legs from source_tag
     legs_list: list[dict[str, Any]] = []
     legs_labels: list[str | None] = []
 
@@ -342,7 +341,7 @@ def normalize_trades(
     if legs_list:
         legs_df = pd.DataFrame(legs_list)
 
-    # 9. Column order: REQUIRED, then OPTIONAL present, then any remaining source columns
+    # Column order: REQUIRED, then OPTIONAL present, then any remaining source columns
     ordered_cols: list[str] = []
     for c in TRADE_V2_REQUIRED:
         if c in res.columns and c not in ordered_cols:
@@ -352,7 +351,7 @@ def normalize_trades(
         if c in res.columns and c not in ordered_cols:
             ordered_cols.append(c)
 
-    # Drop duplicate tag column if source_tag holds the exact same values (Plan 03 R14)
+    # Drop duplicate tag column if source_tag holds the exact same values
     if "tag" in res.columns and "source_tag" in res.columns:
         if (res["tag"].fillna("").astype(str) == res["source_tag"].fillna("").astype(str)).all():
             res = res.drop(columns=["tag"])
@@ -366,7 +365,7 @@ def normalize_trades(
 
 
 def assign_trade_markets_and_lots(trades_df: pd.DataFrame, markets: list[str]) -> pd.DataFrame:
-    """Assign market and lots per trade based on lot sizes and markets list (Plan 03 R3)."""
+    """Assign market and lots per trade based on lot sizes and markets list."""
     if trades_df.empty:
         return trades_df
 

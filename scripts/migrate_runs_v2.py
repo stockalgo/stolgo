@@ -628,7 +628,7 @@ def main() -> None:
         (runs_dir / "_migration_report.md").write_text("\n".join(report_lines) + "\n")
         print(f"Wrote migration report to {runs_dir / '_migration_report.md'}")
 
-        # Step 6: compare with fixture
+        # Compare with fixture
         mismatches = compare_with_fixture(runs_dir)
         if mismatches:
             print("ERROR: Mismatches with expected fixture found:")

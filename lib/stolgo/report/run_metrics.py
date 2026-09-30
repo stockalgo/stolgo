@@ -40,7 +40,7 @@ def compute_run_metrics(
     if daily.empty or capital <= 0:
         raise ValueError("Non-empty daily and positive capital are required to compute run metrics")
 
-    # Step 1: daily_pnl localized to session_close in tz then converted to UTC
+    # Localize daily_pnl to session_close in tz then convert to UTC
     if session_close == "24:00":
         close_offset = pd.Timedelta(hours=23, minutes=59, seconds=59)
     else:
@@ -52,7 +52,7 @@ def compute_run_metrics(
         index=pd.DatetimeIndex(daily["session"]).tz_localize(tz) + close_offset,
     ).tz_convert("UTC")
 
-    # Step 2: prepare trades_for_legacy and call calendar_metrics
+    # Prepare trades_for_legacy and call calendar_metrics
     trades_for_legacy = trades.copy()
     if "fees" in trades_for_legacy.columns and "commission" not in trades_for_legacy.columns:
         trades_for_legacy = trades_for_legacy.rename(columns={"fees": "commission"})
@@ -68,7 +68,7 @@ def compute_run_metrics(
 
     m, _ = calendar_metrics(daily_pnl, capital, trades_for_legacy, intraday_equity=intraday_equity)
 
-    # Step 3: Overwrite total_return = trades.net_pnl.sum() / capital (must equal m["total_return"] within 1e-9)
+    # Total return verification and assignment
     net_pnl_sum = float(trades["net_pnl"].sum()) if not trades.empty and "net_pnl" in trades.columns else 0.0
     calc_total_return = net_pnl_sum / capital
     if not math.isclose(calc_total_return, m["total_return"], abs_tol=1e-9):
@@ -77,7 +77,7 @@ def compute_run_metrics(
         )
     m["total_return"] = calc_total_return
 
-    # Step 4: Add net_pnl, gross_pnl, fees, slippage, avg_r, basis, annualised_from_short_window
+    # Summary metrics
     m["basis"] = "calendar_daily"
     m["equity_basis"] = equity_basis
     m["net_pnl"] = net_pnl_sum
@@ -106,7 +106,7 @@ def compute_run_metrics(
 
     m["annualised_from_short_window"] = len(daily) < 252
 
-    # Step 5: Remove the keys mar, exposure_pct, turnover
+    # Remove unsupported legacy keys
     m.pop("mar", None)
     m.pop("exposure_pct", None)
     m.pop("turnover", None)
@@ -119,7 +119,7 @@ def compute_run_metrics(
     if "intraday_max_drawdown" not in m:
         m["intraday_max_drawdown"] = None
 
-    # Step 6: Replace every NaN/±inf with None
+    # Replace every NaN/±inf with None
     res = {}
     for k, v in m.items():
         res[k] = _clean_val(v)
