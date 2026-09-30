@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Tearsheet metrics (HLD §8.2)."""
 
 from __future__ import annotations

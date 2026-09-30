@@ -1,6 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-# Causal completed-bar signals; NumPy hot path; no network/bandl imports.
-# Market fills use a later bar via Stolgo SimBroker, never earlier same-bar opens.
 """Multi-contract intraday short-options replay.
 
 This specialized runner extends the single-symbol Engine: every actual fill is

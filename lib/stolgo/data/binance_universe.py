@@ -1,10 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-# [ ] no look-ahead: only data[:t+1] in strategy loop
-# [ ] no pandas in oms/portfolio hot path
-# [ ] no bandl imports outside stolgo.data / stolgo.broker
-# [ ] fill default = next_open unless RunConfig.fill_on == "close"
-# [ ] pytest tests for this module pass before next build step
-
 """Binance USDT-M perpetual futures symbol universe (HLD §4.2 ext).
 
 Thin helper on top of the `bandl` client's crypto facet — lists actively

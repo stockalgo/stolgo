@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Price-action library — ``import stolgo.pa as pa`` (flat public API)."""
 
 from stolgo.pa._core import Level, Rule, all_of, any_of

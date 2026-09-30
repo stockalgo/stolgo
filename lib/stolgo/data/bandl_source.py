@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """bandl market data adapter (HLD §4.2, §G).
 
 Import as ``from stolgo import Bandl`` — wraps the `bandl` package for OHLCV

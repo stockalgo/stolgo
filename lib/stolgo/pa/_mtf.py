@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Multi-timeframe resample and alignment (no look-ahead)."""
 
 from __future__ import annotations

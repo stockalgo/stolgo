@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 from __future__ import annotations
 
 from stolgo.core.types import Bar, Order, OrderType, Side

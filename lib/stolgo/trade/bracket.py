@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Risk/reward bracket helpers for strategies."""
 
 from __future__ import annotations

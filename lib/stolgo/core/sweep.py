@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Parameter sweep helpers (HLD §7.3) — v0.2."""
 
 from __future__ import annotations

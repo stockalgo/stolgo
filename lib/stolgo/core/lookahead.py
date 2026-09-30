@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Look-ahead probe for vector strategies and masks (Plan 04 §C9)."""
 
 from __future__ import annotations

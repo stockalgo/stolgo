@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Parquet disk cache for OHLCV (HLD §4.2)."""
 
 from __future__ import annotations

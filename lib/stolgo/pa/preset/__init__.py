@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Named strategy recipes built from pa atoms."""
 
 from stolgo.pa.preset.intraday import (

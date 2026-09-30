@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Load normalized OHLCV from local files (CSV, Parquet)."""
 
 from __future__ import annotations

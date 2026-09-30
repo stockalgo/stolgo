@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Canonical backtest result artifact (HLD §8.1)."""
 
 from __future__ import annotations

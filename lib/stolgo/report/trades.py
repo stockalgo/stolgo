@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Build round-trip trade log from fill events (cold path)."""
 
 from __future__ import annotations

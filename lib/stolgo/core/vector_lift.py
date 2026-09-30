@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Vector-style entry/exit masks lifted to order intents (HLD §6.2, §7.1)."""
 
 from __future__ import annotations

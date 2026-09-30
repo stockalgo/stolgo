@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """OHLCV array helpers for price-action rules."""
 
 from __future__ import annotations

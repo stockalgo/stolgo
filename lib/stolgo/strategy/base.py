@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Strategy ABC (HLD §4.4)."""
 
 from __future__ import annotations

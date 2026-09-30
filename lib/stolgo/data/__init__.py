@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Data ingestion: bandl market feed, local files, normalization."""
 
 from stolgo.data.bandl_source import Bandl, BandlDataSource

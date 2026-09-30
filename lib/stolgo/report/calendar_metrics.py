@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-# Explicit daily sampling; initial capital included; no network dependencies.
 """Calendar-aware metrics for sparse strategies and independently marked paths."""
 import math
 import numpy as np

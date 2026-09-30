@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """OHLCV normalization (HLD §4.2, §G)."""
 
 from __future__ import annotations
