@@ -45,9 +45,12 @@ secrets.json
 
 # Backtest & report artifacts (regenerate locally)
 stolgo_*_output/
+parabolic_short_output/
+runs/
 *_tearsheet.html
 stolgo_tearsheet.html
 vector_momentum_tearsheet.html
+.cursor/
 
 # Data caches
 .cache/

@@ -1,0 +1,687 @@
+{
+ "_readme": "Expected metric values after migrate_runs_v2 for the 22 legacy runs that have trades. Computed with lib/stolgo/report/calendar_metrics.py over exchange sessions derived from each run ohlcv.parquet, daily P&L = sum(net_pnl) by IST exit date, idle sessions = 0. Robustness: numpy default_rng(seed=7), 4000 resamples. Tolerance: 1e-3 absolute for ratios, 1e-6 relative for returns.",
+ "runs": {
+  "NIFTY-iron-condor-0dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 80000.0,
+   "num_trades": 51,
+   "sessions": 243,
+   "expected": {
+    "total_return": -0.212552,
+    "cagr": -0.216749,
+    "sharpe": -2.199202,
+    "sortino": -3.094224,
+    "max_drawdown": -0.216141,
+    "max_drawdown_duration": 234.0,
+    "volatility": 0.109934
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.01625,
+    "pf_p05": 0.077701,
+    "pf_p95": 0.798968,
+    "net_p05": -28475.904,
+    "net_p95": -4239.23,
+    "net_without_top5": -24642.83,
+    "net_without_top10": -25542.41,
+    "longest_losing_streak": 15
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.212432,
+    "cagr": -0.692716,
+    "sharpe": -4.995354,
+    "sortino": -0.564341
+   }
+  },
+  "NIFTY-iron-condor-1dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 80000.0,
+   "num_trades": 49,
+   "sessions": 243,
+   "expected": {
+    "total_return": -0.460094,
+    "cagr": -0.467485,
+    "sharpe": -4.690529,
+    "sortino": -4.603411,
+    "max_drawdown": -0.471411,
+    "max_drawdown_duration": 229.0,
+    "volatility": 0.134141
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.0,
+    "pf_p05": 0.013149,
+    "pf_p95": 0.204234,
+    "net_p05": -48683.3895,
+    "net_p95": -25767.4165,
+    "net_without_top5": -40262.82,
+    "net_without_top10": -40212.14,
+    "longest_losing_streak": 13
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.459369,
+    "cagr": -0.957699,
+    "sharpe": -12.994206,
+    "sortino": -0.919071
+   }
+  },
+  "NIFTY-strangle-0dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 52,
+   "sessions": 243,
+   "expected": {
+    "total_return": 0.012611,
+    "cagr": 0.012895,
+    "sharpe": 0.195829,
+    "sortino": 0.245327,
+    "max_drawdown": -0.086835,
+    "max_drawdown_duration": 119.0,
+    "volatility": 0.084818
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.5835,
+    "pf_p05": 0.609826,
+    "pf_p95": 2.085275,
+    "net_p05": -21536.6385,
+    "net_p95": 26028.6155,
+    "net_without_top5": -11950.88,
+    "net_without_top10": -21653.87,
+    "longest_losing_streak": 5
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.009259,
+    "cagr": 0.045678,
+    "sharpe": 0.336492,
+    "sortino": 0.024325
+   }
+  },
+  "NIFTY-strangle-1dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 51,
+   "sessions": 243,
+   "expected": {
+    "total_return": -0.165022,
+    "cagr": -0.168383,
+    "sharpe": -1.624252,
+    "sortino": -1.767597,
+    "max_drawdown": -0.201197,
+    "max_drawdown_duration": 229.0,
+    "volatility": 0.11124
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.0455,
+    "pf_p05": 0.282899,
+    "pf_p95": 0.980179,
+    "net_p05": -59191.077,
+    "net_p95": -768.5165,
+    "net_without_top5": -43154.55,
+    "net_without_top10": -49831.77,
+    "longest_losing_streak": 5
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.168624,
+    "cagr": -0.598481,
+    "sharpe": -3.724627,
+    "sortino": -0.248375
+   }
+  },
+  "SENSEX-iron-condor-0dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 80000.0,
+   "num_trades": 44,
+   "sessions": 238,
+   "expected": {
+    "total_return": -0.5198,
+    "cagr": -0.534641,
+    "sharpe": -4.017154,
+    "sortino": -3.902106,
+    "max_drawdown": -0.5198,
+    "max_drawdown_duration": 238.0,
+    "volatility": 0.188271
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.0,
+    "pf_p05": 0.0,
+    "pf_p95": 0.0,
+    "net_p05": -59350.7555,
+    "net_p95": -28877.472,
+    "net_without_top5": -40032.47,
+    "net_without_top10": -37912.4,
+    "longest_losing_streak": 44
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.516617,
+    "cagr": -0.984446,
+    "sharpe": -10.978098,
+    "sortino": -0.691555
+   }
+  },
+  "SENSEX-iron-condor-1dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 80000.0,
+   "num_trades": 42,
+   "sessions": 243,
+   "expected": {
+    "total_return": -0.263878,
+    "cagr": -0.268904,
+    "sharpe": -1.080243,
+    "sortino": -1.21558,
+    "max_drawdown": -0.389841,
+    "max_drawdown_duration": 229.0,
+    "volatility": 0.260751
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.09,
+    "pf_p05": 0.260188,
+    "pf_p95": 1.177602,
+    "net_p05": -49157.851,
+    "net_p95": 4447.154,
+    "net_without_top5": -32682.51,
+    "net_without_top10": -39988.29,
+    "longest_losing_streak": 8
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.263518,
+    "cagr": -0.840422,
+    "sharpe": -2.628422,
+    "sortino": -0.174713
+   }
+  },
+  "SENSEX-strangle-0dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 51,
+   "sessions": 238,
+   "expected": {
+    "total_return": -0.13614,
+    "cagr": -0.141534,
+    "sharpe": -1.611536,
+    "sortino": -1.730886,
+    "max_drawdown": -0.142018,
+    "max_drawdown_duration": 238.0,
+    "volatility": 0.093383
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.04625,
+    "pf_p05": 0.302306,
+    "pf_p95": 0.981659,
+    "net_p05": -49376.2405,
+    "net_p95": -591.9055,
+    "net_without_top5": -32862.31,
+    "net_without_top10": -39199.24,
+    "longest_losing_streak": 3
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.127,
+    "cagr": -0.488859,
+    "sharpe": -3.306761,
+    "sortino": -0.221468
+   }
+  },
+  "SENSEX-strangle-1dte": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 52,
+   "sessions": 243,
+   "expected": {
+    "total_return": 0.05782,
+    "cagr": 0.05915,
+    "sharpe": 0.550037,
+    "sortino": 0.721877,
+    "max_drawdown": -0.093812,
+    "max_drawdown_duration": 184.0,
+    "volatility": 0.118941
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.70525,
+    "pf_p05": 0.625919,
+    "pf_p95": 2.854516,
+    "net_p05": -24912.4785,
+    "net_p95": 43031.5035,
+    "net_without_top5": -11796.53,
+    "net_without_top10": -25572.0,
+    "longest_losing_streak": 4
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.054248,
+    "cagr": 0.291765,
+    "sharpe": 1.129978,
+    "sortino": 0.075412
+   }
+  },
+  "combined-top3-weekly-calendar": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 360000.0,
+   "num_trades": 54,
+   "sessions": 65,
+   "expected": {
+    "total_return": 0.09646,
+    "cagr": 0.445648,
+    "sharpe": 5.983078,
+    "sortino": 17.694623,
+    "max_drawdown": -0.008574,
+    "max_drawdown_duration": 13.0,
+    "volatility": 0.060008
+   },
+   "expected_robustness": {
+    "p_net_positive": 1.0,
+    "pf_p05": 2.044894,
+    "pf_p95": 8.265168,
+    "net_p05": 18730.1895,
+    "net_p95": 50676.696,
+    "net_without_top5": 17441.79,
+    "net_without_top10": 8261.89,
+    "longest_losing_streak": 3
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.092894,
+    "cagr": 0.750017,
+    "sharpe": 7.776042,
+    "sortino": 1.267031
+   }
+  },
+  "nifty-0dte-iron-condor-otm1-w4": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 156,
+   "sessions": 740,
+   "expected": {
+    "total_return": -0.010909,
+    "cagr": -0.003668,
+    "sharpe": 0.052546,
+    "sortino": 0.064748,
+    "max_drawdown": -0.251708,
+    "max_drawdown_duration": 731.0,
+    "volatility": 0.151814
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.48225,
+    "pf_p05": 0.717402,
+    "pf_p95": 1.421965,
+    "net_p05": -69739.426,
+    "net_p95": 65971.6005,
+    "net_without_top5": -29047.23,
+    "net_without_top10": -47929.73,
+    "longest_losing_streak": 4
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.012596,
+    "cagr": -0.020268,
+    "sharpe": 0.106174,
+    "sortino": 0.007989
+   }
+  },
+  "nifty-0dte-iron-fly-atm-w5": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 154,
+   "sessions": 740,
+   "expected": {
+    "total_return": -0.028486,
+    "cagr": -0.009635,
+    "sharpe": 0.036835,
+    "sortino": 0.047374,
+    "max_drawdown": -0.298497,
+    "max_drawdown_duration": 740.0,
+    "volatility": 0.180442
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.4665,
+    "pf_p05": 0.707606,
+    "pf_p95": 1.375967,
+    "net_p05": -82949.478,
+    "net_p95": 70427.769,
+    "net_without_top5": -38337.28,
+    "net_without_top10": -62391.83,
+    "longest_losing_streak": 4
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.028059,
+    "cagr": -0.045504,
+    "sharpe": 0.082615,
+    "sortino": 0.006928
+   }
+  },
+  "nifty-0dte-strangle-benchmark": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 157,
+   "sessions": 740,
+   "expected": {
+    "total_return": 0.168504,
+    "cagr": 0.053554,
+    "sharpe": 0.733541,
+    "sortino": 1.558107,
+    "max_drawdown": -0.095192,
+    "max_drawdown_duration": 347.0,
+    "volatility": 0.076199
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.88075,
+    "pf_p05": 0.900395,
+    "pf_p95": 1.862512,
+    "net_p05": -10851.8505,
+    "net_p95": 74258.2265,
+    "net_without_top5": -6013.77,
+    "net_without_top10": -25634.98,
+    "longest_losing_streak": 13
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.174978,
+    "cagr": 0.295402,
+    "sharpe": 1.655783,
+    "sortino": 0.292491
+   }
+  },
+  "nifty-1dte-iron-condor-otm1-w4": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 157,
+   "sessions": 740,
+   "expected": {
+    "total_return": -0.317887,
+    "cagr": -0.120289,
+    "sharpe": -1.964393,
+    "sortino": -2.134408,
+    "max_drawdown": -0.317887,
+    "max_drawdown_duration": 740.0,
+    "volatility": 0.065209
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.0,
+    "pf_p05": 0.306161,
+    "pf_p95": 0.620069,
+    "net_p05": -84740.5625,
+    "net_p95": -31711.7585,
+    "net_without_top5": -67309.28,
+    "net_without_top10": -74439.82,
+    "longest_losing_streak": 7
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.316525,
+    "cagr": -0.457108,
+    "sharpe": -4.37126,
+    "sortino": -0.303171
+   }
+  },
+  "nifty-sr-premium-spike-0dte-1y": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 2,
+   "sessions": 53,
+   "expected": {
+    "total_return": -0.002054,
+    "cagr": -0.009672,
+    "sharpe": -1.461226,
+    "sortino": -1.532395,
+    "max_drawdown": -0.002919,
+    "max_drawdown_duration": 1.0,
+    "volatility": 0.006675
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.2425,
+    "pf_p05": 0.0,
+    "pf_p95": 0.29698,
+    "net_p05": -1051.72,
+    "net_p95": 312.34,
+    "net_without_top5": 0.0,
+    "net_without_top10": 0.0,
+    "longest_losing_streak": 1
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.002054,
+    "cagr": -0.002104,
+    "sharpe": -0.682426,
+    "sortino": 0.0
+   }
+  },
+  "nifty-sr-premium-spike-combined-1y": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 2,
+   "sessions": 53,
+   "expected": {
+    "total_return": -0.002054,
+    "cagr": -0.009672,
+    "sharpe": -1.461226,
+    "sortino": -1.532395,
+    "max_drawdown": -0.002919,
+    "max_drawdown_duration": 1.0,
+    "volatility": 0.006675
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.2425,
+    "pf_p05": 0.0,
+    "pf_p95": 0.29698,
+    "net_p05": -1051.72,
+    "net_p95": 312.34,
+    "net_without_top5": 0.0,
+    "net_without_top10": 0.0,
+    "longest_losing_streak": 1
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.002054,
+    "cagr": -0.002104,
+    "sharpe": -0.682426,
+    "sortino": 0.0
+   }
+  },
+  "sensex-0dte-iron-condor-otm1-w4": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 157,
+   "sessions": 741,
+   "expected": {
+    "total_return": -0.092567,
+    "cagr": -0.031989,
+    "sharpe": -0.291227,
+    "sortino": -0.373033,
+    "max_drawdown": -0.21679,
+    "max_drawdown_duration": 680.0,
+    "volatility": 0.097142
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.2525,
+    "pf_p05": 0.640027,
+    "pf_p95": 1.211134,
+    "net_p05": -59437.701,
+    "net_p95": 24482.6345,
+    "net_without_top5": -34018.73,
+    "net_without_top10": -47915.47,
+    "longest_losing_streak": 7
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.095711,
+    "cagr": -0.149119,
+    "sharpe": -0.660173,
+    "sortino": -0.058675
+   }
+  },
+  "sensex-0dte-iron-fly-atm-w5": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 157,
+   "sessions": 741,
+   "expected": {
+    "total_return": -0.177572,
+    "cagr": -0.063338,
+    "sharpe": -0.534032,
+    "sortino": -0.689587,
+    "max_drawdown": -0.285373,
+    "max_drawdown_duration": 680.0,
+    "volatility": 0.112568
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.1175,
+    "pf_p05": 0.578896,
+    "pf_p95": 1.094851,
+    "net_p05": -80856.4145,
+    "net_p95": 13212.2225,
+    "net_without_top5": -52543.67,
+    "net_without_top10": -68184.1,
+    "longest_losing_streak": 7
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.180607,
+    "cagr": -0.273648,
+    "sharpe": -1.188152,
+    "sortino": -0.11534
+   }
+  },
+  "sensex-0dte-strangle-benchmark": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 157,
+   "sessions": 741,
+   "expected": {
+    "total_return": 0.153185,
+    "cagr": 0.048861,
+    "sharpe": 0.648834,
+    "sortino": 1.232853,
+    "max_drawdown": -0.071528,
+    "max_drawdown_duration": 238.0,
+    "volatility": 0.079502
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.84825,
+    "pf_p05": 0.883098,
+    "pf_p95": 1.825109,
+    "net_p05": -13189.7475,
+    "net_p95": 69306.6305,
+    "net_without_top5": -5569.09,
+    "net_without_top10": -21916.4,
+    "longest_losing_streak": 13
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.15003,
+    "cagr": 0.251538,
+    "sharpe": 1.389454,
+    "sortino": 0.185356
+   }
+  },
+  "sensex-1dte-iron-condor-otm1-w4": {
+   "timestamps_shifted_from_ist": false,
+   "capital": 180000.0,
+   "num_trades": 156,
+   "sessions": 741,
+   "expected": {
+    "total_return": -0.166105,
+    "cagr": -0.058987,
+    "sharpe": -0.546473,
+    "sortino": -1.668262,
+    "max_drawdown": -0.217172,
+    "max_drawdown_duration": 412.0,
+    "volatility": 0.103868
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.15325,
+    "pf_p05": 0.131619,
+    "pf_p95": 1.321822,
+    "net_p05": -72155.9315,
+    "net_p95": 23443.7065,
+    "net_without_top5": -70569.21,
+    "net_without_top10": -73136.06,
+    "longest_losing_streak": 21
+   },
+   "old_v1_values_for_reference": {
+    "total_return": -0.16619,
+    "cagr": -0.254423,
+    "sharpe": -1.195211,
+    "sortino": -0.29184
+   }
+  },
+  "top1-sensex-1dte-strangle": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 14,
+   "sessions": 65,
+   "expected": {
+    "total_return": 0.096151,
+    "cagr": 0.444018,
+    "sharpe": 4.782787,
+    "sortino": 17.139018,
+    "max_drawdown": -0.010534,
+    "max_drawdown_duration": 5.0,
+    "volatility": 0.075044
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.99825,
+    "pf_p05": 2.519719,
+    "pf_p95": 181.214692,
+    "net_p05": 7838.533,
+    "net_p95": 26885.443,
+    "net_without_top5": 2863.15,
+    "net_without_top10": -2034.28,
+    "longest_losing_streak": 1
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.091737,
+    "cagr": 3.854313,
+    "sharpe": 12.197112,
+    "sortino": 1.218236
+   }
+  },
+  "top2-nifty-pre-expiry-strangle": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 26,
+   "sessions": 61,
+   "expected": {
+    "total_return": 0.054188,
+    "cagr": 0.253659,
+    "sharpe": 2.936208,
+    "sortino": 6.104469,
+    "max_drawdown": -0.012091,
+    "max_drawdown_duration": 19.0,
+    "volatility": 0.075221
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.9375,
+    "pf_p05": 0.941704,
+    "pf_p95": 7.223665,
+    "net_p05": -745.582,
+    "net_p95": 20662.923,
+    "net_without_top5": -1438.65,
+    "net_without_top10": -5918.46,
+    "longest_losing_streak": 3
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.034485,
+    "cagr": 0.389025,
+    "sharpe": 3.41319,
+    "sortino": 0.353547
+   }
+  },
+  "top3-nifty-0dte-strangle": {
+   "timestamps_shifted_from_ist": true,
+   "capital": 180000.0,
+   "num_trades": 14,
+   "sessions": 65,
+   "expected": {
+    "total_return": 0.042581,
+    "cagr": 0.181627,
+    "sharpe": 4.254396,
+    "sortino": 10.472756,
+    "max_drawdown": -0.00709,
+    "max_drawdown_duration": 26.0,
+    "volatility": 0.03818
+   },
+   "expected_robustness": {
+    "p_net_positive": 0.9915,
+    "pf_p05": 1.511203,
+    "pf_p95": 21.15966,
+    "net_p05": 2379.4125,
+    "net_p95": 12547.0045,
+    "net_without_top5": 993.15,
+    "net_without_top10": -1991.52,
+    "longest_losing_streak": 1
+   },
+   "old_v1_values_for_reference": {
+    "total_return": 0.039999,
+    "cagr": 1.025784,
+    "sharpe": 10.117625,
+    "sortino": 1.423176
+   }
+  }
+ }
+}

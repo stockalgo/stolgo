@@ -47,3 +47,46 @@ def test_start_after_end_raises(mock_bandl_client) -> None:
     t = datetime(2020, 1, 1, tzinfo=timezone.utc)
     with pytest.raises(DataError):
         src.history("BTC", "1d", t, t)
+
+
+def test_asset_type_passthrough_for_futures(mock_bandl_client, tmp_path) -> None:
+    """BandlDataSource must forward asset_type so callers can request crypto
+    futures/perp OHLCV (e.g. Binance USDT-M) instead of the provider default
+    (crypto_spot)."""
+    captured: dict = {}
+
+    class CapturingFacet:
+        def get_ohlcv_dataframe(self, symbol, interval, start, end, **kwargs):
+            captured.update(kwargs)
+            return mock_bandl_client.crypto.get_ohlcv_dataframe(symbol, interval, start, end)
+
+    class CapturingClient:
+        crypto = CapturingFacet()
+        equity = CapturingFacet()
+
+    cache = ParquetCache(root=tmp_path)
+    src = BandlDataSource(CapturingClient(), cache=cache, asset_type="crypto_perp")
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=7)
+    src.history("BTCUSDT", "1d", start, end)
+    assert captured.get("asset_type") == "crypto_perp"
+
+
+def test_asset_type_call_override(mock_bandl_client, tmp_path) -> None:
+    captured: dict = {}
+
+    class CapturingFacet:
+        def get_ohlcv_dataframe(self, symbol, interval, start, end, **kwargs):
+            captured.update(kwargs)
+            return mock_bandl_client.crypto.get_ohlcv_dataframe(symbol, interval, start, end)
+
+    class CapturingClient:
+        crypto = CapturingFacet()
+        equity = CapturingFacet()
+
+    cache = ParquetCache(root=tmp_path)
+    src = BandlDataSource(CapturingClient(), cache=cache)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=7)
+    src.history("BTCUSDT", "1d", start, end, asset_type="crypto_perp")
+    assert captured.get("asset_type") == "crypto_perp"

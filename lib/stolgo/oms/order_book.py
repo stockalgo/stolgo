@@ -28,9 +28,9 @@ class OrderBook:
                     price = order.limit_price
             elif order.order_type == OrderType.STOP and order.stop_price is not None:
                 if order.side == Side.BUY and bar.high >= order.stop_price:
-                    price = bar.open
+                    price = max(bar.open, order.stop_price)
                 elif order.side == Side.SELL and bar.low <= order.stop_price:
-                    price = bar.open
+                    price = min(bar.open, order.stop_price)
             if price is not None:
                 filled.append((order, price))
             else:

@@ -54,7 +54,7 @@ def normalize_ohlcv(
         raise DataError(f"missing OHLCV columns: {missing}")
 
     cols = list(CANONICAL_COLUMNS)
-    work = work[cols]
+    work = work[cols].astype("float64")
     if work[cols].isna().any().any():
         raise DataError("NaN values in OHLCV columns are not allowed")
 
