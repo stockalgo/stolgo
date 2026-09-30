@@ -15,6 +15,7 @@ import math
 
 import numpy as np
 
+from stolgo.core.exceptions import AccountingError
 from stolgo.core.types import Bar, OrderType, Side
 from stolgo.oms.fill_model import NextOpenFill
 from stolgo.oms.sim_broker import SimBroker
@@ -356,8 +357,14 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
         exit_reason = "NO_EXECUTABLE_EXIT_BEFORE_DATA_END"
     else:
         net = cash
-        assert abs(raw_cash - fees - slippage - net) < 1e-6
-        assert abs(sum(t["net_pnl"] for t in trades) - net) < 1e-6
+        if abs(raw_cash - fees - slippage - net) >= 1e-6:
+            raise AccountingError(
+                f"Replay raw_cash - fees - slippage != net: {raw_cash} - {fees} - {slippage} != {net}"
+            )
+        if abs(sum(t["net_pnl"] for t in trades) - net) >= 1e-6:
+            raise AccountingError(
+                f"Replay sum(trades.net_pnl) != net: {sum(t['net_pnl'] for t in trades)} != {net}"
+            )
         worst_pnl = min(worst_pnl, net)
         max_dd_inr = max(max_dd_inr, peak_pnl - net)
     if keep_path and fills and not open_legs:

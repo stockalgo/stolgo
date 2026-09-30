@@ -13,6 +13,7 @@ from stolgo.core.events import (
 )
 from stolgo.core.lookahead import probe
 from stolgo.core.exceptions import (
+    AccountingError,
     BrokerNotImplementedError,
     ConfigurationError,
     DataError,
@@ -33,6 +34,7 @@ from stolgo.core.types import (
 )
 
 __all__ = [
+    "AccountingError",
     "Backtest",
     "Bar",
     "Engine",

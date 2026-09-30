@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from stolgo.core.exceptions import AccountingError
 from stolgo.report.calendar_metrics import calendar_metrics
 
 IST = "Asia/Kolkata"
@@ -61,9 +62,10 @@ def compute_run_metrics(
     # Step 3: Overwrite total_return = trades.net_pnl.sum() / capital (must equal m["total_return"] within 1e-9)
     net_pnl_sum = float(trades["net_pnl"].sum()) if not trades.empty and "net_pnl" in trades.columns else 0.0
     calc_total_return = net_pnl_sum / capital
-    assert math.isclose(calc_total_return, m["total_return"], abs_tol=1e-9), (
-        f"Total return mismatch: {calc_total_return} vs {m['total_return']}"
-    )
+    if not math.isclose(calc_total_return, m["total_return"], abs_tol=1e-9):
+        raise AccountingError(
+            f"Total return mismatch: {calc_total_return} vs {m['total_return']}"
+        )
     m["total_return"] = calc_total_return
 
     # Step 4: Add net_pnl, gross_pnl, fees, slippage, avg_r, basis, annualised_from_short_window

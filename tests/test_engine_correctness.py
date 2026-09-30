@@ -501,6 +501,30 @@ def test_parabolic_short_gap_stop():
     assert trade.r_multiple == pytest.approx(-1.3, abs=1e-4)
 
 
+def test_accounting_error_raised():
+    from stolgo.core.exceptions import AccountingError
+    from stolgo.report.run_metrics import compute_run_metrics
+
+    daily = pd.DataFrame({"session": ["2024-01-01", "2024-01-02"], "pnl": [100.0, -50.0]})
+    trades = pd.DataFrame(
+        [
+            {
+                "trade_id": "T1",
+                "entry_time": pd.Timestamp("2024-01-01", tz="UTC"),
+                "exit_time": pd.Timestamp("2024-01-02", tz="UTC"),
+                "net_pnl": 200.0,
+                "gross_pnl": 200.0,
+                "fees": 0.0,
+                "slippage": 0.0,
+            }
+        ]
+    )
+    with pytest.raises(AccountingError):
+        compute_run_metrics(trades, 10_000.0, daily)
+
+
+
+
 
 
 

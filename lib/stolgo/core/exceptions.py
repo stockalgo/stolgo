@@ -40,3 +40,8 @@ class ModeNotSupportedError(StolgoError):
 
 class BrokerNotImplementedError(StolgoError):
     """Broker adapter method not available in this release."""
+
+
+class AccountingError(StolgoError):
+    """Invariants in P&L, fees, slippage, or equity calculation were violated."""
+
