@@ -21,8 +21,10 @@ def calendar_metrics(daily_pnl, capital, trades, *, intraday_equity=None):
     dates=pd.DatetimeIndex(daily_pnl.index)
     if dates.tz is None or not dates.is_monotonic_increasing or dates.has_duplicates:
         raise ValueError('Daily calendar must be unique, sorted, and timezone-aware')
-    initial=dates[0].normalize()+pd.Timedelta(hours=3,minutes=45)  # 09:15 IST
-    equity=pd.concat([pd.Series([capital],index=[initial]),capital+daily_pnl.cumsum()])
+    initial = dates[0].normalize() + pd.Timedelta(hours=3, minutes=45)  # 09:15 IST
+    if initial >= dates[0]:
+        initial = dates[0] - pd.Timedelta(seconds=1)
+    equity = pd.concat([pd.Series([capital], index=[initial]), capital + daily_pnl.cumsum()])
     m=compute_metrics(equity,trades)
     # These require actual quantity/notional and intraday holding-time series.
     # Sparse daily/session inputs must not claim measured zero exposure/turnover.

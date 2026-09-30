@@ -174,10 +174,16 @@ def candles(
     tf: str = "1D",
     frm: str | None = None,
     to: str | None = None,
+    *,
+    tz: str | None = None,
+    session_close: str | None = None,
 ) -> dict:
     """Format and resample ohlcv as §4.7 Candle[] response."""
     if ohlcv is None or ohlcv.empty:
         return {"rows": [], "tf": tf}
+
+    target_tz = tz or "Asia/Kolkata"
+    target_close = session_close or ("15:30" if target_tz == "Asia/Kolkata" else "24:00")
 
     work = ohlcv.copy()
     if not isinstance(work.index, pd.DatetimeIndex):
@@ -187,9 +193,9 @@ def candles(
             raise ValueError("ohlcv must have a DatetimeIndex or timestamp column")
 
     if work.index.tz is None:
-        work.index = work.index.tz_localize("UTC").tz_convert("Asia/Kolkata")
+        work.index = work.index.tz_localize("UTC").tz_convert(target_tz)
     else:
-        work.index = work.index.tz_convert("Asia/Kolkata")
+        work.index = work.index.tz_convert(target_tz)
 
     work["session_date"] = work.index.strftime("%Y-%m-%d")
 
@@ -227,9 +233,9 @@ def candles(
 
     elif tf == "1H":
         records = []
-        for s_date, s_grp in work.groupby("session_date", sort=True):
-            hourly_matched = False
-            for start_hour, end_hour in [
+        is_indian = (target_tz == "Asia/Kolkata" and target_close == "15:30")
+        if is_indian:
+            hours_ranges = [
                 ("09:15:00", "10:15:00"),
                 ("10:15:00", "11:15:00"),
                 ("11:15:00", "12:15:00"),
@@ -237,10 +243,24 @@ def candles(
                 ("13:15:00", "14:15:00"),
                 ("14:15:00", "15:15:00"),
                 ("15:15:00", "15:30:00"),
-            ]:
-                bar_grp = s_grp.between_time(
-                    start_hour, end_hour, inclusive="left" if end_hour != "15:30:00" else "both"
-                )
+            ]
+        else:
+            hours_ranges = [
+                (f"{h:02d}:00:00", f"{h+1:02d}:00:00" if h < 23 else "23:59:59.999999")
+                for h in range(24)
+            ]
+
+        for s_date, s_grp in work.groupby("session_date", sort=True):
+            hourly_matched = False
+            for i_h, (start_hour, end_hour) in enumerate(hours_ranges):
+                if is_indian:
+                    bar_grp = s_grp.between_time(
+                        start_hour, end_hour, inclusive="left" if end_hour != "15:30:00" else "both"
+                    )
+                else:
+                    bar_grp = s_grp.between_time(
+                        start_hour, end_hour, inclusive="left" if i_h < 23 else "both"
+                    )
                 if not bar_grp.empty:
                     hourly_matched = True
                     rec = {

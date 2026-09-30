@@ -140,7 +140,10 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         if not ohlcv_path.is_file():
             return JSONResponse(status_code=409, content={"detail": "no_ohlcv"})
         ohlcv_df = pd.read_parquet(ohlcv_path)
-        return adapters.candles(ohlcv_df, tf=tf, frm=from_date, to=to_date)
+        inst = manifest.get("instrument") or {}
+        tz = inst.get("timezone", "UTC")
+        session_close = inst.get("session_close", "15:30" if tz == "Asia/Kolkata" else "24:00")
+        return adapters.candles(ohlcv_df, tf=tf, frm=from_date, to=to_date, tz=tz, session_close=session_close)
 
     @app.get("/api/runs/{run_id}/equity")
     def get_run_equity(run_id: str):

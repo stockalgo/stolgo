@@ -554,6 +554,49 @@ def test_export_all_mark_to_market_equity(tmp_path):
     assert manifest["metrics"]["max_drawdown"] == pytest.approx(-0.30, abs=0.001)
 
 
+def test_btc_run_utc_and_24h_candles(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+    from stolgo.ui.adapters import candles
+
+    class DummyStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=1)
+            elif ctx.i == 23:
+                ctx.close()
+
+    # 24 hourly bars covering 1 full UTC day: 2024-01-01 00:00 to 23:00 UTC
+    dt_idx = pd.date_range("2024-01-01 00:00:00", periods=24, freq="1h", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [40000.0 + i for i in range(24)],
+            "high": [40050.0 + i for i in range(24)],
+            "low": [39950.0 + i for i in range(24)],
+            "close": [40010.0 + i for i in range(24)],
+            "volume": [10.0] * 24,
+        },
+        index=dt_idx,
+    )
+    res = Backtest(DummyStrat(), df, cash=100_000, symbol="BTCUSDT").run()
+    run_dir = tmp_path / "btc_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["instrument"]["timezone"] == "UTC"
+    assert manifest["instrument"]["exchange"] is None
+    assert manifest["instrument"]["currency"] is None
+    assert manifest["instrument"]["markets"] == ["BTCUSDT"]
+
+    # Read daily and candles
+    daily = pd.read_parquet(run_dir / "parquet" / "daily.parquet")
+    assert list(daily["session"]) == ["2024-01-01"]
+
+    # 1H candles should cover all 24 hours of the day
+    c = candles(df, tf="1H", tz="UTC", session_close="24:00")
+    assert len(c["rows"]) == 24
+
+
+
 
 
 

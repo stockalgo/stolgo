@@ -33,15 +33,23 @@ def compute_run_metrics(
     *,
     intraday_equity: pd.Series | None = None,
     equity_basis: str = "mark_to_market",
+    tz: str = "UTC",
+    session_close: str = "24:00",
 ) -> dict[str, Any]:
     """Return the manifest v2 `metrics` dict (§3.1), all keys present, NaN→None applied last."""
     if daily.empty or capital <= 0:
         raise ValueError("Non-empty daily and positive capital are required to compute run metrics")
 
-    # Step 1: daily_pnl localized to IST 15:30 then converted to UTC
+    # Step 1: daily_pnl localized to session_close in tz then converted to UTC
+    if session_close == "24:00":
+        close_offset = pd.Timedelta(hours=23, minutes=59, seconds=59)
+    else:
+        h, m = map(int, session_close.split(":"))
+        close_offset = pd.Timedelta(hours=h, minutes=m)
+
     daily_pnl = pd.Series(
         daily["pnl"].values,
-        index=pd.DatetimeIndex(daily["session"]).tz_localize(IST) + pd.Timedelta(hours=15, minutes=30),
+        index=pd.DatetimeIndex(daily["session"]).tz_localize(tz) + close_offset,
     ).tz_convert("UTC")
 
     # Step 2: prepare trades_for_legacy and call calendar_metrics

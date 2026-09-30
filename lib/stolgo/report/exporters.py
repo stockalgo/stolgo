@@ -230,8 +230,40 @@ def export_all(
     directory = Path(directory)
     cap = float(capital or result.params.get("cash", 100_000.0))
 
+    symbol = result.params.get("symbol")
+    inst_in = dict(instrument or {})
+    markets = inst_in.get("markets") or ([symbol] if symbol else [])
+    market_str = " ".join(str(m) for m in markets) + " " + str(inst_in.get("exchange") or "") + " " + str(symbol or "")
+    is_indian = any(k in market_str.upper() for k in ("NIFTY", "SENSEX", "BANKNIFTY"))
+
+    if is_indian:
+        default_tz = "Asia/Kolkata"
+        default_close = "15:30"
+        default_exchange = "BSE" if "SENSEX" in market_str.upper() else "NSE"
+        default_curr = "INR"
+    else:
+        default_tz = "UTC"
+        default_close = "24:00"
+        default_exchange = None
+        default_curr = None
+
+    inst = {
+        "asset_class": inst_in.get("asset_class", "crypto" if any(c in market_str.upper() for c in ("BTC", "ETH", "USDT")) else "equity"),
+        "markets": markets,
+        "exchange": inst_in.get("exchange", default_exchange),
+        "structure": inst_in.get("structure", "long"),
+        "dte": inst_in.get("dte", []),
+        "lot_size": inst_in.get("lot_size", None),
+        "currency": inst_in.get("currency", default_curr),
+        "timezone": inst_in.get("timezone", default_tz),
+        "session_close": inst_in.get("session_close", default_close),
+    }
+
+    inst_tz = inst["timezone"]
+    inst_close = inst["session_close"]
+
     if result.ohlcv is not None and not result.ohlcv.empty:
-        sessions = sessions_from_ohlcv(result.ohlcv)
+        sessions = sessions_from_ohlcv(result.ohlcv, tz=inst_tz)
         ohlcv = result.ohlcv
         start_date = sessions[0].strftime("%Y-%m-%d") if len(sessions) else None
         end_date = sessions[-1].strftime("%Y-%m-%d") if len(sessions) else None
@@ -242,17 +274,6 @@ def export_all(
         start_date = None
         end_date = None
         n_sessions = 0
-
-    inst = instrument or {
-        "asset_class": "equity",
-        "markets": [],
-        "exchange": "NSE",
-        "structure": "long",
-        "dte": [],
-        "lot_size": None,
-        "currency": "INR",
-        "timezone": "Asia/Kolkata",
-    }
 
     # Normalize trades
     if result.trades.empty:
@@ -275,7 +296,7 @@ def export_all(
             side=side_val,
         )
 
-    trades_v2, legs_v2 = normalize_trades(result.trades, mapping)
+    trades_v2, legs_v2 = normalize_trades(result.trades, mapping, tz=inst_tz)
 
     has_mtm_equity = hasattr(result, "equity") and result.equity is not None and not result.equity.empty
     equity_basis = "mark_to_market" if has_mtm_equity else "realized"
@@ -287,7 +308,7 @@ def export_all(
             cap,
             sessions,
             equity=result.equity if has_mtm_equity else None,
-            tz=inst.get("timezone", "Asia/Kolkata"),
+            tz=inst_tz,
         )
     else:
         daily = pd.DataFrame(columns=["session", "pnl", "equity", "drawdown", "trades_closed"])
@@ -300,6 +321,8 @@ def export_all(
             daily,
             intraday_equity=result.equity if has_mtm_equity else None,
             equity_basis=equity_basis,
+            tz=inst_tz,
+            session_close=inst_close,
         )
     else:
         metrics = {

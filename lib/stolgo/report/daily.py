@@ -9,8 +9,8 @@ import pandas as pd
 IST = "Asia/Kolkata"
 
 
-def sessions_from_ohlcv(ohlcv: pd.DataFrame) -> pd.DatetimeIndex:
-    """Unique IST dates (tz-naive, normalized) that have at least one bar."""
+def sessions_from_ohlcv(ohlcv: pd.DataFrame, tz: str = "UTC") -> pd.DatetimeIndex:
+    """Unique dates (tz-naive, normalized) that have at least one bar in timezone `tz`."""
     if ohlcv.empty:
         return pd.DatetimeIndex([], dtype="datetime64[ns]")
 
@@ -23,8 +23,8 @@ def sessions_from_ohlcv(ohlcv: pd.DataFrame) -> pd.DatetimeIndex:
 
     if idx.tz is None:
         idx = idx.tz_localize("UTC")
-    ist_idx = idx.tz_convert(IST).tz_localize(None).normalize()
-    return pd.DatetimeIndex(sorted(ist_idx.unique()))
+    converted = idx.tz_convert(tz).tz_localize(None).normalize()
+    return pd.DatetimeIndex(sorted(converted.unique()))
 
 
 def load_calendar(runs_dir: Path, exchange: str) -> pd.DatetimeIndex:
@@ -79,7 +79,7 @@ def build_calendar_files(runs_dir: Path) -> dict[str, int]:
             exchange = "BSE"
 
         df = pd.read_parquet(p)
-        sessions = sessions_from_ohlcv(df)
+        sessions = sessions_from_ohlcv(df, tz="Asia/Kolkata")
         if exchange == "BSE":
             bse_sessions.update(sessions)
         else:
@@ -100,7 +100,7 @@ def build_daily(
     sessions: pd.DatetimeIndex,
     *,
     equity: pd.Series | None = None,
-    tz: str = IST,
+    tz: str = "UTC",
 ) -> pd.DataFrame:
     """Return the daily.parquet frame (§3.4).
     - If equity is provided: daily equity = last equity value per session, pnl = diff(equity) vs capital.

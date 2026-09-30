@@ -95,7 +95,7 @@ def _map_exit_reason_and_flag(
 
 
 def normalize_trades(
-    df: pd.DataFrame, mapping: SourceMapping
+    df: pd.DataFrame, mapping: SourceMapping, *, tz: str | None = None
 ) -> tuple[pd.DataFrame, pd.DataFrame | None]:
     """Return (trades_v2, legs_v2 or None). Never mutates df."""
     if df.empty:
@@ -127,9 +127,16 @@ def normalize_trades(
             res = res.sort_values("entry_ts").reset_index(drop=True)
             res["trade_id"] = np.arange(1, len(res) + 1, dtype=np.int64)
 
-    # session_date: from entry_ts in IST YYYY-MM-DD
-    ist_entry = res["entry_ts"].dt.tz_convert(IST)
-    res["session_date"] = ist_entry.dt.strftime("%Y-%m-%d")
+    # session_date: from entry_ts in target_tz YYYY-MM-DD
+    if tz is not None:
+        target_tz = tz
+    elif mapping.market and any(k in str(mapping.market).upper() for k in ("NIFTY", "SENSEX", "BANKNIFTY")):
+        target_tz = IST
+    else:
+        target_tz = "UTC"
+
+    entry_in_tz = res["entry_ts"].dt.tz_convert(target_tz)
+    res["session_date"] = entry_in_tz.dt.strftime("%Y-%m-%d")
 
     # 2. fees ← commission (or fees if both exist and are equal)
     if "fees" in res.columns and "commission" in res.columns:
