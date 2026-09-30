@@ -34,6 +34,7 @@ class RunConfig(BaseModel):
     halt_drawdown: float | None = None
     allow_leverage: bool = False
     close_at_end: bool = True
+    lookahead_check: bool = False
 
     @field_validator("fill_on")
     @classmethod

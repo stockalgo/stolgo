@@ -11,6 +11,7 @@ from stolgo.core.events import (
     SignalEvent,
     TimerEvent,
 )
+from stolgo.core.lookahead import probe
 from stolgo.core.exceptions import (
     BrokerNotImplementedError,
     ConfigurationError,
@@ -51,6 +52,7 @@ __all__ = [
     "OrderStatus",
     "OrderType",
     "Position",
+    "probe",
     "RiskHaltEvent",
     "RunConfig",
     "Side",

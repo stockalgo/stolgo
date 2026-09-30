@@ -20,6 +20,7 @@ from stolgo.oms.slippage import BpsSlippage, NoSlippage
 from stolgo.portfolio.portfolio import Portfolio
 from stolgo.portfolio.risk import apply_risk
 from stolgo.portfolio.sizing import resolve_qty
+from stolgo.core.lookahead import probe
 from stolgo.core.vector_lift import apply_vector_signals, resolve_vector_masks
 from stolgo.report.result import RunResult
 from stolgo.report.trades import build_trades_from_fills
@@ -73,6 +74,9 @@ class Engine:
             df = normalize_ohlcv(data, symbol=self._config.symbol or "UNKNOWN")
         else:
             raise NotImplementedError("DataSource history slice requires symbol/interval in config")
+
+        if self._config.lookahead_check:
+            probe(strategy, df)
 
         symbol = str(df.attrs.get("symbol", self._config.symbol or "UNKNOWN"))
         bars = bars_from_dataframe(df, symbol=symbol)

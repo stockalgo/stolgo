@@ -417,5 +417,65 @@ def test_close_at_end_true_and_false():
     assert r_false.positions.qty.iloc[-1] == 10.0  # position still open in portfolio
 
 
+def test_lookahead_probe():
+    from stolgo.core.lookahead import probe
+    from stolgo.core.exceptions import LookaheadError
+
+    # 1. Non-causal strategy: entries leak future data by looking 1 bar ahead
+    class NonCausalStrat(Strategy):
+        def on_start(self, ctx):
+            close = ctx.data.close
+            # Lookahead: shifted by -1 so it looks at tomorrow's close
+            self.entries = np.r_[close[1:] > close[:-1], False]
+            self.exits = np.zeros(len(close), dtype=bool)
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0 + i for i in range(20)],
+            "high": [101.0 + i for i in range(20)],
+            "low": [99.0 + i for i in range(20)],
+            "close": [100.0 + i for i in range(20)],
+            "volume": [1.0] * 20,
+        },
+        index=pd.date_range("2024-01-01", periods=20, freq="D", tz="UTC"),
+    )
+
+    with pytest.raises(LookaheadError):
+        probe(NonCausalStrat, df)
+
+    with pytest.raises(LookaheadError):
+        Backtest(NonCausalStrat(), df, cash=10_000, lookahead_check=True).run()
+
+    # 2. Causal vector strategy passes
+    class CausalStrat(Strategy):
+        def on_start(self, ctx):
+            close = ctx.data.close
+            # Strictly backward-looking (mom > 0)
+            self.entries = np.r_[False, close[1:] > close[:-1]]
+            self.exits = np.zeros(len(close), dtype=bool)
+
+    probe(CausalStrat, df)
+    res = Backtest(CausalStrat(), df, cash=10_000, lookahead_check=True).run()
+    assert len(res.equity) == 20
+
+
+def test_lookahead_probe_examples():
+    from stolgo.core.lookahead import probe
+    from examples.vector_momentum_backtest import FastMomentum
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0 + i for i in range(100)],
+            "high": [101.0 + i for i in range(100)],
+            "low": [99.0 + i for i in range(100)],
+            "close": [100.0 + i for i in range(100)],
+            "volume": [1.0] * 100,
+        },
+        index=pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC"),
+    )
+    probe(FastMomentum, df)
+
+
+
 
 
