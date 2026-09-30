@@ -31,6 +31,7 @@ class RunConfig(BaseModel):
     symbol: str | None = None
     interval: str | None = None
     halt_drawdown: float | None = None
+    allow_leverage: bool = False
 
     @field_validator("cash")
     @classmethod

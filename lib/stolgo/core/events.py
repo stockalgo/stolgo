@@ -53,3 +53,11 @@ class RiskHaltEvent:
     index: int
     drawdown: float = 0.0
     type: str = "RISK_HALT"
+
+
+@dataclass(frozen=True, slots=True)
+class OrderRejectedEvent:
+    order_id: str
+    reason: str
+    index: int
+    type: str = "ORDER_REJECTED"

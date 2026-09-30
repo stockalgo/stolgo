@@ -62,6 +62,7 @@ class Order:
     status: OrderStatus = OrderStatus.PENDING
     client_order_id: str | None = None
     tag: str | None = None
+    size_pct: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

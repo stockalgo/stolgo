@@ -34,6 +34,8 @@ class Portfolio:
             if abs(self._position.qty) < 1e-12:
                 self._position.qty = 0.0
                 self._position.avg_entry_price = 0.0
+        if abs(self._cash) < 1e-9:
+            self._cash = 0.0
 
     def mark_to_market(self, bar: Bar) -> float:
         return self._cash + self._position.qty * bar.close

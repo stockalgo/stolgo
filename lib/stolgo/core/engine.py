@@ -56,6 +56,7 @@ class Engine:
             BpsSlippage(self._config.slippage_bps),
             BpsCommission(self._config.commission),
             fill_on=self._config.fill_on,
+            allow_leverage=self._config.allow_leverage,
         )
         portfolio = Portfolio(self._config.cash, symbol=symbol)
 
@@ -93,7 +94,7 @@ class Engine:
         all_events: list[Any] = []
 
         for i, bar in SimClock(bars):
-            for fe in broker.match(bar, bar_index=i):
+            for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                 portfolio.apply_fill(fe.fill)
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)
@@ -131,9 +132,18 @@ class Engine:
                 if accepted is None:
                     continue
                 qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
-                if qty <= 0:
+                if qty <= 0 and accepted.size_pct is None:
                     continue
-                order = broker.create_order(symbol, accepted.side, qty, accepted.order_type)
+                order = broker.create_order(
+                    symbol,
+                    accepted.side,
+                    qty,
+                    accepted.order_type,
+                    limit_price=accepted.limit_price,
+                    stop_price=accepted.stop_price,
+                    tag=accepted.tag,
+                    size_pct=accepted.size_pct,
+                )
                 broker.submit(order)
 
         strategy.on_end(ctx)

@@ -79,3 +79,30 @@ def test_exit_not_blocked_by_drawdown():
     halts = [e for e in r2.events if isinstance(e, RiskHaltEvent)]
     assert len(halts) == 1
     assert halts[0].drawdown >= 0.5
+
+
+def test_size_pct_does_not_overspend_cash():
+    class AllIn(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=1.0)
+
+    df = frame([100] + [150] * 9, 0)
+    r = Backtest(AllIn(), df, cash=10_000, commission=0.001).run()
+    cash_series = r.positions.equity - r.positions.qty * df["close"].values
+    assert cash_series.min() >= 0
+    # Fill qty should be around 10,000 / (150 * 1.001) = 66.6
+    assert r.positions.qty.iloc[1] == pytest.approx(10_000 / (150 * 1.001), rel=1e-3)
+
+    # When allow_leverage=False (default), buying more than cash allows emits ORDER_REJECTED
+    class Overbuy(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=1000)  # Requires 150,000 but cash is 10,000
+
+    r2 = Backtest(Overbuy(), df, cash=10_000, commission=0.001).run()
+    assert r2.positions.qty.iloc[1] == 0
+    from stolgo.core.events import OrderRejectedEvent
+    rejections = [e for e in r2.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "insufficient_cash"
