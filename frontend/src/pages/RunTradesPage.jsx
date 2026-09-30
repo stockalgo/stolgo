@@ -62,7 +62,7 @@ export function RunTradesPage() {
     () => (run?.id ? getTrades(run.id) : Promise.resolve([])),
     [run?.id]
   );
-  const { data: rawTrades, loading } = useApi(fetchTrades);
+  const { data: rawTrades, loading } = useApi(`run:${run?.id}:trades`, fetchTrades, [run?.id]);
   const trades = useMemo(
     () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),
     [rawTrades]

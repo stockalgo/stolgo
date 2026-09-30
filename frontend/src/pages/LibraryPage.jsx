@@ -16,7 +16,7 @@ export function LibraryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const { data, loading, error, reload } = useApi(listRuns);
+  const { data, loading, error, reload } = useApi("runs:list", listRuns);
 
   // Toast state
   const [toast, setToast] = useState(null);

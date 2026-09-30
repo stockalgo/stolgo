@@ -34,14 +34,14 @@ export function RunChartPage() {
     () => (runId ? getRun(runId) : Promise.resolve(null)),
     [runId]
   );
-  const { data: run } = useApi(fetchRun);
+  const { data: run } = useApi(`run:${runId}`, fetchRun, [runId]);
 
   // Fetch trades
   const fetchTrades = useCallback(
     () => (runId ? getTrades(runId) : Promise.resolve([])),
     [runId]
   );
-  const { data: rawTrades } = useApi(fetchTrades);
+  const { data: rawTrades } = useApi(`run:${runId}:trades`, fetchTrades, [runId]);
   const trades = useMemo(
     () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),
     [rawTrades]
@@ -56,7 +56,7 @@ export function RunChartPage() {
     return getCandles(runId, tf);
   }, [runId, run, tf]);
 
-  const { data: candleData } = useApi(fetchCandles);
+  const { data: candleData } = useApi(`run:${runId}:candles:${tf}`, fetchCandles, [runId, tf]);
   const allCandles = useMemo(() => candleData?.rows || [], [candleData]);
 
   // Filter candles by range [1M 3M 1Y ALL]

@@ -5,25 +5,10 @@ const apiCache = new Map();
 /**
  * useApi hook with in-memory caching and stale response protection.
  *
- * Supports signatures:
- *   useApi(fetcher, deps = [])
+ * Signature:
  *   useApi(cacheKey, fetcher, deps = [])
  */
-export function useApi(arg1, arg2, arg3 = []) {
-  let key = null;
-  let fetcher = null;
-  let deps = [];
-
-  if (typeof arg1 === "function") {
-    fetcher = arg1;
-    deps = Array.isArray(arg2) ? arg2 : [];
-    key = null;
-  } else {
-    key = typeof arg1 === "string" ? arg1 : null;
-    fetcher = typeof arg2 === "function" ? arg2 : null;
-    deps = Array.isArray(arg3) ? arg3 : [];
-  }
-
+export function useApi(key, fetcher, deps = []) {
   const [data, setData] = useState(() => {
     if (key && apiCache.has(key)) {
       return apiCache.get(key);
@@ -32,7 +17,7 @@ export function useApi(arg1, arg2, arg3 = []) {
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(() => {
-    if (!fetcher) return false;
+    if (typeof fetcher !== "function") return false;
     if (key && apiCache.has(key)) return false;
     return true;
   });

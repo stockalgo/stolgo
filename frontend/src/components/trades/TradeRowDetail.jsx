@@ -56,7 +56,11 @@ export function TradeRowDetail({ runId, trade }) {
     return getTrade(runId, tradeId);
   }, [runId, tradeId]);
 
-  const { data: detail } = useApi(fetchDetail);
+  const { data: detail } = useApi(
+    runId && tradeId != null ? `run:${runId}:trade:${tradeId}` : null,
+    fetchDetail,
+    [runId, tradeId]
+  );
 
   const legs = detail?.legs || [];
   const autoNote = useMemo(() => computeAutoNote(legs, trade), [legs, trade]);

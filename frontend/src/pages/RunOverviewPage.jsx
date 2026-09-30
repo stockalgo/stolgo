@@ -16,8 +16,8 @@ export function RunOverviewPage() {
   const fetchTrades = useCallback(() => (run?.id ? getTrades(run.id) : Promise.resolve([])), [run?.id]);
   const fetchMonthly = useCallback(() => (run?.id ? getMonthly(run.id) : Promise.resolve([])), [run?.id]);
 
-  const { data: rawTrades } = useApi(fetchTrades);
-  const { data: rawMonthly } = useApi(fetchMonthly);
+  const { data: rawTrades } = useApi(`run:${run?.id}:trades`, fetchTrades, [run?.id]);
+  const { data: rawMonthly } = useApi(`run:${run?.id}:monthly`, fetchMonthly, [run?.id]);
 
   const trades = useMemo(
     () => (Array.isArray(rawTrades) ? rawTrades : rawTrades?.rows || []),

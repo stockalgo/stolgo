@@ -19,7 +19,7 @@ export function RunLayout() {
   };
 
   const fetchRun = useCallback(() => getRun(runId), [runId]);
-  const { data: run, loading, error } = useApi(fetchRun);
+  const { data: run, loading, error } = useApi(`run:${runId}`, fetchRun, [runId]);
 
   useEffect(() => {
     if (runId) {

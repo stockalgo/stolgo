@@ -26,7 +26,7 @@ export function TradeInspector({
     return getTrade(runId, currentTradeId);
   }, [runId, currentTradeId]);
 
-  const { data: tradeDetail } = useApi(fetchTradeDetail);
+  const { data: tradeDetail } = useApi(`run:${runId}:trade:${currentTradeId}`, fetchTradeDetail, [runId, currentTradeId]);
 
   // Global [ and ] keyboard navigation
   useEffect(() => {

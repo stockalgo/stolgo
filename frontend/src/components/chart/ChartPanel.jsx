@@ -55,7 +55,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
     return getCandles(run.id, tf);
   }, [run?.id, hasOhlcv, tf]);
 
-  const { data: candleData } = useApi(fetchCandles);
+  const { data: candleData } = useApi(`run:${run?.id}:candles:${tf}`, fetchCandles, [run?.id, tf]);
   const candles = useMemo(() => candleData?.rows || [], [candleData]);
 
   // Fetch daily series for equity view
@@ -64,7 +64,7 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
     return getDaily(run.id);
   }, [run?.id]);
 
-  const { data: dailyData } = useApi(fetchDaily);
+  const { data: dailyData } = useApi(`run:${run?.id}:daily`, fetchDaily, [run?.id]);
   const daily = useMemo(() => dailyData?.rows || [], [dailyData]);
 
   const toggleIndicator = (key) => {
