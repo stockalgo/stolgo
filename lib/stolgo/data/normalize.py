@@ -77,19 +77,9 @@ def normalize_ohlcv(
 
 def bars_from_dataframe(df: pd.DataFrame, *, symbol: str = "UNKNOWN") -> tuple[Bar, ...]:
     """Convert normalized DataFrame to Bar tuple (cold path at engine start)."""
-    sym = df.attrs.get("symbol", symbol)
-    bars: list[Bar] = []
-    for ts, row in df.iterrows():
-        ns = int(pd.Timestamp(ts).value)
-        bars.append(
-            Bar(
-                ts=ns,
-                open=float(row["open"]),
-                high=float(row["high"]),
-                low=float(row["low"]),
-                close=float(row["close"]),
-                volume=float(row["volume"]),
-                symbol=str(sym),
-            )
-        )
-    return tuple(bars)
+    if df.empty:
+        return ()
+    sym = str(df.attrs.get("symbol", symbol))
+    ts = df.index.asi8.tolist()
+    cols = [df[c].to_numpy("float64").tolist() for c in ("open", "high", "low", "close", "volume")]
+    return tuple(Bar(t, o, h, l, c, v, sym) for t, o, h, l, c, v in zip(ts, *cols))
