@@ -184,8 +184,9 @@ def candles(
 
     target_tz = tz or "Asia/Kolkata"
     target_close = session_close or ("15:30" if target_tz == "Asia/Kolkata" else "24:00")
+    is_indian = (target_tz == "Asia/Kolkata" and target_close == "15:30")
 
-    work = ohlcv.copy()
+    work = ohlcv
     if not isinstance(work.index, pd.DatetimeIndex):
         if "timestamp" in work.columns:
             work = work.set_index(pd.to_datetime(work["timestamp"], utc=True))
@@ -193,112 +194,79 @@ def candles(
             raise ValueError("ohlcv must have a DatetimeIndex or timestamp column")
 
     if work.index.tz is None:
-        work.index = work.index.tz_localize("UTC").tz_convert(target_tz)
+        idx = work.index.tz_localize("UTC").tz_convert(target_tz)
     else:
-        work.index = work.index.tz_convert(target_tz)
+        idx = work.index.tz_convert(target_tz)
 
-    work["session_date"] = work.index.strftime("%Y-%m-%d")
+    work = work.copy(deep=False)
+    work.index = idx
 
-    unique_sessions = sorted(work["session_date"].unique())
+    norm = idx.normalize()
     if frm is not None or to is not None:
         if frm is not None:
-            work = work[work["session_date"] >= frm]
+            frm_ts = pd.Timestamp(frm, tz=target_tz).normalize()
+            mask = norm >= frm_ts
+            work = work[mask]
+            norm = norm[mask]
         if to is not None:
-            work = work[work["session_date"] <= to]
+            to_ts = pd.Timestamp(to, tz=target_tz).normalize()
+            mask = norm <= to_ts
+            work = work[mask]
+            norm = norm[mask]
     else:
+        unique_sessions = norm.unique()
         limit = 180 if tf == "1D" else (20 if tf == "1H" else 5)
-        selected_sessions = set(unique_sessions[-limit:])
-        work = work[work["session_date"].isin(selected_sessions)]
+        if len(unique_sessions) > limit:
+            cutoff = unique_sessions[-limit]
+            mask = norm >= cutoff
+            work = work[mask]
 
     if work.empty:
         return {"rows": [], "tf": tf}
 
     has_vol = "volume" in work.columns
+    work["_time"] = (work.index.tz_convert("UTC").asi8 // 1_000_000_000).astype(int)
 
     if tf == "1D":
-        records = []
-        for s_date, grp in work.groupby("session_date", sort=True):
-            t_s = int(grp.index[0].tz_convert("UTC").timestamp())
-            rec = {
-                "time": t_s,
-                "open": float(grp["open"].iloc[0]),
-                "high": float(grp["high"].max()),
-                "low": float(grp["low"].min()),
-                "close": float(grp["close"].iloc[-1]),
-            }
-            if has_vol:
-                rec["volume"] = float(grp["volume"].sum())
-            records.append(rec)
+        agg_dict = {
+            "_time": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+        }
+        if has_vol:
+            agg_dict["volume"] = "sum"
+        res = work.resample("1D").agg(agg_dict).dropna(subset=["open"])
+        res = res.rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
         return {"rows": _clean(records), "tf": tf}
 
     elif tf == "1H":
-        records = []
-        is_indian = (target_tz == "Asia/Kolkata" and target_close == "15:30")
-        if is_indian:
-            hours_ranges = [
-                ("09:15:00", "10:15:00"),
-                ("10:15:00", "11:15:00"),
-                ("11:15:00", "12:15:00"),
-                ("12:15:00", "13:15:00"),
-                ("13:15:00", "14:15:00"),
-                ("14:15:00", "15:15:00"),
-                ("15:15:00", "15:30:00"),
-            ]
-        else:
-            hours_ranges = [
-                (f"{h:02d}:00:00", f"{h+1:02d}:00:00" if h < 23 else "23:59:59.999999")
-                for h in range(24)
-            ]
-
-        for s_date, s_grp in work.groupby("session_date", sort=True):
-            hourly_matched = False
-            for i_h, (start_hour, end_hour) in enumerate(hours_ranges):
-                if is_indian:
-                    bar_grp = s_grp.between_time(
-                        start_hour, end_hour, inclusive="left" if end_hour != "15:30:00" else "both"
-                    )
-                else:
-                    bar_grp = s_grp.between_time(
-                        start_hour, end_hour, inclusive="left" if i_h < 23 else "both"
-                    )
-                if not bar_grp.empty:
-                    hourly_matched = True
-                    rec = {
-                        "time": int(bar_grp.index[0].tz_convert("UTC").timestamp()),
-                        "open": float(bar_grp["open"].iloc[0]),
-                        "high": float(bar_grp["high"].max()),
-                        "low": float(bar_grp["low"].min()),
-                        "close": float(bar_grp["close"].iloc[-1]),
-                    }
-                    if has_vol:
-                        rec["volume"] = float(bar_grp["volume"].sum())
-                    records.append(rec)
-            if not hourly_matched:
-                rec = {
-                    "time": int(s_grp.index[0].tz_convert("UTC").timestamp()),
-                    "open": float(s_grp["open"].iloc[0]),
-                    "high": float(s_grp["high"].max()),
-                    "low": float(s_grp["low"].min()),
-                    "close": float(s_grp["close"].iloc[-1]),
-                }
-                if has_vol:
-                    rec["volume"] = float(s_grp["volume"].sum())
-                records.append(rec)
+        agg_dict = {
+            "_time": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+        }
+        if has_vol:
+            agg_dict["volume"] = "sum"
+        offset = "15min" if is_indian else None
+        res = work.resample("60min", offset=offset).agg(agg_dict).dropna(subset=["open"])
+        res = res.rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
         return {"rows": _clean(records), "tf": tf}
 
     else:  # 15m or raw
-        records = []
-        for ts, row in work.iterrows():
-            rec = {
-                "time": int(ts.tz_convert("UTC").timestamp()),
-                "open": float(row["open"]),
-                "high": float(row["high"]),
-                "low": float(row["low"]),
-                "close": float(row["close"]),
-            }
-            if has_vol:
-                rec["volume"] = float(row["volume"])
-            records.append(rec)
+        cols = ["_time", "open", "high", "low", "close"]
+        if has_vol:
+            cols.append("volume")
+        res = work[cols].rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
         return {"rows": _clean(records), "tf": tf}
 
 
