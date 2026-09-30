@@ -84,7 +84,14 @@ class Context:
             return float(self._portfolio.cash)
         return float(self._cash_val)
 
-    def buy(self, *, qty: float | None = None, size_pct: float | None = None, tag: str | None = None) -> OrderIntent:
+    def buy(
+        self,
+        *,
+        qty: float | None = None,
+        size_pct: float | None = None,
+        tag: str | None = None,
+        risk_per_unit: float | None = None,
+    ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.BUY,
@@ -92,11 +99,19 @@ class Context:
             qty=qty,
             size_pct=size_pct,
             tag=tag,
+            risk_per_unit=risk_per_unit,
         )
         self._intents.append(intent)
         return intent
 
-    def sell(self, *, qty: float | None = None, size_pct: float | None = None, tag: str | None = None) -> OrderIntent:
+    def sell(
+        self,
+        *,
+        qty: float | None = None,
+        size_pct: float | None = None,
+        tag: str | None = None,
+        risk_per_unit: float | None = None,
+    ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.SELL,
@@ -104,6 +119,7 @@ class Context:
             qty=qty,
             size_pct=size_pct,
             tag=tag,
+            risk_per_unit=risk_per_unit,
         )
         self._intents.append(intent)
         return intent
@@ -119,6 +135,7 @@ class Context:
         tag: str | None = None,
         size_pct: float | None = None,
         oco_group: str | None = None,
+        risk_per_unit: float | None = None,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -130,6 +147,7 @@ class Context:
             tag=tag,
             size_pct=size_pct,
             oco_group=oco_group,
+            risk_per_unit=risk_per_unit,
         )
         self._intents.append(intent)
         return intent

@@ -64,6 +64,7 @@ class Order:
     tag: str | None = None
     size_pct: float | None = None
     oco_group: str | None = None
+    risk_per_unit: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +77,7 @@ class Fill:
     price: Price
     commission: float
     ts: int
+    risk_per_unit: float | None = None
 
 
 @dataclass
@@ -102,6 +104,7 @@ class OrderIntent:
     stop_price: float | None = None
     tag: str | None = None
     oco_group: str | None = None
+    risk_per_unit: float | None = None
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:

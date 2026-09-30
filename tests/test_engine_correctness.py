@@ -329,3 +329,58 @@ def test_bracket_sizing_and_intrabar_stop():
     assert t2.exit_price == 90.0
 
 
+def test_r_multiple_vs_return_on_notional():
+    from stolgo.trade import long
+
+    class NoBracketStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            elif ctx.i == 1:
+                ctx.sell(qty=10)
+
+    # 1. Trade without bracket: return_on_notional is set, r_multiple is NaN
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 110.0],
+            "high": [101.0, 101.0, 111.0],
+            "low": [99.0, 99.0, 109.0],
+            "close": [100.0, 100.0, 110.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r1 = Backtest(NoBracketStrat(), df, cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert "return_on_notional" in r1.trades.columns
+    assert t1.return_on_notional == pytest.approx(0.1)  # 100 net / 1000 notional
+    assert np.isnan(t1.r_multiple)
+
+    # 2. Trade with bracket: risk per unit known, r_multiple is set
+    class BracketStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", qty=10, rr=(1, 2))
+
+    # bar 0: close 100, low 95 -> risk_per_unit = 5. target = 110
+    # bar 1: open 100, high 112 (hits target 110 intrabar), low 99, close 111
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0],
+            "high": [105.0, 112.0],
+            "low": [95.0, 99.0],
+            "close": [100.0, 111.0],
+            "volume": [1.0, 1.0],
+        },
+        index=idx[:2],
+    )
+    r2 = Backtest(BracketStrat(), df2, cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert t2.exit_price == 110.0
+    assert t2.return_on_notional == pytest.approx(0.1)  # 100 / 1000
+    assert t2.r_multiple == pytest.approx(2.0)  # 10 gain / 5 risk per unit
+
+
+

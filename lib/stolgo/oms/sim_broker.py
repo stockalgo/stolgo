@@ -150,6 +150,7 @@ class SimBroker:
             price=px,
             commission=fee,
             ts=bar.ts,
+            risk_per_unit=order.risk_per_unit,
         )
         return FillEvent(fill=fill, order_id=order.order_id, index=bar_index)
 
@@ -165,6 +166,7 @@ class SimBroker:
         tag: str | None = None,
         size_pct: float | None = None,
         oco_group: str | None = None,
+        risk_per_unit: float | None = None,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -177,4 +179,5 @@ class SimBroker:
             tag=tag,
             size_pct=size_pct,
             oco_group=oco_group,
+            risk_per_unit=risk_per_unit,
         )

@@ -134,7 +134,8 @@ def long(
     if q <= 0:
         return None
     target = _target(entry, stop_px, rr, Side.BUY)
-    ctx.buy(qty=q, tag=tag)
+    risk_per_unit = abs(entry - stop_px)
+    ctx.buy(qty=q, tag=tag, risk_per_unit=risk_per_unit)
     b = Bracket(
         side=Side.BUY,
         entry_price=entry,
@@ -172,7 +173,8 @@ def short(
     if q <= 0:
         return None
     target = _target(entry, stop_px, rr, Side.SELL)
-    ctx.sell(qty=q, tag=tag)
+    risk_per_unit = abs(entry - stop_px)
+    ctx.sell(qty=q, tag=tag, risk_per_unit=risk_per_unit)
     b = Bracket(
         side=Side.SELL,
         entry_price=entry,

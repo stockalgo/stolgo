@@ -54,6 +54,7 @@ def _process_intents(
             tag=accepted.tag,
             size_pct=accepted.size_pct,
             oco_group=accepted.oco_group,
+            risk_per_unit=accepted.risk_per_unit,
         )
         broker.submit(order)
 
