@@ -13,20 +13,27 @@ from stolgo.portfolio.portfolio import Portfolio
 def apply_risk(
     intent: OrderIntent | None,
     portfolio: Portfolio,
-    equity_curve: list[float],
-    config: RunConfig,
+    equity_curve: list[float] | None = None,
+    config: RunConfig | None = None,
     events: list[object] | None = None,
     bar_index: int = 0,
+    peak_equity: float | None = None,
+    current_equity: float | None = None,
 ) -> OrderIntent | None:
     if intent is None:
         return None
-    if config.halt_drawdown is None:
-        return intent
-    if len(equity_curve) < 2:
+    if config is None or config.halt_drawdown is None:
         return intent
 
-    peak = max(equity_curve)
-    current = equity_curve[-1]
+    if peak_equity is not None and current_equity is not None:
+        peak = peak_equity
+        current = current_equity
+    elif equity_curve is not None and len(equity_curve) >= 2:
+        peak = max(equity_curve)
+        current = equity_curve[-1]
+    else:
+        return intent
+
     if peak <= 0:
         return intent
 

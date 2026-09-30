@@ -38,9 +38,20 @@ def _process_intents(
     config: RunConfig,
     all_events: list[Any],
     symbol: str,
+    peak_equity: float | None = None,
+    current_equity: float | None = None,
 ) -> None:
     for intent in ctx.consume_intents():
-        accepted = apply_risk(intent, portfolio, equity_vals, config, events=all_events, bar_index=i)
+        accepted = apply_risk(
+            intent,
+            portfolio,
+            equity_vals,
+            config,
+            events=all_events,
+            bar_index=i,
+            peak_equity=peak_equity,
+            current_equity=current_equity,
+        )
         if accepted is None:
             continue
         qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
@@ -134,6 +145,7 @@ class Engine:
         fill_events: list[Any] = []
         all_events: list[Any] = []
 
+        running_peak: float | None = None
         for i, bar in SimClock(bars):
             ctx.i = i
             for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
@@ -154,6 +166,8 @@ class Engine:
                     self._config,
                     all_events,
                     symbol,
+                    peak_equity=running_peak if len(equity_vals) >= 2 else None,
+                    current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
                 )
                 for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                     portfolio.apply_fill(fe.fill)
@@ -167,6 +181,7 @@ class Engine:
             equity_vals.append(eq)
             equity_index.append(pd.Timestamp(bar.ts, unit="ns", tz="UTC"))
             position_qty_vals.append(portfolio.position.qty)
+            running_peak = eq if running_peak is None else max(running_peak, eq)
 
             ctx.i = i
             ctx.data = BarDataView(
@@ -200,6 +215,8 @@ class Engine:
                 self._config,
                 all_events,
                 symbol,
+                peak_equity=running_peak if len(equity_vals) >= 2 else None,
+                current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
             )
 
             if self._config.fill_on == "signal_close":
@@ -225,9 +242,13 @@ class Engine:
                         self._config,
                         all_events,
                         symbol,
+                        peak_equity=running_peak if len(equity_vals) >= 2 else None,
+                        current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
                     )
-                    equity_vals[-1] = portfolio.mark_to_market(bar)
+                    eq_close = portfolio.mark_to_market(bar)
+                    equity_vals[-1] = eq_close
                     position_qty_vals[-1] = portfolio.position.qty
+                    running_peak = eq_close if running_peak is None else max(running_peak, eq_close)
 
         if bars and self._config.close_at_end and not portfolio.position.flat:
             last_bar = bars[-1]
