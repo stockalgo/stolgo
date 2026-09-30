@@ -13,7 +13,7 @@ from stolgo.core.exceptions import ModeNotSupportedError
 from stolgo.data.base import DataSource
 from stolgo.data.normalize import bars_from_dataframe, normalize_ohlcv
 from stolgo.oms.commission import BpsCommission
-from stolgo.oms.fill_model import CloseFill, NextOpenFill
+from stolgo.oms.fill_model import CloseFill, NextCloseFill, NextOpenFill
 from stolgo.oms.sim_broker import SimBroker
 from stolgo.oms.slippage import BpsSlippage, NoSlippage
 from stolgo.portfolio.portfolio import Portfolio
@@ -24,6 +24,38 @@ from stolgo.report.result import RunResult
 from stolgo.report.trades import build_trades_from_fills
 from stolgo.strategy.base import Strategy
 from stolgo.strategy.context import BarDataView, Context
+
+
+def _process_intents(
+    ctx: Context,
+    portfolio: Portfolio,
+    broker: SimBroker,
+    bar: Bar,
+    i: int,
+    equity_vals: list[float],
+    config: RunConfig,
+    all_events: list[Any],
+    symbol: str,
+) -> None:
+    for intent in ctx.consume_intents():
+        accepted = apply_risk(intent, portfolio, equity_vals, config, events=all_events, bar_index=i)
+        if accepted is None:
+            continue
+        qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
+        if qty <= 0 and accepted.size_pct is None:
+            continue
+        order = broker.create_order(
+            symbol,
+            accepted.side,
+            qty,
+            accepted.order_type,
+            limit_price=accepted.limit_price,
+            stop_price=accepted.stop_price,
+            tag=accepted.tag,
+            size_pct=accepted.size_pct,
+            oco_group=accepted.oco_group,
+        )
+        broker.submit(order)
 
 
 class Engine:
@@ -50,7 +82,7 @@ class Engine:
             "volume": df["volume"].to_numpy(dtype=np.float64),
         }
 
-        fill_model = CloseFill() if self._config.fill_on == "close" else NextOpenFill()
+        fill_model = NextCloseFill() if self._config.fill_on in ("close", "next_close") else NextOpenFill()
         broker = SimBroker(
             fill_model,
             BpsSlippage(self._config.slippage_bps),
@@ -127,25 +159,44 @@ class Engine:
                     entry_size_pct=vector_entry_size_pct,
                 )
 
-            for intent in ctx.consume_intents():
-                accepted = apply_risk(intent, portfolio, equity_vals, self._config, events=all_events, bar_index=i)
-                if accepted is None:
-                    continue
-                qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
-                if qty <= 0 and accepted.size_pct is None:
-                    continue
-                order = broker.create_order(
-                    symbol,
-                    accepted.side,
-                    qty,
-                    accepted.order_type,
-                    limit_price=accepted.limit_price,
-                    stop_price=accepted.stop_price,
-                    tag=accepted.tag,
-                    size_pct=accepted.size_pct,
-                    oco_group=accepted.oco_group,
+            _process_intents(
+                ctx,
+                portfolio,
+                broker,
+                bar,
+                i,
+                equity_vals,
+                self._config,
+                all_events,
+                symbol,
+            )
+
+            if self._config.fill_on == "signal_close":
+                fills = broker.match_signal_close(
+                    bar,
+                    bar_index=i,
+                    portfolio=portfolio,
+                    events=all_events,
                 )
-                broker.submit(order)
+                if fills:
+                    for fe in fills:
+                        portfolio.apply_fill(fe.fill)
+                        strategy.on_fill(ctx, fe)
+                        fill_events.append(fe)
+                        all_events.append(fe)
+                    _process_intents(
+                        ctx,
+                        portfolio,
+                        broker,
+                        bar,
+                        i,
+                        equity_vals,
+                        self._config,
+                        all_events,
+                        symbol,
+                    )
+                    equity_vals[-1] = portfolio.mark_to_market(bar)
+                    position_qty_vals[-1] = portfolio.position.qty
 
         strategy.on_end(ctx)
 

@@ -226,3 +226,50 @@ def test_oco_both_hit_on_same_bar_fills_stop():
     assert len(fills) == 1
     # Adverse-first: fill the STOP order (at stop price 90.0)
     assert fills[0].price == 90.0
+
+
+def test_fill_on_modes():
+    class SignalOnBar1(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+
+    # Bar 0: open 100.0, close 100.0
+    # Bar 1: open 101.0, close 101.2
+    # Bar 2: open 102.0, close 102.2
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 101.0, 102.0],
+            "high": [100.5, 101.5, 102.5],
+            "low": [99.5, 100.5, 101.5],
+            "close": [100.0, 101.2, 102.2],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+
+    # 1. next_open (default): fills at bar 2 open = 102.0
+    r_open = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_open").run()
+    fills_open = [e.fill for e in r_open.events if hasattr(e, "fill")]
+    assert len(fills_open) == 1
+    assert fills_open[0].price == 102.0
+
+    # 2. next_close: fills at bar 2 close = 102.2
+    r_next_close = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_close").run()
+    fills_nc = [e.fill for e in r_next_close.events if hasattr(e, "fill")]
+    assert len(fills_nc) == 1
+    assert fills_nc[0].price == 102.2
+
+    # Deprecated alias "close" gives warning and fills at 102.2
+    with pytest.deprecated_call():
+        r_dep = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="close").run()
+    fills_dep = [e.fill for e in r_dep.events if hasattr(e, "fill")]
+    assert len(fills_dep) == 1
+    assert fills_dep[0].price == 102.2
+
+    # 3. signal_close: fills at bar 1 close = 101.2
+    r_sig = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="signal_close").run()
+    fills_sig = [e.fill for e in r_sig.events if hasattr(e, "fill")]
+    assert len(fills_sig) == 1
+    assert fills_sig[0].price == 101.2
+

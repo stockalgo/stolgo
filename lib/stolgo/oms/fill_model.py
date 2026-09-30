@@ -18,8 +18,13 @@ class NextOpenFill:
         return None
 
 
-class CloseFill:
+class NextCloseFill:
     def fill_price(self, order: Order, bar: Bar, *, bar_index: int) -> float | None:
         if order.order_type == OrderType.MARKET:
             return bar.close
         return None
+
+
+# Deprecated alias
+CloseFill = NextCloseFill
+

@@ -22,7 +22,7 @@ class SimBroker:
         slippage: SlippageModel,
         commission: CommissionModel,
         *,
-        fill_on: Literal["next_open", "close"] = "next_open",
+        fill_on: Literal["next_open", "next_close", "signal_close", "close"] = "next_open",
         allow_leverage: bool = False,
     ) -> None:
         self._fill_model = fill_model
@@ -85,6 +85,27 @@ class SimBroker:
                 fill_events.append(fe)
 
         return fill_events if fill_events else list(_EMPTY_FILLS)
+
+    def match_signal_close(
+        self,
+        bar: Bar,
+        *,
+        bar_index: int,
+        portfolio: Any = None,
+        events: list[Any] | None = None,
+    ) -> list[FillEvent]:
+        fill_events: list[FillEvent] = []
+        still_pending: list[Order] = []
+        for order in self._pending:
+            if order.order_type == OrderType.MARKET:
+                fe = self._make_fill(order, bar, bar.close, bar_index, portfolio=portfolio, events=events)
+                if fe is not None:
+                    fill_events.append(fe)
+            else:
+                self._book.add(order)
+        self._pending = still_pending
+        return fill_events if fill_events else list(_EMPTY_FILLS)
+
 
     def _make_fill(
         self,
