@@ -30,6 +30,7 @@ export function ValidationConfig({ run }) {
       : "null \u2190 not recorded by generator";
 
   const metricBasis = run?.metrics?.basis ?? null;
+  const equityBasis = run?.metrics?.equity_basis ?? run?.equity_basis ?? null;
   const orders = diag.orders ?? run?.metrics?.orders;
   const validationStatus = validation.status ?? run?.validation_status;
 
@@ -133,6 +134,17 @@ export function ValidationConfig({ run }) {
             <span>
               {metricBasis ? (
                 <span className="badge badge--info">{metricBasis}</span>
+              ) : (
+                "—"
+              )}
+            </span>
+          </div>
+
+          <div className="kv kv--divided">
+            <span>Equity basis</span>
+            <span>
+              {equityBasis ? (
+                <span className="badge badge--info">{equityBasis}</span>
               ) : (
                 "—"
               )}

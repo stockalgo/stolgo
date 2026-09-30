@@ -523,6 +523,38 @@ def test_accounting_error_raised():
         compute_run_metrics(trades, 10_000.0, daily)
 
 
+def test_export_all_mark_to_market_equity(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class HoldStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            elif ctx.i == 2:
+                ctx.close()
+
+    # 3 daily bars: 100 -> 70 -> 101
+    dt_idx = pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 70.0, 101.0],
+            "high": [100.0, 70.0, 101.0],
+            "low": [100.0, 70.0, 101.0],
+            "close": [100.0, 70.0, 101.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=dt_idx,
+    )
+    res = Backtest(HoldStrat(), df, cash=10_000, fill_on="signal_close").run()
+    run_dir = tmp_path / "test_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["metrics"]["equity_basis"] == "mark_to_market"
+    assert manifest["metrics"]["max_drawdown"] == pytest.approx(-0.30, abs=0.001)
+
+
+
 
 
 

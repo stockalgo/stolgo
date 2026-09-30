@@ -15,7 +15,7 @@ from stolgo.ui.server import create_app
 
 def _result() -> RunResult:
     index = pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC")
-    equity = pd.Series([100.0, 105.0, 102.0], index=index)
+    equity = pd.Series([100.0, 101.0, 101.0], index=index)
     ohlcv = pd.DataFrame(
         {
             "open": [10.0, 11.0, 12.0],
@@ -40,7 +40,7 @@ def _result() -> RunResult:
     )
     positions = pd.DataFrame({"qty": [0.0, 1.0, 0.0], "equity": equity}, index=index)
     return RunResult(
-        params={"symbol": "SYN", "interval": "1d"},
+        params={"symbol": "SYN", "interval": "1d", "cash": 100.0},
         trades=trades,
         equity=equity,
         positions=positions,

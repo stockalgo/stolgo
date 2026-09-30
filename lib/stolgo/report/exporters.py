@@ -196,6 +196,7 @@ def export_run_v2(
         "status_reasons": status_reasons,
         "created_at": created_at or _now_iso(),
         "path": str(directory),
+        "equity_basis": metrics.get("equity_basis", "mark_to_market"),
         "instrument": instrument,
         "group": group,
         "config": config,
@@ -242,41 +243,68 @@ def export_all(
         end_date = None
         n_sessions = 0
 
+    inst = instrument or {
+        "asset_class": "equity",
+        "markets": [],
+        "exchange": "NSE",
+        "structure": "long",
+        "dte": [],
+        "lot_size": None,
+        "currency": "INR",
+        "timezone": "Asia/Kolkata",
+    }
+
     # Normalize trades
     if result.trades.empty:
         mapping = SourceMapping(
             price_columns="none",
             structure="unknown",
-            market=instrument.get("market") if instrument else None,
+            market=inst.get("market"),
             lot_size=None,
             side="from_column",
         )
     else:
-        is_options = instrument is not None and instrument.get("asset_class") == "index_options"
+        is_options = inst.get("asset_class") == "index_options"
         p_col = "premium" if is_options else "underlying"
         side_val = "from_column" if "side" in result.trades.columns else ("SHORT" if is_options else "LONG")
         mapping = SourceMapping(
             price_columns=p_col,
             structure="short_strangle" if is_options else "long",
-            market=instrument.get("market") if instrument else None,
+            market=inst.get("market"),
             lot_size=None,
             side=side_val,
         )
 
     trades_v2, legs_v2 = normalize_trades(result.trades, mapping)
 
+    has_mtm_equity = hasattr(result, "equity") and result.equity is not None and not result.equity.empty
+    equity_basis = "mark_to_market" if has_mtm_equity else "realized"
+
     # Build daily
     if not trades_v2.empty and len(sessions) > 0:
-        daily = build_daily(trades_v2, cap, sessions)
+        daily = build_daily(
+            trades_v2,
+            cap,
+            sessions,
+            equity=result.equity if has_mtm_equity else None,
+            tz=inst.get("timezone", "Asia/Kolkata"),
+        )
     else:
         daily = pd.DataFrame(columns=["session", "pnl", "equity", "drawdown", "trades_closed"])
 
     # Metrics
     if not daily.empty:
-        metrics = compute_run_metrics(trades_v2, cap, daily)
+        metrics = compute_run_metrics(
+            trades_v2,
+            cap,
+            daily,
+            intraday_equity=result.equity if has_mtm_equity else None,
+            equity_basis=equity_basis,
+        )
     else:
         metrics = {
             "basis": "calendar_daily",
+            "equity_basis": equity_basis,
             "net_pnl": 0.0,
             "gross_pnl": 0.0,
             "fees": 0.0,
@@ -313,16 +341,6 @@ def export_all(
     source_manifest_mock = {"params": result.params, "metrics": result.metrics}
     diagnostics_dict = build_diagnostics(trades_v2, daily, cap, source_manifest_mock)
 
-    inst = instrument or {
-        "asset_class": "equity",
-        "markets": [],
-        "exchange": "NSE",
-        "structure": "long",
-        "dte": [],
-        "lot_size": None,
-        "currency": "INR",
-        "timezone": "Asia/Kolkata",
-    }
     group = {"id": None, "label": None, "axes": {}}
     code_version = _get_git_commit_short()
     config = {

@@ -94,16 +94,25 @@ def build_calendar_files(runs_dir: Path) -> dict[str, int]:
     return {"NSE": len(nse_idx), "BSE": len(bse_idx)}
 
 
-def build_daily(trades: pd.DataFrame, capital: float, sessions: pd.DatetimeIndex) -> pd.DataFrame:
+def build_daily(
+    trades: pd.DataFrame,
+    capital: float,
+    sessions: pd.DatetimeIndex,
+    *,
+    equity: pd.Series | None = None,
+    tz: str = IST,
+) -> pd.DataFrame:
     """Return the daily.parquet frame (§3.4).
-    - window = [IST date of min(entry_ts), IST date of max(exit_ts)]
-    - sessions restricted to the window; if an exit date is not in `sessions`, raise ValueError
-      naming the date (do NOT silently add it)
-    - pnl = groupby(IST exit date).net_pnl.sum(); missing sessions → 0.0
-    - if any trade has net_pnl NaN → that session's pnl = NaN
+    - If equity is provided: daily equity = last equity value per session, pnl = diff(equity) vs capital.
+    - Otherwise realized-only:
+      - window = [IST date of min(entry_ts), IST date of max(exit_ts)]
+      - sessions restricted to the window; if an exit date is not in `sessions`, raise ValueError
+        naming the date (do NOT silently add it)
+      - pnl = groupby(IST exit date).net_pnl.sum(); missing sessions → 0.0
+      - if any trade has net_pnl NaN → that session's pnl = NaN
     """
     cols = ["session", "pnl", "equity", "drawdown", "trades_closed"]
-    if trades.empty:
+    if (trades is None or trades.empty) and (equity is None or equity.empty):
         return pd.DataFrame(
             {
                 "session": pd.Series([], dtype="string"),
@@ -114,6 +123,76 @@ def build_daily(trades: pd.DataFrame, capital: float, sessions: pd.DatetimeIndex
             }
         )
 
+    # Pre-aggregate closed trades count
+    trades_closed_by_date: dict[pd.Timestamp, int] = {}
+    pnl_by_date: dict[pd.Timestamp, float] = {}
+
+    has_trades = trades is not None and not trades.empty and "exit_ts" in trades.columns
+    if has_trades:
+        exit_ts = pd.to_datetime(trades["exit_ts"])
+        if exit_ts.dt.tz is None:
+            exit_ts = exit_ts.dt.tz_localize("UTC")
+        exit_dates = exit_ts.dt.tz_convert(tz).dt.tz_localize(None).dt.normalize()
+        work_df = pd.DataFrame({"exit_date": exit_dates, "net_pnl": trades["net_pnl"]})
+        for date, group in work_df.groupby("exit_date"):
+            trades_closed_by_date[date] = len(group)
+            if group["net_pnl"].isna().any():
+                pnl_by_date[date] = float("nan")
+            else:
+                pnl_by_date[date] = float(group["net_pnl"].sum())
+
+    sessions_normalized = (
+        pd.DatetimeIndex(sorted(sessions.unique())).normalize() if len(sessions) > 0 else pd.DatetimeIndex([])
+    )
+
+    # 1. Mark-to-market branch
+    if equity is not None and not equity.empty:
+        eq_idx = equity.index
+        if not isinstance(eq_idx, pd.DatetimeIndex):
+            eq_idx = pd.to_datetime(eq_idx)
+        if eq_idx.tz is None:
+            eq_idx = eq_idx.tz_localize("UTC")
+        eq_dates = eq_idx.tz_convert(tz).tz_localize(None).normalize()
+        eq_by_session = pd.Series(equity.values, index=eq_dates).groupby(level=0).last()
+
+        if len(sessions_normalized) == 0:
+            window_sessions = pd.DatetimeIndex(sorted(eq_by_session.index))
+        else:
+            window_sessions = sessions_normalized
+
+        session_strs = []
+        equity_vals = []
+        closed_counts = []
+        prev_eq = capital
+
+        for s in window_sessions:
+            session_strs.append(s.strftime("%Y-%m-%d"))
+            if s in eq_by_session.index:
+                prev_eq = float(eq_by_session.loc[s])
+            equity_vals.append(prev_eq)
+            closed_counts.append(trades_closed_by_date.get(s, 0))
+
+        equity_arr = np.array(equity_vals, dtype=float)
+        pnls_arr = np.empty_like(equity_arr)
+        if len(equity_arr) > 0:
+            pnls_arr[0] = equity_arr[0] - capital
+            pnls_arr[1:] = np.diff(equity_arr)
+
+        peak = np.maximum.accumulate(np.insert(equity_arr, 0, capital))[1:]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            drawdown_arr = np.where(peak > 0, equity_arr / peak - 1.0, 0.0)
+
+        return pd.DataFrame(
+            {
+                "session": session_strs,
+                "pnl": pnls_arr,
+                "equity": equity_arr,
+                "drawdown": drawdown_arr,
+                "trades_closed": np.array(closed_counts, dtype=np.int64),
+            }
+        )
+
+    # 2. Realized-only fallback
     entry_ts = pd.to_datetime(trades["entry_ts"])
     exit_ts = pd.to_datetime(trades["exit_ts"])
 
@@ -122,13 +201,12 @@ def build_daily(trades: pd.DataFrame, capital: float, sessions: pd.DatetimeIndex
     if exit_ts.dt.tz is None:
         exit_ts = exit_ts.dt.tz_localize("UTC")
 
-    entry_ist = entry_ts.dt.tz_convert(IST).dt.tz_localize(None).dt.normalize()
-    exit_ist = exit_ts.dt.tz_convert(IST).dt.tz_localize(None).dt.normalize()
+    entry_ist = entry_ts.dt.tz_convert(tz).dt.tz_localize(None).dt.normalize()
+    exit_ist = exit_ts.dt.tz_convert(tz).dt.tz_localize(None).dt.normalize()
 
     min_date = entry_ist.min()
     max_date = exit_ist.max()
 
-    sessions_normalized = pd.DatetimeIndex(sorted(sessions.unique())).normalize()
     sessions_set = set(sessions_normalized)
 
     for d in exit_ist:
@@ -138,18 +216,6 @@ def build_daily(trades: pd.DataFrame, capital: float, sessions: pd.DatetimeIndex
     window_sessions = sessions_normalized[
         (sessions_normalized >= min_date) & (sessions_normalized <= max_date)
     ]
-
-    # Pre-aggregate trades by exit date
-    pnl_by_date: dict[pd.Timestamp, float] = {}
-    trades_closed_by_date: dict[pd.Timestamp, int] = {}
-
-    work_df = pd.DataFrame({"exit_date": exit_ist, "net_pnl": trades["net_pnl"]})
-    for date, group in work_df.groupby("exit_date"):
-        trades_closed_by_date[date] = len(group)
-        if group["net_pnl"].isna().any():
-            pnl_by_date[date] = float("nan")
-        else:
-            pnl_by_date[date] = float(group["net_pnl"].sum())
 
     session_strs = []
     pnls = []

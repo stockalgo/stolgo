@@ -32,6 +32,7 @@ def compute_run_metrics(
     daily: pd.DataFrame,
     *,
     intraday_equity: pd.Series | None = None,
+    equity_basis: str = "mark_to_market",
 ) -> dict[str, Any]:
     """Return the manifest v2 `metrics` dict (§3.1), all keys present, NaN→None applied last."""
     if daily.empty or capital <= 0:
@@ -70,6 +71,7 @@ def compute_run_metrics(
 
     # Step 4: Add net_pnl, gross_pnl, fees, slippage, avg_r, basis, annualised_from_short_window
     m["basis"] = "calendar_daily"
+    m["equity_basis"] = equity_basis
     m["net_pnl"] = net_pnl_sum
 
     if "gross_pnl" in trades.columns and not trades["gross_pnl"].isna().all():
