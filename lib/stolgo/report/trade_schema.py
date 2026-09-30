@@ -63,6 +63,10 @@ def _map_exit_reason_and_flag(
     s_upper = s.upper()
     s_lower = s.lower()
 
+    if s_upper == "END_OF_DATA":
+        return ("END_OF_DATA", "")
+    if s_upper == "OPEN":
+        return ("OPEN", "")
     if s_upper == "MISSING_SPOT":
         return ("DATA_EXIT", "MISSING_SPOT")
     if s_upper == "MISSING_HELD_QUOTE":

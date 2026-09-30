@@ -10,6 +10,7 @@ import pandas as pd
 from stolgo.core.clock import SimClock
 from stolgo.core.config import RunConfig
 from stolgo.core.exceptions import ModeNotSupportedError
+from stolgo.core.types import OrderType, Side
 from stolgo.data.base import DataSource
 from stolgo.data.normalize import bars_from_dataframe, normalize_ohlcv
 from stolgo.oms.commission import BpsCommission
@@ -224,10 +225,79 @@ class Engine:
                     equity_vals[-1] = portfolio.mark_to_market(bar)
                     position_qty_vals[-1] = portfolio.position.qty
 
+        if bars and self._config.close_at_end and not portfolio.position.flat:
+            last_bar = bars[-1]
+            close_side = Side.SELL if portfolio.position.qty > 0 else Side.BUY
+            close_qty = abs(portfolio.position.qty)
+            closing_order = broker.create_order(
+                symbol,
+                close_side,
+                close_qty,
+                OrderType.MARKET,
+                tag="END_OF_DATA",
+            )
+            fe = broker._make_fill(
+                closing_order,
+                last_bar,
+                last_bar.close,
+                len(bars) - 1,
+                portfolio=portfolio,
+                events=all_events,
+            )
+            if fe is not None:
+                portfolio.apply_fill(fe.fill)
+                ctx.on_fill(fe)
+                strategy.on_fill(ctx, fe)
+                fill_events.append(fe)
+                all_events.append(fe)
+                eq = portfolio.mark_to_market(last_bar)
+                ctx._equity_val = eq
+                equity_vals[-1] = eq
+                position_qty_vals[-1] = portfolio.position.qty
+
         strategy.on_end(ctx)
 
         equity = pd.Series(equity_vals, index=pd.DatetimeIndex(equity_index, tz="UTC"))
         trades = build_trades_from_fills(fill_events)
+
+        if bars and not self._config.close_at_end and not portfolio.position.flat:
+            last_bar = bars[-1]
+            last_ts = pd.Timestamp(last_bar.ts, unit="ns", tz="UTC")
+            qty = abs(portfolio.position.qty)
+            side_str = "LONG" if portfolio.position.qty > 0 else "SHORT"
+            entry_px = portfolio.position.avg_entry_price
+            exit_px = last_bar.close
+            gross = (exit_px - entry_px) * qty if side_str == "LONG" else (entry_px - exit_px) * qty
+            net = gross
+            notional = entry_px * qty
+            entry_ts = last_ts
+            if fill_events:
+                matching_fills = [
+                    fe.fill for fe in fill_events
+                    if fe.fill.side == (Side.BUY if side_str == "LONG" else Side.SELL)
+                ]
+                if matching_fills:
+                    entry_ts = pd.Timestamp(matching_fills[-1].ts, unit="ns", tz="UTC")
+            open_row = {
+                "entry_ts": entry_ts,
+                "exit_ts": last_ts,
+                "side": side_str,
+                "entry_price": entry_px,
+                "exit_price": exit_px,
+                "qty": qty,
+                "gross_pnl": gross,
+                "net_pnl": net,
+                "commission": 0.0,
+                "return_on_notional": net / notional if notional > 0 else 0.0,
+                "r_multiple": float("nan"),
+                "tag": "OPEN",
+                "exit_reason": "OPEN",
+            }
+            if trades.empty:
+                trades = pd.DataFrame([open_row])
+            else:
+                trades = pd.concat([trades, pd.DataFrame([open_row])], ignore_index=True)
+
         positions = pd.DataFrame(
             {"qty": position_qty_vals, "equity": equity_vals},
             index=equity.index,

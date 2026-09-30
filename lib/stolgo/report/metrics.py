@@ -76,17 +76,24 @@ def compute_metrics(
     payoff = float("nan")
 
     if num_trades > 0 and "net_pnl" in trades.columns:
-        pnls = trades["net_pnl"]
-        wins = pnls[pnls > 0]
-        losses = pnls[pnls < 0]
-        hit_rate = float((pnls > 0).mean())
-        expectancy = float(pnls.mean())
-        gross_profit = float(wins.sum()) if len(wins) else 0.0
-        gross_loss = float(abs(losses.sum())) if len(losses) else 0.0
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("nan")
-        avg_win = float(wins.mean()) if len(wins) else 0.0
-        avg_loss = float(losses.mean()) if len(losses) else 0.0
-        payoff = avg_win / abs(avg_loss) if (len(wins) > 0 and len(losses) > 0 and avg_loss != 0) else float("nan")
+        closed = trades
+        if "exit_reason" in trades.columns:
+            closed = trades[trades["exit_reason"] != "OPEN"]
+        elif "tag" in trades.columns:
+            closed = trades[trades["tag"] != "OPEN"]
+
+        if not closed.empty:
+            pnls = closed["net_pnl"]
+            wins = pnls[pnls > 0]
+            losses = pnls[pnls < 0]
+            hit_rate = float((pnls > 0).mean())
+            expectancy = float(pnls.mean())
+            gross_profit = float(wins.sum()) if len(wins) else 0.0
+            gross_loss = float(abs(losses.sum())) if len(losses) else 0.0
+            profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("nan")
+            avg_win = float(wins.mean()) if len(wins) else 0.0
+            avg_loss = float(losses.mean()) if len(losses) else 0.0
+            payoff = avg_win / abs(avg_loss) if (len(wins) > 0 and len(losses) > 0 and avg_loss != 0) else float("nan")
 
     return {
         "total_return": total_return,

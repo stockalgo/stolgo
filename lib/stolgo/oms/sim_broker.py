@@ -151,6 +151,7 @@ class SimBroker:
             commission=fee,
             ts=bar.ts,
             risk_per_unit=order.risk_per_unit,
+            tag=order.tag,
         )
         return FillEvent(fill=fill, order_id=order.order_id, index=bar_index)
 

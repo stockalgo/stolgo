@@ -78,6 +78,7 @@ class Fill:
     commission: float
     ts: int
     risk_per_unit: float | None = None
+    tag: str | None = None
 
 
 @dataclass

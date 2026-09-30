@@ -33,6 +33,7 @@ class RunConfig(BaseModel):
     interval: str | None = None
     halt_drawdown: float | None = None
     allow_leverage: bool = False
+    close_at_end: bool = True
 
     @field_validator("fill_on")
     @classmethod

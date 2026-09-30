@@ -138,9 +138,8 @@ def test_limit_intent_fills_and_gap_improvement():
         index=idx[:3],
     )
     r1 = Backtest(LimitStrat(), df1, cash=10_000).run()
-    assert len(r1.trades) == 0  # Not closed yet, but position opened
     assert r1.positions.qty.iloc[1] == 10.0
-    fill = [e.fill for e in r1.events if hasattr(e, "fill")][0]
+    fill = [e.fill for e in r1.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"][0]
     assert fill.price == 95.0
 
     # Test 2: Gap-through open fills at open (min(open, limit) = 90)
@@ -156,7 +155,7 @@ def test_limit_intent_fills_and_gap_improvement():
     )
     r2 = Backtest(LimitStrat(), df2, cash=10_000).run()
     assert r2.positions.qty.iloc[1] == 10.0
-    fill2 = [e.fill for e in r2.events if hasattr(e, "fill")][0]
+    fill2 = [e.fill for e in r2.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"][0]
     assert fill2.price == 90.0
 
 
@@ -222,7 +221,7 @@ def test_oco_both_hit_on_same_bar_fills_stop():
         index=idx[:3],
     )
     r = Backtest(OCOStrat(), df, cash=10_000).run()
-    fills = [e.fill for e in r.events if hasattr(e, "fill")]
+    fills = [e.fill for e in r.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
     assert len(fills) == 1
     # Adverse-first: fill the STOP order (at stop price 90.0)
     assert fills[0].price == 90.0
@@ -250,26 +249,26 @@ def test_fill_on_modes():
 
     # 1. next_open (default): fills at bar 2 open = 102.0
     r_open = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_open").run()
-    fills_open = [e.fill for e in r_open.events if hasattr(e, "fill")]
+    fills_open = [e.fill for e in r_open.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
     assert len(fills_open) == 1
     assert fills_open[0].price == 102.0
 
     # 2. next_close: fills at bar 2 close = 102.2
     r_next_close = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_close").run()
-    fills_nc = [e.fill for e in r_next_close.events if hasattr(e, "fill")]
+    fills_nc = [e.fill for e in r_next_close.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
     assert len(fills_nc) == 1
     assert fills_nc[0].price == 102.2
 
     # Deprecated alias "close" gives warning and fills at 102.2
     with pytest.deprecated_call():
         r_dep = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="close").run()
-    fills_dep = [e.fill for e in r_dep.events if hasattr(e, "fill")]
+    fills_dep = [e.fill for e in r_dep.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
     assert len(fills_dep) == 1
     assert fills_dep[0].price == 102.2
 
     # 3. signal_close: fills at bar 1 close = 101.2
     r_sig = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="signal_close").run()
-    fills_sig = [e.fill for e in r_sig.events if hasattr(e, "fill")]
+    fills_sig = [e.fill for e in r_sig.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
     assert len(fills_sig) == 1
     assert fills_sig[0].price == 101.2
 
@@ -381,6 +380,42 @@ def test_r_multiple_vs_return_on_notional():
     assert t2.exit_price == 110.0
     assert t2.return_on_notional == pytest.approx(0.1)  # 100 / 1000
     assert t2.r_multiple == pytest.approx(2.0)  # 10 gain / 5 risk per unit
+
+
+def test_close_at_end_true_and_false():
+    class BuyAndHold(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+
+    # 3 bars: 100, 105, 110
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 105.0, 110.0],
+            "high": [102.0, 107.0, 112.0],
+            "low": [99.0, 104.0, 109.0],
+            "close": [101.0, 106.0, 111.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+
+    # 1. close_at_end=True (default): position is closed at end of data at bar 2 close
+    r_true = Backtest(BuyAndHold(), df, cash=10_000, close_at_end=True).run()
+    assert len(r_true.trades) == 1
+    t_true = r_true.trades.iloc[0]
+    assert t_true.exit_price == 111.0
+    assert t_true.tag == "END_OF_DATA" or getattr(t_true, "exit_reason", None) == "END_OF_DATA"
+    assert r_true.positions.qty.iloc[-1] == 0.0
+
+    # 2. close_at_end=False: trade row emitted with exit_reason="OPEN" and net_pnl = MTM
+    r_false = Backtest(BuyAndHold(), df, cash=10_000, close_at_end=False).run()
+    assert len(r_false.trades) == 1
+    t_false = r_false.trades.iloc[0]
+    assert t_false.tag == "OPEN" or getattr(t_false, "exit_reason", None) == "OPEN"
+    assert t_false.net_pnl == pytest.approx((111.0 - 105.0) * 10.0)  # entered at bar 1 open 105, marked at bar 2 close 111
+    assert r_false.positions.qty.iloc[-1] == 10.0  # position still open in portfolio
+
 
 
 
