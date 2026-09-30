@@ -94,6 +94,24 @@ def _map_exit_reason_and_flag(
     return ("UNKNOWN", "")
 
 
+def _check_range(series: pd.Series, market: str, kind: Literal["underlying", "premium"]) -> None:
+    if series.empty or market not in ("NIFTY", "SENSEX"):
+        return
+    valid = series.dropna()
+    if valid.empty:
+        return
+    if kind == "underlying":
+        bad = valid <= 5000
+        if bad.any():
+            violators = valid[bad].tolist()
+            raise ValueError(f"Expected underlying price > 5000 for {market}, got {violators[:3]}")
+    elif kind == "premium":
+        bad = valid >= 5000
+        if bad.any():
+            violators = valid[bad].tolist()
+            raise ValueError(f"Expected premium price < 5000 for {market}, got {violators[:3]}")
+
+
 def normalize_trades(
     df: pd.DataFrame, mapping: SourceMapping, *, tz: str | None = None
 ) -> tuple[pd.DataFrame, pd.DataFrame | None]:
@@ -167,61 +185,27 @@ def normalize_trades(
     has_entry_price = "entry_price" in res.columns
     has_exit_price = "exit_price" in res.columns
 
+    chk_mkt = (mapping.market or "").upper()
+    if not chk_mkt and "market" in res.columns and not res["market"].empty:
+        chk_mkt = str(res["market"].iloc[0]).upper()
+    if not chk_mkt and "index" in res.columns and not res["index"].empty:
+        chk_mkt = str(res["index"].iloc[0]).upper()
+
     if mapping.price_columns == "underlying":
         if has_entry_price:
             res["underlying_entry"] = res["entry_price"].astype(float)
+            _check_range(res["underlying_entry"], chk_mkt, "underlying")
         if has_exit_price:
             res["underlying_exit"] = res["exit_price"].astype(float)
-
-        # Sanity assert: underlying values > 5,000 for NIFTY/SENSEX
-        chk_mkt = (mapping.market or "").upper()
-        if not chk_mkt and "market" in res.columns:
-            chk_mkt = str(res["market"].iloc[0]).upper()
-        if not chk_mkt and "index" in res.columns:
-            chk_mkt = str(res["index"].iloc[0]).upper()
-        if chk_mkt in ("NIFTY", "SENSEX"):
-            if "underlying_entry" in res.columns:
-                valid = res["underlying_entry"].dropna()
-                if not valid.empty and (valid <= 5000).any():
-                    violators = valid[valid <= 5000].tolist()
-                    raise ValueError(
-                        f"Expected underlying price > 5000 for {chk_mkt}, got {violators[:3]}"
-                    )
-            if "underlying_exit" in res.columns:
-                valid = res["underlying_exit"].dropna()
-                if not valid.empty and (valid <= 5000).any():
-                    violators = valid[valid <= 5000].tolist()
-                    raise ValueError(
-                        f"Expected underlying price > 5000 for {chk_mkt}, got {violators[:3]}"
-                    )
+            _check_range(res["underlying_exit"], chk_mkt, "underlying")
 
     elif mapping.price_columns == "premium":
         if has_entry_price:
             res["premium_entry"] = res["entry_price"].astype(float)
+            _check_range(res["premium_entry"], chk_mkt, "premium")
         if has_exit_price:
             res["premium_exit"] = res["exit_price"].astype(float)
-
-        # Sanity assert: premium values < 5,000 for NIFTY/SENSEX
-        chk_mkt = (mapping.market or "").upper()
-        if not chk_mkt and "market" in res.columns:
-            chk_mkt = str(res["market"].iloc[0]).upper()
-        if not chk_mkt and "index" in res.columns:
-            chk_mkt = str(res["index"].iloc[0]).upper()
-        if chk_mkt in ("NIFTY", "SENSEX"):
-            if "premium_entry" in res.columns:
-                valid = res["premium_entry"].dropna()
-                if not valid.empty and (valid >= 5000).any():
-                    violators = valid[valid >= 5000].tolist()
-                    raise ValueError(
-                        f"Expected premium price < 5000 for {chk_mkt}, got {violators[:3]}"
-                    )
-            if "premium_exit" in res.columns:
-                valid = res["premium_exit"].dropna()
-                if not valid.empty and (valid >= 5000).any():
-                    violators = valid[valid >= 5000].tolist()
-                    raise ValueError(
-                        f"Expected premium price < 5000 for {chk_mkt}, got {violators[:3]}"
-                    )
+            _check_range(res["premium_exit"], chk_mkt, "premium")
 
     # Drop entry_price and exit_price
     res = res.drop(columns=["entry_price", "exit_price"], errors="ignore")
@@ -246,18 +230,14 @@ def normalize_trades(
         minutes_of_day = exit_times.dt.hour * 60 + exit_times.dt.minute
         exit_times_same = (minutes_of_day.max() - minutes_of_day.min()) <= 1
 
-    exit_reasons = []
-    data_flags = []
-    has_source_exit_reason = "exit_reason" in res.columns
+    if "exit_reason" in res.columns:
+        source_val = res["exit_reason"].where(res["exit_reason"].notna(), res["source_tag"])
+    else:
+        source_val = res["source_tag"]
 
-    for _, row in res.iterrows():
-        val = row["exit_reason"] if has_source_exit_reason and pd.notna(row["exit_reason"]) else row.get("source_tag")
-        r_reason, r_flag = _map_exit_reason_and_flag(val, exit_times_same)
-        exit_reasons.append(r_reason)
-        data_flags.append(r_flag)
-
-    res["exit_reason"] = exit_reasons
-    res["data_flag"] = data_flags
+    mapped = source_val.map(lambda v: _map_exit_reason_and_flag(v, exit_times_same))
+    res["exit_reason"] = mapped.str[0]
+    res["data_flag"] = mapped.str[1]
 
     # side
     if mapping.side == "from_column" and "side" in res.columns:
@@ -297,49 +277,38 @@ def normalize_trades(
         res["lots"] = pd.Series(lots_series, dtype="Int64", index=res.index)
 
     # Parse legs from source_tag
-    legs_list: list[dict[str, Any]] = []
-    legs_labels: list[str | None] = []
-
-    for _, row in res.iterrows():
-        t_id = row["trade_id"]
-        t_qty = row["qty"]
-        t_entry_ts = row["entry_ts"]
-        t_exit_ts = row["exit_ts"]
-        tag_str = str(row.get("source_tag", ""))
-
-        matches = LEG_TAG_RE.findall(tag_str)
-        if matches:
-            label_tokens = []
-            for leg_idx, (sign, opt_char, strike_str, p_entry, p_exit) in enumerate(matches, 1):
-                action = "BUY" if sign == "+" else "SELL"
-                opt_type = "CE" if opt_char == "C" else "PE"
-                strike = int(strike_str)
-                label_tokens.append(f"{sign}{opt_char}{strike_str}")
-                entry_p = float(p_entry) if p_entry else np.nan
-                exit_p = float(p_exit) if p_exit else np.nan
-                legs_list.append(
-                    {
-                        "trade_id": t_id,
-                        "leg_id": leg_idx,
-                        "option_type": opt_type,
-                        "strike": strike,
-                        "action": action,
-                        "qty": t_qty,
-                        "entry_premium": entry_p,
-                        "exit_premium": exit_p,
-                        "entry_ts": t_entry_ts,
-                        "exit_ts": t_exit_ts,
-                    }
-                )
-            legs_labels.append(" ".join(label_tokens))
-        else:
-            legs_labels.append(None)
-
-    res["legs_label"] = legs_labels
+    matches_series = res["source_tag"].astype(str).str.findall(LEG_TAG_RE.pattern)
+    res["legs_label"] = matches_series.map(
+        lambda ms: " ".join(f"{s}{c}{k}" for s, c, k, _, _ in ms) if ms else None
+    )
 
     legs_df: pd.DataFrame | None = None
-    if legs_list:
-        legs_df = pd.DataFrame(legs_list)
+    if matches_series.map(len).sum() > 0:
+        sub = res[["trade_id", "qty", "entry_ts", "exit_ts"]].copy()
+        sub["match"] = matches_series
+        sub = sub[sub["match"].map(len) > 0]
+        exploded = sub.explode("match").reset_index(drop=True)
+        exploded["leg_id"] = (exploded.groupby("trade_id").cumcount() + 1).astype(int)
+        m = exploded["match"]
+        exploded["option_type"] = m.map(lambda x: "CE" if x[1] == "C" else "PE")
+        exploded["strike"] = m.map(lambda x: int(x[2]))
+        exploded["action"] = m.map(lambda x: "BUY" if x[0] == "+" else "SELL")
+        exploded["entry_premium"] = m.map(lambda x: float(x[3]) if x[3] else np.nan)
+        exploded["exit_premium"] = m.map(lambda x: float(x[4]) if x[4] else np.nan)
+        legs_df = exploded[
+            [
+                "trade_id",
+                "leg_id",
+                "option_type",
+                "strike",
+                "action",
+                "qty",
+                "entry_premium",
+                "exit_premium",
+                "entry_ts",
+                "exit_ts",
+            ]
+        ]
 
     # Column order: REQUIRED, then OPTIONAL present, then any remaining source columns
     ordered_cols: list[str] = []
