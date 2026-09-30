@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 from pathlib import Path
 from typing import Any
 
 import duckdb
 
+logger = logging.getLogger("stolgo.ui.index")
 
 SCHEMA_VERSION = 2
 _DB_LOCK = threading.Lock()
@@ -151,7 +153,8 @@ def reconcile(runs_dir: Path | str = Path("runs"), index_path: Path | str | None
                 continue
             manifest = json.loads(manifest_path.read_text())
             upsert_run(manifest, index_path=index_path, mtime=cur_mtime)
-        except Exception:
+        except (OSError, json.JSONDecodeError, KeyError, ValueError) as exc:
+            logger.warning("Failed to reconcile run %s: %s", parent_name, exc)
             continue
 
 

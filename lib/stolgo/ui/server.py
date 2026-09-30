@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from stolgo.ui import adapters
 from stolgo.ui import index as runs_index
 
+logger = logging.getLogger("stolgo.ui.server")
 
 SUPPORTED_SCHEMA_VERSION = 2
 NOT_MIGRATED = {"detail": "run_not_migrated", "hint": "python scripts/migrate_runs_v2.py"}
@@ -62,6 +64,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         items = []
         warnings = 0
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
             try:
                 if int(manifest_row.get("schema_version", 0)) < 2:
                     warnings += 1
@@ -76,7 +79,11 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
                         runs_dir=runs_dir,
                     )
                     items.append(adapters.run_summary_v2(manifest))
-            except Exception:
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load run %s in list_runs: %s", run_id, exc)
+                warnings += 1
+            except Exception as exc:
+                logger.error("Unexpected error loading run %s in list_runs: %s", run_id, exc, exc_info=True)
                 warnings += 1
         return {"items": items, "warnings": warnings}
 
@@ -200,6 +207,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         _ensure_reconciled()
         group_map: dict[str, dict[str, Any]] = {}
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
             try:
                 if int(manifest_row.get("schema_version", 0)) < 2:
                     continue
@@ -211,7 +219,8 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
                         runs_dir=runs_dir,
                     )
                     summary = adapters.run_summary_v2(manifest)
-            except Exception:
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load group summary for run %s: %s", run_id, exc)
                 continue
 
             grp = summary.get("group")
@@ -261,6 +270,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         runs = []
         axes_sets: dict[str, set] = {}
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
             try:
                 if int(manifest_row.get("schema_version", 0)) < 2:
                     continue
@@ -272,7 +282,8 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
                         runs_dir=runs_dir,
                     )
                     summary = adapters.run_summary_v2(manifest)
-            except Exception:
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load group run %s: %s", run_id, exc)
                 continue
 
             grp = summary.get("group")
@@ -328,7 +339,8 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
                     (daily_df["drawdown"] * 100.0).values,
                     index=pd.to_datetime(daily_df["session"], utc=True),
                 )
-        except Exception as exc:
+        except (OSError, KeyError, ValueError) as exc:
+            logger.warning("Run series unavailable for %s: %s", run_id, exc)
             raise HTTPException(status_code=409, detail=f"run series unavailable: {exc}") from exc
         return adapters.series(ohlcv, equity, drawdown)
 
@@ -372,7 +384,8 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         manifest = _manifest_for_id(sweep_id, index_path=index_path, expected_kind="sweep")
         try:
             rows = read_parquet_cached(Path(manifest["path"]) / "results.parquet").to_dict("records")
-        except Exception as exc:
+        except (OSError, KeyError, ValueError) as exc:
+            logger.warning("Sweep results unavailable for %s: %s", sweep_id, exc)
             raise HTTPException(status_code=409, detail=f"sweep results unavailable: {exc}") from exc
         return {
             "id": manifest["run_id"],

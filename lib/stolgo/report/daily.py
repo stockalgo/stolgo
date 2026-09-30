@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger("stolgo.report.daily")
 
 IST = "Asia/Kolkata"
 
@@ -72,7 +75,8 @@ def build_calendar_files(runs_dir: Path) -> dict[str, int]:
                     exchange = "NSE"
                 elif "sensex" in name:
                     exchange = "BSE"
-            except Exception:
+            except (json.JSONDecodeError, OSError, KeyError, TypeError) as exc:
+                logger.warning("Failed to parse manifest for %s: %s", run_dir.name, exc)
                 if "sensex" in name:
                     exchange = "BSE"
         elif "sensex" in name:

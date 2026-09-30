@@ -60,7 +60,7 @@ def _get_git_commit_short() -> str | None:
         )
         if proc.returncode == 0:
             return proc.stdout.strip()
-    except Exception:
+    except (subprocess.SubprocessError, OSError):
         pass
     return None
 

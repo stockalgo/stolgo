@@ -5,13 +5,15 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import logging
 import math
-import os
 from pathlib import Path
 import re
 import shutil
 import sys
 from typing import Any
+
+logger = logging.getLogger("stolgo.scripts.migrate_runs_v2")
 
 import numpy as np
 import pandas as pd
@@ -414,7 +416,8 @@ def migrate_run(
         valid_dtes = trades_v2["dte"].dropna().unique()
         try:
             dte_list = sorted([int(x) for x in valid_dtes])
-        except Exception:
+        except (ValueError, TypeError) as exc:
+            logger.warning("Failed to cast dte list to ints for run %s: %s", run_id, exc)
             dte_list = sorted(list(valid_dtes))
 
     inst = {
