@@ -62,6 +62,7 @@ class ParabolicShortConfig:
     max_days_to_find_red: int = 5
     max_holding_days: int = 30
     min_price: float = 0.0  # optional micro-price filter (penny-coin noise)
+    cost_bps: float = 0.0  # transaction costs/slippage in bps
 
     def __post_init__(self) -> None:
         if not (3 <= self.lookback_days <= 10):
@@ -319,6 +320,7 @@ def simulate_trade(
         entry_pos = entry_pos.start
 
     n = len(df)
+    opens = df["open"].to_numpy() if "open" in df.columns else df["close"].to_numpy()
     highs = df["high"].to_numpy()
     lows = df["low"].to_numpy()
     closes = df["close"].to_numpy()
@@ -351,10 +353,14 @@ def simulate_trade(
         if hit_stop and hit_target:
             # Conservative convention: assume the adverse (stop) level was
             # touched first when both are within the same day's range.
-            exit_date, exit_price, exit_reason = idx[pos], setup.stop_price, "stop"
+            exit_date = idx[pos]
+            exit_price = max(float(opens[pos]), setup.stop_price)
+            exit_reason = "stop"
             break
         if hit_stop:
-            exit_date, exit_price, exit_reason = idx[pos], setup.stop_price, "stop"
+            exit_date = idx[pos]
+            exit_price = max(float(opens[pos]), setup.stop_price)
+            exit_reason = "stop"
             break
         if hit_target:
             exit_date, exit_price, exit_reason = idx[pos], setup.target_price, "target"
@@ -370,7 +376,11 @@ def simulate_trade(
             exit_price = entry
             exit_reason = "open"
 
-    r_multiple = (entry - exit_price) / r_value if r_value else 0.0
+    raw_pnl = entry - exit_price
+    if config.cost_bps > 0:
+        cost = (entry + exit_price) * (config.cost_bps / 10_000.0)
+        raw_pnl -= cost
+    r_multiple = raw_pnl / r_value if r_value else 0.0
     holding_period_days = max(0, idx.get_loc(exit_date) - entry_pos) if exit_date in idx else 0
     if r_multiple > 1e-9:
         outcome: Literal["win", "loss", "breakeven", "open"] = "win"

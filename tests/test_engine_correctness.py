@@ -476,6 +476,32 @@ def test_lookahead_probe_examples():
     probe(FastMomentum, df)
 
 
+def test_parabolic_short_gap_stop():
+    from stolgo.strategy.builtins.parabolic_short import (
+        ParabolicShortConfig,
+        detect_setups,
+        simulate_trade,
+    )
+    from tests.test_strategy_parabolic_short import _RED_DAY, _build_df
+
+    cfg = ParabolicShortConfig()
+    # Base + Rally + Red Day: entry=28.0, stop=33.5 -> 1R = 5.5
+    # Next day gaps up to open=35.15 (which is 28.0 + 1.3 * 5.5 = 1.3R above entry)
+    tail = [
+        _RED_DAY,
+        (35.15, 36.0, 34.0, 34.5, 4000),  # open 35.15 > stop 33.5
+    ]
+    df = _build_df(tail)
+    setups = detect_setups(df, cfg, symbol="TESTUSDT")
+    assert len(setups) == 1
+    trade = simulate_trade(df, setups[0], cfg)
+    assert trade is not None
+    assert trade.exit_reason == "stop"
+    assert trade.exit_price == 35.15
+    assert trade.r_multiple == pytest.approx(-1.3, abs=1e-4)
+
+
+
 
 
 
