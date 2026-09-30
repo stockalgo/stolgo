@@ -273,3 +273,59 @@ def test_fill_on_modes():
     assert len(fills_sig) == 1
     assert fills_sig[0].price == 101.2
 
+
+def test_bracket_sizing_and_intrabar_stop():
+    from stolgo.trade import long
+
+    class BracketStrat(Strategy):
+        def __init__(self):
+            self.b = None
+
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                # equity = 10,000, risk 2% = 200 risk
+                # bar 0: close 100, low 95 -> risk_per_unit = 5
+                # expected qty = 200 / 5 = 40
+                self.b = long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    # Case 1: Intrabar stop hit on bar 1
+    # Bar 0: open 100, high 105, low 95, close 100
+    # Bar 1: open 100 (fills entry at 100), high 102, low 94 (touches stop 95 intrabar), close 96
+    df1 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0],
+            "high": [105.0, 102.0],
+            "low": [95.0, 94.0],
+            "close": [100.0, 96.0],
+            "volume": [1.0, 1.0],
+        },
+        index=idx[:2],
+    )
+    r1 = Backtest(BracketStrat(), df1, cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert t1.side == "LONG"
+    assert t1.entry_price == 100.0
+    assert t1.qty == 40.0
+    assert t1.exit_price == 95.0
+
+    # Case 2: Gap down on bar 2 below stop 95 -> exits at gap open
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 90.0],
+            "high": [105.0, 102.0, 92.0],
+            "low": [95.0, 98.0, 89.0],
+            "close": [100.0, 99.0, 91.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r2 = Backtest(BracketStrat(), df2, cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert t2.side == "LONG"
+    assert t2.entry_price == 100.0
+    assert t2.qty == 40.0
+    assert t2.exit_price == 90.0
+
+

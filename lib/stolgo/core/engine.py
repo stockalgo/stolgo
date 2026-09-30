@@ -106,6 +106,9 @@ class Engine:
                 _index=bar_index,
             ),
             position=portfolio.position,
+            _portfolio=portfolio,
+            _equity_val=portfolio.cash,
+            _cash_val=portfolio.cash,
         )
         strategy.on_start(ctx)
         n_bars = len(bars)
@@ -126,13 +129,35 @@ class Engine:
         all_events: list[Any] = []
 
         for i, bar in SimClock(bars):
+            ctx.i = i
             for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                 portfolio.apply_fill(fe.fill)
+                ctx.on_fill(fe)
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)
                 all_events.append(fe)
 
+            if ctx._intents:
+                _process_intents(
+                    ctx,
+                    portfolio,
+                    broker,
+                    bar,
+                    i,
+                    equity_vals,
+                    self._config,
+                    all_events,
+                    symbol,
+                )
+                for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
+                    portfolio.apply_fill(fe.fill)
+                    ctx.on_fill(fe)
+                    strategy.on_fill(ctx, fe)
+                    fill_events.append(fe)
+                    all_events.append(fe)
+
             eq = portfolio.mark_to_market(bar)
+            ctx._equity_val = eq
             equity_vals.append(eq)
             equity_index.append(pd.Timestamp(bar.ts, unit="ns", tz="UTC"))
             position_qty_vals.append(portfolio.position.qty)

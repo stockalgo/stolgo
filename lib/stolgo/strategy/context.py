@@ -65,6 +65,24 @@ class Context:
     entries: np.ndarray | None = None
     exits: np.ndarray | None = None
     _intents: list[OrderIntent] = field(default_factory=list)
+    _portfolio: Any = None
+    _equity_val: float | None = None
+    _cash_val: float = 100_000.0
+    _active_brackets: list[Any] = field(default_factory=list)
+
+    @property
+    def cash(self) -> float:
+        if self._portfolio is not None:
+            return float(self._portfolio.cash)
+        return float(self._cash_val)
+
+    @property
+    def equity(self) -> float:
+        if self._equity_val is not None:
+            return float(self._equity_val)
+        if self._portfolio is not None:
+            return float(self._portfolio.cash)
+        return float(self._cash_val)
 
     def buy(self, *, qty: float | None = None, size_pct: float | None = None, tag: str | None = None) -> OrderIntent:
         intent = OrderIntent(
@@ -90,6 +108,32 @@ class Context:
         self._intents.append(intent)
         return intent
 
+    def order(
+        self,
+        *,
+        side: Side,
+        order_type: OrderType = OrderType.MARKET,
+        qty: float | None = None,
+        limit_price: float | None = None,
+        stop_price: float | None = None,
+        tag: str | None = None,
+        size_pct: float | None = None,
+        oco_group: str | None = None,
+    ) -> OrderIntent:
+        intent = OrderIntent(
+            symbol=self.position.symbol,
+            side=side,
+            order_type=order_type,
+            qty=qty,
+            limit_price=limit_price,
+            stop_price=stop_price,
+            tag=tag,
+            size_pct=size_pct,
+            oco_group=oco_group,
+        )
+        self._intents.append(intent)
+        return intent
+
     def close(self, *, tag: str | None = None) -> OrderIntent | None:
         if self.position.flat:
             return None
@@ -97,6 +141,11 @@ class Context:
         if self.position.qty > 0:
             return self.sell(qty=qty, tag=tag)
         return self.buy(qty=qty, tag=tag)
+
+    def on_fill(self, fe: Any) -> None:
+        for b in list(self._active_brackets):
+            if hasattr(b, "on_fill") and b.on_fill(self, fe):
+                self._active_brackets.remove(b)
 
     def consume_intents(self) -> list[OrderIntent]:
         out = list(self._intents)
