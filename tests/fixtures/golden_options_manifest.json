@@ -1,0 +1,166 @@
+{
+  "schema_version": 2,
+  "run_id": "validated-timing-3y-nifty-0dte-static",
+  "kind": "run",
+  "name": "NIFTY 0DTE STATIC \u2014 corrected timing / conditional data",
+  "status": "data_issues",
+  "status_reasons": [
+    "16 of 157 trades exited on missing data"
+  ],
+  "instrument": {
+    "asset_class": "index_options",
+    "markets": [
+      "NIFTY"
+    ],
+    "exchange": "NSE",
+    "structure": "short_strangle",
+    "dte": [
+      0
+    ],
+    "lot_size": null,
+    "currency": "INR",
+    "timezone": "Asia/Kolkata"
+  },
+  "group": {
+    "id": "validated-timing-3y",
+    "label": "3-year timing sweep",
+    "axes": {
+      "market": "NIFTY",
+      "dte": 0,
+      "family": "STATIC",
+      "cap": null,
+      "d": null,
+      "w": null
+    }
+  },
+  "config": {
+    "capital": 180000.0,
+    "window": {
+      "start": "2023-09-14",
+      "end": "2026-09-08",
+      "sessions": 740
+    },
+    "entry_rule": null,
+    "exit_rule": null,
+    "execution": "Stolgo options replay / SimBroker; sequential next-open fills",
+    "cost_model": null,
+    "data_source": null,
+    "raw_params": {
+      "strategy": "NIFTY 0DTE STATIC",
+      "capital": 180000.0,
+      "window": "2023-09-13 to 2026-09-11",
+      "execution": "Stolgo options replay / SimBroker; sequential next-open fills",
+      "caveat": "Reconstructed expiry identity; margin unverified; trade rows are expiry lifecycles; see legs.parquet"
+    }
+  },
+  "metrics": {
+    "total_return": 0.06745099999999996,
+    "cagr": 0.022026552925054288,
+    "sharpe": 0.27395915737938464,
+    "sortino": 0.4072477908132904,
+    "calmar": 0.1501666793913006,
+    "max_drawdown": -0.14668069517378116,
+    "max_drawdown_duration": 303.0,
+    "volatility": 0.098779861576514,
+    "ulcer_index": 0.07900661657332009,
+    "hit_rate": 0.5923566878980892,
+    "expectancy": 77.33235668789804,
+    "profit_factor": 1.0848100714954863,
+    "payoff": 0.7465359631796894,
+    "avg_win": 1669.8760215053767,
+    "avg_loss": -2236.8326562499997,
+    "num_trades": 157,
+    "final_equity": 192141.18000000002,
+    "worst_day": -5245.18,
+    "expected_shortfall_95": -2935.773157894737,
+    "intraday_max_drawdown": -0.15823008677674344,
+    "basis": "calendar_daily",
+    "net_pnl": 12141.179999999993,
+    "gross_pnl": 32750.5,
+    "fees": 15619.319999999998,
+    "slippage": 4990.000000000004,
+    "avg_r": null,
+    "annualised_from_short_window": false
+  },
+  "robustness": {
+    "method": "bootstrap_trade_pnl",
+    "seed": 7,
+    "resamples": 4000,
+    "p_net_positive": 0.654,
+    "pf_p05": 0.7805187571852233,
+    "pf_p95": 1.5193878472968652,
+    "net_p05": -36449.70799999999,
+    "net_p95": 61731.240999999965,
+    "net_without_top5": -20642.550000000003,
+    "net_without_top10": -39942.64000000001,
+    "longest_losing_streak": 6
+  },
+  "diagnostics": {
+    "exit_reasons": {
+      "TARGET": 68,
+      "STOP": 45,
+      "TIME_EXIT": 28,
+      "DATA_EXIT": 16
+    },
+    "data_quality": {
+      "trades_total": 157,
+      "trades_with_missing_data": 16,
+      "missing_reasons": {
+        "MISSING_SPOT": 12,
+        "MISSING_HELD_QUOTE": 4
+      },
+      "unresolved_sessions": 0,
+      "skipped_sessions": 0,
+      "eligible_sessions": 157,
+      "pnl_unreconciled_inr": -0.0,
+      "pnl_reconciles": true
+    },
+    "stability": {
+      "split": "half_by_trade_count",
+      "early": {
+        "trades": 79,
+        "net_pnl": -8428.6,
+        "hit_rate": 0.620253,
+        "start": "2023-09-14",
+        "end": "2025-03-13"
+      },
+      "recent": {
+        "trades": 78,
+        "net_pnl": 20569.78,
+        "hit_rate": 0.564103,
+        "start": "2025-03-20",
+        "end": "2026-09-08"
+      }
+    },
+    "monthly": {
+      "months": 37,
+      "profitable_months": 20,
+      "mean_monthly_pct": 0.001823,
+      "median_monthly_pct": 0.004092
+    },
+    "extremes": {
+      "best_trade": 9175.679999999998,
+      "worst_trade": -5245.18,
+      "worst_mtm": -5245.18,
+      "max_stop_overshoot": 2745.1800000000003
+    },
+    "decision_counts": null,
+    "validation": {
+      "status": null,
+      "summary": null,
+      "limitations": [],
+      "caveats": [
+        "Reconstructed expiry identity; margin unverified; trade rows are expiry lifecycles; see legs.parquet"
+      ],
+      "ledger_audit": null,
+      "report_available": false
+    }
+  },
+  "has": {
+    "ohlcv": false,
+    "legs": false,
+    "intraday_equity": true,
+    "audit": false
+  },
+  "migrated_changed_basis": false
+}
