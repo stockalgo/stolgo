@@ -248,3 +248,24 @@ def test_spa_fallback_serves_index_html(tmp_path: Path) -> None:
     api_res = client.get("/api/unknown")
     assert api_res.status_code == 404
 
+
+def test_dynamic_reconcile_on_runs_dir_change(tmp_path: Path) -> None:
+    runs_dir = tmp_path / "runs"
+    export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
+
+    app = create_app(runs_dir)
+    client = TestClient(app)
+
+    res = client.get("/api/runs").json()
+    assert len(res["items"]) == 1
+    assert res["items"][0]["id"] == "run-1"
+
+    # Export a second run after app creation
+    export_all(_result(), runs_dir / "run-2", strategy_name="SecondStrat")
+
+    # Next request dynamically detects the new run without restarting
+    res2 = client.get("/api/runs").json()
+    assert len(res2["items"]) == 2
+    ids = {item["id"] for item in res2["items"]}
+    assert ids == {"run-1", "run-2"}
+

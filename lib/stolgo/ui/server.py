@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,17 @@ SUPPORTED_SCHEMA_VERSION = 2
 NOT_MIGRATED = {"detail": "run_not_migrated", "hint": "python scripts/migrate_runs_v2.py"}
 
 
+@functools.lru_cache(maxsize=64)
+def _read_parquet_cached(path_str: str, mtime_ns: int) -> pd.DataFrame:
+    return pd.read_parquet(path_str)
+
+
+def read_parquet_cached(path: Path | str) -> pd.DataFrame:
+    p = Path(path)
+    stat = p.stat()
+    return _read_parquet_cached(str(p.resolve()), stat.st_mtime_ns)
+
+
 def _check_migrated(manifest: dict[str, Any]) -> JSONResponse | None:
     if int(manifest.get("schema_version", 0)) < 2:
         return JSONResponse(status_code=409, content=NOT_MIGRATED)
@@ -30,30 +42,47 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
     runs_dir.mkdir(parents=True, exist_ok=True)
     index_path = runs_index.default_index_path(runs_dir)
     runs_index.reconcile(runs_dir, index_path=index_path)
+    last_runs_dir_mtime_ns = runs_dir.stat().st_mtime_ns
+
+    def _ensure_reconciled() -> None:
+        nonlocal last_runs_dir_mtime_ns
+        try:
+            cur_mtime_ns = runs_dir.stat().st_mtime_ns
+            if cur_mtime_ns != last_runs_dir_mtime_ns:
+                runs_index.reconcile(runs_dir, index_path=index_path)
+                last_runs_dir_mtime_ns = runs_dir.stat().st_mtime_ns
+        except OSError:
+            pass
 
     app = FastAPI(title="stolgo UI", version="2")
 
     @app.get("/api/runs")
     def list_runs() -> dict[str, Any]:
+        _ensure_reconciled()
         items = []
         warnings = 0
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
             try:
-                manifest = _load_manifest_from_row(
-                    manifest_row,
-                    expected_kind="run",
-                    runs_dir=runs_dir,
-                )
-                if int(manifest.get("schema_version", 0)) < 2:
+                if int(manifest_row.get("schema_version", 0)) < 2:
                     warnings += 1
                     continue
-                items.append(adapters.run_summary_v2(manifest))
+                summary = manifest_row.get("summary")
+                if summary is not None:
+                    items.append(summary)
+                else:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    items.append(adapters.run_summary_v2(manifest))
             except Exception:
                 warnings += 1
         return {"items": items, "warnings": warnings}
 
     @app.get("/api/runs/{run_id}")
     def get_run(run_id: str):
+        _ensure_reconciled()
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
         if err := _check_migrated(manifest):
             return err
@@ -67,7 +96,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         daily_path = Path(manifest["path"]) / "parquet" / "daily.parquet"
         if not daily_path.is_file():
             raise HTTPException(status_code=409, detail="daily series unavailable")
-        daily_df = pd.read_parquet(daily_path)
+        daily_df = read_parquet_cached(daily_path)
         return adapters.daily_rows(daily_df)
 
     @app.get("/api/runs/{run_id}/monthly")
@@ -78,7 +107,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         daily_path = Path(manifest["path"]) / "parquet" / "daily.parquet"
         if not daily_path.is_file():
             raise HTTPException(status_code=409, detail="daily series unavailable")
-        daily_df = pd.read_parquet(daily_path)
+        daily_df = read_parquet_cached(daily_path)
         capital = manifest.get("config", {}).get("capital", 0.0)
         return adapters.monthly_rows(daily_df, capital)
 
@@ -90,7 +119,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         trades_path = Path(manifest["path"]) / "parquet" / "trades.parquet"
         if not trades_path.is_file():
             raise HTTPException(status_code=409, detail="run trades unavailable")
-        trades_df = pd.read_parquet(trades_path)
+        trades_df = read_parquet_cached(trades_path)
         return adapters.trades_v2_rows(trades_df)
 
     @app.get("/api/runs/{run_id}/trades/{trade_id}")
@@ -102,11 +131,11 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         trades_path = run_dir / "parquet" / "trades.parquet"
         if not trades_path.is_file():
             raise HTTPException(status_code=409, detail="run trades unavailable")
-        trades_df = pd.read_parquet(trades_path)
+        trades_df = read_parquet_cached(trades_path)
         legs_path = run_dir / "parquet" / "legs.parquet"
-        legs_df = pd.read_parquet(legs_path) if legs_path.is_file() else None
+        legs_df = read_parquet_cached(legs_path) if legs_path.is_file() else None
         ohlcv_path = run_dir / "parquet" / "ohlcv.parquet"
-        ohlcv_df = pd.read_parquet(ohlcv_path) if ohlcv_path.is_file() else None
+        ohlcv_df = read_parquet_cached(ohlcv_path) if ohlcv_path.is_file() else None
 
         has_block = manifest.get("has", {})
         ohlcv_market = has_block.get("ohlcv_market")
@@ -139,7 +168,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         ohlcv_path = Path(manifest["path"]) / "parquet" / "ohlcv.parquet"
         if not ohlcv_path.is_file():
             return JSONResponse(status_code=409, content={"detail": "no_ohlcv"})
-        ohlcv_df = pd.read_parquet(ohlcv_path)
+        ohlcv_df = read_parquet_cached(ohlcv_path)
         inst = manifest.get("instrument") or {}
         tz = inst.get("timezone", "UTC")
         session_close = inst.get("session_close", "15:30" if tz == "Asia/Kolkata" else "24:00")
@@ -155,7 +184,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         equity_path = Path(manifest["path"]) / "parquet" / "equity.parquet"
         if not equity_path.is_file():
             raise HTTPException(status_code=404, detail="equity file missing")
-        equity_df = pd.read_parquet(equity_path)
+        equity_df = read_parquet_cached(equity_path)
         if "equity" in equity_df.columns:
             eq_s = equity_df["equity"]
         else:
@@ -168,20 +197,24 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
 
     @app.get("/api/groups")
     def list_groups() -> dict[str, Any]:
+        _ensure_reconciled()
         group_map: dict[str, dict[str, Any]] = {}
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
             try:
-                manifest = _load_manifest_from_row(
-                    manifest_row,
-                    expected_kind="run",
-                    runs_dir=runs_dir,
-                )
-                if int(manifest.get("schema_version", 0)) < 2:
+                if int(manifest_row.get("schema_version", 0)) < 2:
                     continue
+                summary = manifest_row.get("summary")
+                if summary is None:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    summary = adapters.run_summary_v2(manifest)
             except Exception:
                 continue
 
-            grp = manifest.get("group")
+            grp = summary.get("group")
             if not isinstance(grp, dict) or not grp.get("id"):
                 continue
             gid = str(grp["id"])
@@ -223,26 +256,30 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
 
     @app.get("/api/groups/{group_id}")
     def get_group(group_id: str) -> dict[str, Any]:
+        _ensure_reconciled()
         group_info = None
         runs = []
         axes_sets: dict[str, set] = {}
         for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
             try:
-                manifest = _load_manifest_from_row(
-                    manifest_row,
-                    expected_kind="run",
-                    runs_dir=runs_dir,
-                )
-                if int(manifest.get("schema_version", 0)) < 2:
+                if int(manifest_row.get("schema_version", 0)) < 2:
                     continue
+                summary = manifest_row.get("summary")
+                if summary is None:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    summary = adapters.run_summary_v2(manifest)
             except Exception:
                 continue
 
-            grp = manifest.get("group")
+            grp = summary.get("group")
             if isinstance(grp, dict) and str(grp.get("id")) == group_id:
                 if group_info is None:
                     group_info = {"id": group_id, "label": grp.get("label", group_id)}
-                runs.append(adapters.run_summary_v2(manifest))
+                runs.append(summary)
                 for k, v in grp.get("axes", {}).items():
                     if k not in axes_sets:
                         axes_sets[k] = set()
@@ -280,13 +317,13 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
         parquet_dir = Path(manifest["path"]) / "parquet"
         try:
-            ohlcv = pd.read_parquet(parquet_dir / "ohlcv.parquet")
-            equity = pd.read_parquet(parquet_dir / "equity.parquet")["equity"]
+            ohlcv = read_parquet_cached(parquet_dir / "ohlcv.parquet")
+            equity = read_parquet_cached(parquet_dir / "equity.parquet")["equity"]
             drawdown_path = parquet_dir / "drawdown.parquet"
             if drawdown_path.is_file():
-                drawdown = pd.read_parquet(drawdown_path)["drawdown"]
+                drawdown = read_parquet_cached(drawdown_path)["drawdown"]
             else:
-                daily_df = pd.read_parquet(parquet_dir / "daily.parquet")
+                daily_df = read_parquet_cached(parquet_dir / "daily.parquet")
                 drawdown = pd.Series(
                     (daily_df["drawdown"] * 100.0).values,
                     index=pd.to_datetime(daily_df["session"], utc=True),
@@ -334,7 +371,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
     def get_sweep(sweep_id: str) -> dict[str, Any]:
         manifest = _manifest_for_id(sweep_id, index_path=index_path, expected_kind="sweep")
         try:
-            rows = pd.read_parquet(Path(manifest["path"]) / "results.parquet").to_dict("records")
+            rows = read_parquet_cached(Path(manifest["path"]) / "results.parquet").to_dict("records")
         except Exception as exc:
             raise HTTPException(status_code=409, detail=f"sweep results unavailable: {exc}") from exc
         return {
