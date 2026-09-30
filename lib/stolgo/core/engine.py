@@ -111,17 +111,18 @@ class Engine:
 
         n = len(bars) - 1
         bar_index = pd.DatetimeIndex(df.index, tz="UTC")
+        data_view = BarDataView(
+            _open=arrays["open"],
+            _high=arrays["high"],
+            _low=arrays["low"],
+            _close=arrays["close"],
+            _volume=arrays["volume"],
+            _limit=n,
+            _index=bar_index,
+        )
         ctx = Context(
             i=0,
-            data=BarDataView(
-                _open=arrays["open"],
-                _high=arrays["high"],
-                _low=arrays["low"],
-                _close=arrays["close"],
-                _volume=arrays["volume"],
-                _limit=n,
-                _index=bar_index,
-            ),
+            data=data_view,
             position=portfolio.position,
             _portfolio=portfolio,
             _equity_val=portfolio.cash,
@@ -140,7 +141,7 @@ class Engine:
         vector_entry_size_pct = getattr(strategy, "vector_entry_size_pct", None)
 
         equity_vals: list[float] = []
-        equity_index: list[pd.Timestamp] = []
+        equity_ts: list[int] = []
         position_qty_vals: list[float] = []
         fill_events: list[Any] = []
         all_events: list[Any] = []
@@ -179,20 +180,12 @@ class Engine:
             eq = portfolio.mark_to_market(bar)
             ctx._equity_val = eq
             equity_vals.append(eq)
-            equity_index.append(pd.Timestamp(bar.ts, unit="ns", tz="UTC"))
+            equity_ts.append(bar.ts)
             position_qty_vals.append(portfolio.position.qty)
             running_peak = eq if running_peak is None else max(running_peak, eq)
 
             ctx.i = i
-            ctx.data = BarDataView(
-                _open=arrays["open"],
-                _high=arrays["high"],
-                _low=arrays["low"],
-                _close=arrays["close"],
-                _volume=arrays["volume"],
-                _limit=i,
-                _index=bar_index,
-            )
+            data_view._limit = i
             ctx.position = portfolio.position
             strategy.on_bar(ctx)
             if use_vector:
@@ -282,7 +275,7 @@ class Engine:
 
         strategy.on_end(ctx)
 
-        equity = pd.Series(equity_vals, index=pd.DatetimeIndex(equity_index, tz="UTC"))
+        equity = pd.Series(equity_vals, index=pd.to_datetime(equity_ts, unit="ns", utc=True))
         trades = build_trades_from_fills(fill_events)
 
         if bars and not self._config.close_at_end and not portfolio.position.flat:
