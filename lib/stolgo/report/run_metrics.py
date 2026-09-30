@@ -7,23 +7,15 @@ import numpy as np
 import pandas as pd
 
 from stolgo.core.exceptions import AccountingError
+from stolgo.report._json import clean
 from stolgo.report.calendar_metrics import calendar_metrics
+from stolgo.report.metric_registry import METRICS
 
 IST = "Asia/Kolkata"
 
-
-def _clean_val(v: Any) -> Any:
-    if v is None:
-        return None
-    if isinstance(v, bool):
-        return v
-    if isinstance(v, (float, np.floating)):
-        if np.isnan(v) or np.isinf(v):
-            return None
-        return float(v)
-    if isinstance(v, (int, np.integer)):
-        return int(v)
-    return v
+TARGET_KEYS: tuple[str, ...] = ("basis",) + tuple(
+    k for m in METRICS for k in (m.key, "ulcer_index") if k != "ulcer_index" or m.key == "volatility"
+) + ("annualised_from_short_window",)
 
 
 def compute_run_metrics(
@@ -120,41 +112,10 @@ def compute_run_metrics(
         m["intraday_max_drawdown"] = None
 
     # Replace every NaN/±inf with None
-    res = {}
-    for k, v in m.items():
-        res[k] = _clean_val(v)
+    res = clean(m)
 
     # Ensure all target keys from §3.1 are present
-    target_keys = [
-        "basis",
-        "net_pnl",
-        "gross_pnl",
-        "fees",
-        "slippage",
-        "total_return",
-        "cagr",
-        "sharpe",
-        "sortino",
-        "calmar",
-        "max_drawdown",
-        "max_drawdown_duration",
-        "intraday_max_drawdown",
-        "volatility",
-        "ulcer_index",
-        "worst_day",
-        "expected_shortfall_95",
-        "num_trades",
-        "hit_rate",
-        "profit_factor",
-        "payoff",
-        "avg_win",
-        "avg_loss",
-        "expectancy",
-        "avg_r",
-        "final_equity",
-        "annualised_from_short_window",
-    ]
-    for k in target_keys:
+    for k in TARGET_KEYS:
         if k not in res:
             res[k] = None
 

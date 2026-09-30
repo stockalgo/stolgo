@@ -7,28 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from stolgo.report._json import clean as _clean
 from stolgo.report.metric_registry import metric_defs
-
-
-def _clean(obj: Any) -> Any:
-    """Recursively converts NaN/inf to None and normalizes numpy types."""
-    if isinstance(obj, bool):
-        return obj
-    if isinstance(obj, (int, np.integer)):
-        return int(obj)
-    if isinstance(obj, (float, np.floating)):
-        return None if (np.isnan(obj) or np.isinf(obj)) else float(obj)
-    if isinstance(obj, str):
-        return obj
-    if isinstance(obj, dict):
-        return {k: _clean(v) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_clean(v) for v in obj]
-    if isinstance(obj, pd.Timestamp):
-        return int(obj.timestamp())
-    if pd.isna(obj):
-        return None
-    return obj
 
 
 def _to_secs(ts: Any) -> int | None:
