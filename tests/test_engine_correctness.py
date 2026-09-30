@@ -42,3 +42,40 @@ def test_short_round_trip():
     assert t["exit_price"] == 101.0
     assert t["qty"] == 10.0
     assert t["gross_pnl"] == 20.0
+
+
+def test_exit_not_blocked_by_drawdown():
+    class Hold(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            if ctx.i == 4:
+                ctx.close()
+
+    r = Backtest(Hold(), frame([100, 100, 40, 40, 40, 30, 30, 30, 30, 30], 0), cash=10_000).run()
+    assert r.positions.qty.iloc[-1] == 0
+    assert len(r.trades) == 1
+
+    # With halt_drawdown=0.5, a new buy after breach is rejected and close still goes through
+    class BuyAfterHalt(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            if ctx.i == 3:
+                ctx.buy(qty=50)  # should be rejected by risk halt
+            if ctx.i == 4:
+                ctx.close()  # should be accepted
+
+    r2 = Backtest(
+        BuyAfterHalt(),
+        frame([100, 100, 40, 40, 40, 30, 30, 30, 30, 30], 0),
+        cash=10_000,
+        halt_drawdown=0.5,
+    ).run()
+    assert r2.positions.qty.iloc[-1] == 0
+    assert len(r2.trades) == 1
+    assert r2.trades.iloc[0]["qty"] == 100.0
+    from stolgo.core.events import RiskHaltEvent
+    halts = [e for e in r2.events if isinstance(e, RiskHaltEvent)]
+    assert len(halts) == 1
+    assert halts[0].drawdown >= 0.5

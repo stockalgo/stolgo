@@ -90,12 +90,14 @@ class Engine:
         equity_index: list[pd.Timestamp] = []
         position_qty_vals: list[float] = []
         fill_events: list[Any] = []
+        all_events: list[Any] = []
 
         for i, bar in SimClock(bars):
             for fe in broker.match(bar, bar_index=i):
                 portfolio.apply_fill(fe.fill)
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)
+                all_events.append(fe)
 
             eq = portfolio.mark_to_market(bar)
             equity_vals.append(eq)
@@ -125,7 +127,7 @@ class Engine:
                 )
 
             for intent in ctx.consume_intents():
-                accepted = apply_risk(intent, portfolio, equity_vals, self._config)
+                accepted = apply_risk(intent, portfolio, equity_vals, self._config, events=all_events, bar_index=i)
                 if accepted is None:
                     continue
                 qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
@@ -150,7 +152,7 @@ class Engine:
             equity=equity,
             positions=positions,
             signals=signals,
-            events=fill_events,
+            events=all_events,
             ohlcv=df,
         )
 

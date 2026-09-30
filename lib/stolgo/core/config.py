@@ -30,6 +30,7 @@ class RunConfig(BaseModel):
     fast: bool = False
     symbol: str | None = None
     interval: str | None = None
+    halt_drawdown: float | None = None
 
     @field_validator("cash")
     @classmethod

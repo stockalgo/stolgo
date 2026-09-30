@@ -46,3 +46,10 @@ class SignalEvent:
 class TimerEvent:
     ts: int
     name: str
+
+
+@dataclass(frozen=True, slots=True)
+class RiskHaltEvent:
+    index: int
+    drawdown: float = 0.0
+    type: str = "RISK_HALT"
