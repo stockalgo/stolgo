@@ -596,6 +596,41 @@ def test_btc_run_utc_and_24h_candles(tmp_path):
     assert len(c["rows"]) == 24
 
 
+def test_zero_trade_export_metrics(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class NoTradeStrat(Strategy):
+        def on_bar(self, ctx):
+            pass
+
+    dt_idx = pd.date_range("2024-01-01", periods=5, freq="D", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [100.0] * 5,
+            "high": [105.0] * 5,
+            "low": [95.0] * 5,
+            "close": [100.0] * 5,
+            "volume": [100.0] * 5,
+        },
+        index=dt_idx,
+    )
+    res = Backtest(NoTradeStrat(), df, cash=100_000).run()
+    run_dir = tmp_path / "zero_trade_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    m = manifest["metrics"]
+    assert m["num_trades"] == 0
+    assert m["net_pnl"] == 0.0
+    assert m["final_equity"] == 100_000.0
+    assert m["sharpe"] is None
+    assert m["cagr"] is None
+    assert m["max_drawdown"] is None
+    assert m["hit_rate"] is None
+    assert m["calmar"] is None
+
+
+
 
 
 
