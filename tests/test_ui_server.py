@@ -157,6 +157,18 @@ def test_api_v2_endpoints(tmp_path: Path) -> None:
     # 4.11 GET /api/runs/{id}/audit
     assert client.get("/api/runs/run-1/audit").status_code == 404
 
+    # 4.12 GET /api/sweeps and /api/sweeps/{id}
+    sweeps = client.get("/api/sweeps").json()
+    assert len(sweeps["items"]) == 1
+    assert sweeps["items"][0]["id"] == "sweep-1"
+    assert sweeps["items"][0]["strategy"] == "SmaTrend"
+
+    sweep_detail = client.get("/api/sweeps/sweep-1").json()
+    assert sweep_detail["id"] == "sweep-1"
+    assert sweep_detail["strategy"] == "SmaTrend"
+    assert len(sweep_detail["rows"]) == 1
+    assert sweep_detail["rows"][0]["period"] == 10
+
 
 def test_v1_run_returns_409_and_warning(tmp_path: Path) -> None:
     runs_dir = tmp_path / "runs"

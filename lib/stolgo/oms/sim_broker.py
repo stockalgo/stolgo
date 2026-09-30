@@ -10,8 +10,6 @@ from stolgo.oms.fill_model import FillModel
 from stolgo.oms.order_book import OrderBook
 from stolgo.oms.slippage import SlippageModel
 
-_EMPTY_FILLS: tuple[FillEvent, ...] = ()
-
 
 class SimBroker:
     def __init__(
@@ -44,7 +42,7 @@ class SimBroker:
         self._book.cancel(order_id)
 
     def open_orders(self) -> list[Order]:
-        return list(self._pending) + list(self._book._resting)
+        return list(self._pending) + self._book.resting()
 
     def _next_id(self) -> str:
         self._seq += 1
@@ -82,7 +80,7 @@ class SimBroker:
             if fe is not None:
                 fill_events.append(fe)
 
-        return fill_events if fill_events else list(_EMPTY_FILLS)
+        return fill_events
 
     def match_signal_close(
         self,
@@ -102,7 +100,7 @@ class SimBroker:
             else:
                 self._book.add(order)
         self._pending = still_pending
-        return fill_events if fill_events else list(_EMPTY_FILLS)
+        return fill_events
 
 
     def _make_fill(

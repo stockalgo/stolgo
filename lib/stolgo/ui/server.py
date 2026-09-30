@@ -323,27 +323,6 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
             raise HTTPException(status_code=404, detail="migration report not found")
         return FileResponse(report_path, media_type="text/markdown")
 
-    @app.get("/api/runs/{run_id}/series")
-    def get_run_series(run_id: str) -> dict[str, Any]:
-        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
-        parquet_dir = Path(manifest["path"]) / "parquet"
-        try:
-            ohlcv = read_parquet_cached(parquet_dir / "ohlcv.parquet")
-            equity = read_parquet_cached(parquet_dir / "equity.parquet")["equity"]
-            drawdown_path = parquet_dir / "drawdown.parquet"
-            if drawdown_path.is_file():
-                drawdown = read_parquet_cached(drawdown_path)["drawdown"]
-            else:
-                daily_df = read_parquet_cached(parquet_dir / "daily.parquet")
-                drawdown = pd.Series(
-                    (daily_df["drawdown"] * 100.0).values,
-                    index=pd.to_datetime(daily_df["session"], utc=True),
-                )
-        except (OSError, KeyError, ValueError) as exc:
-            logger.warning("Run series unavailable for %s: %s", run_id, exc)
-            raise HTTPException(status_code=409, detail=f"run series unavailable: {exc}") from exc
-        return adapters.series(ohlcv, equity, drawdown)
-
     @app.get("/api/runs/{run_id}/audit")
     def get_run_audit(run_id: str):
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")

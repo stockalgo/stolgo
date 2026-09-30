@@ -357,35 +357,3 @@ def metric_cards(metrics: dict) -> list[dict]:
         {"key": key, "label": label, "value": metrics.get(key, 0.0), "fmt": fmt}
         for key, label, fmt in order
     ]
-
-
-def series(ohlcv_df: pd.DataFrame, equity_s: pd.Series, drawdown_s: pd.Series) -> dict:
-    candles_list = [
-        {
-            "time": _to_secs(index),
-            "open": float(row.open),
-            "high": float(row.high),
-            "low": float(row.low),
-            "close": float(row.close),
-        }
-        for index, row in ohlcv_df.iterrows()
-    ]
-    volume = (
-        [
-            {
-                "time": _to_secs(index),
-                "value": float(row.volume),
-                "color": "rgba(20,154,90,0.18)"
-                if row.close >= row.open
-                else "rgba(200,63,58,0.16)",
-            }
-            for index, row in ohlcv_df.iterrows()
-        ]
-        if "volume" in ohlcv_df.columns
-        else []
-    )
-    equity = [{"time": _to_secs(index), "value": float(value)} for index, value in equity_s.items()]
-    drawdown = [
-        {"time": _to_secs(index), "value": float(value)} for index, value in drawdown_s.items()
-    ]
-    return _clean({"candles": candles_list, "volume": volume, "equity": equity, "drawdown": drawdown})

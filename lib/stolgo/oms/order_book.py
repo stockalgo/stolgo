@@ -16,6 +16,9 @@ class OrderBook:
     def cancel(self, order_id: str) -> None:
         self._resting = [o for o in self._resting if o.order_id != order_id]
 
+    def resting(self) -> list[Order]:
+        return list(self._resting)
+
     def match(self, bar: Bar) -> list[tuple[Order, float]]:
         candidates: list[tuple[Order, float]] = []
         untriggered: list[Order] = []
