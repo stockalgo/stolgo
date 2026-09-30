@@ -106,3 +106,123 @@ def test_size_pct_does_not_overspend_cash():
     rejections = [e for e in r2.events if isinstance(e, OrderRejectedEvent)]
     assert len(rejections) == 1
     assert rejections[0].reason == "insufficient_cash"
+
+
+def test_limit_intent_fills_and_gap_improvement():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    # Test 1: Limit buy fills at limit
+    class LimitStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.BUY,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=95.0,
+                    )
+                )
+
+    # Bar 0: open 100, close 100
+    # Bar 1: open 98, high 102, low 94, close 99 (bar opens at 98, goes down to 94 through 95)
+    df1 = pd.DataFrame(
+        {
+            "open": [100.0, 98.0, 99.0],
+            "high": [101.0, 102.0, 100.0],
+            "low": [99.0, 94.0, 98.0],
+            "close": [100.0, 99.0, 99.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r1 = Backtest(LimitStrat(), df1, cash=10_000).run()
+    assert len(r1.trades) == 0  # Not closed yet, but position opened
+    assert r1.positions.qty.iloc[1] == 10.0
+    fill = [e.fill for e in r1.events if hasattr(e, "fill")][0]
+    assert fill.price == 95.0
+
+    # Test 2: Gap-through open fills at open (min(open, limit) = 90)
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 90.0, 91.0],
+            "high": [101.0, 92.0, 92.0],
+            "low": [99.0, 89.0, 90.0],
+            "close": [100.0, 91.0, 91.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r2 = Backtest(LimitStrat(), df2, cash=10_000).run()
+    assert r2.positions.qty.iloc[1] == 10.0
+    fill2 = [e.fill for e in r2.events if hasattr(e, "fill")][0]
+    assert fill2.price == 90.0
+
+
+def test_stop_limit_raises_not_implemented():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class StopLimitStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.BUY,
+                        order_type=OrderType.STOP_LIMIT,
+                        qty=10,
+                        stop_price=105.0,
+                        limit_price=106.0,
+                    )
+                )
+
+    with pytest.raises(NotImplementedError):
+        Backtest(StopLimitStrat(), frame([100, 101, 102], 0), cash=10_000).run()
+
+
+def test_oco_both_hit_on_same_bar_fills_stop():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class OCOStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                # Target limit at 110, stop at 90 with same oco_group
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=110.0,
+                        oco_group="bracket-1",
+                    )
+                )
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.STOP,
+                        qty=10,
+                        stop_price=90.0,
+                        oco_group="bracket-1",
+                    )
+                )
+
+    # Bar 0: open 100, close 100
+    # Bar 1: wide bar: open 100, high 115, low 85, close 100 (both 110 limit and 90 stop hit)
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 100.0],
+            "high": [101.0, 115.0, 101.0],
+            "low": [99.0, 85.0, 99.0],
+            "close": [100.0, 100.0, 100.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r = Backtest(OCOStrat(), df, cash=10_000).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill")]
+    assert len(fills) == 1
+    # Adverse-first: fill the STOP order (at stop price 90.0)
+    assert fills[0].price == 90.0

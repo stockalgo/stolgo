@@ -143,6 +143,7 @@ class Engine:
                     stop_price=accepted.stop_price,
                     tag=accepted.tag,
                     size_pct=accepted.size_pct,
+                    oco_group=accepted.oco_group,
                 )
                 broker.submit(order)
 

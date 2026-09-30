@@ -63,6 +63,7 @@ class Order:
     client_order_id: str | None = None
     tag: str | None = None
     size_pct: float | None = None
+    oco_group: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +101,7 @@ class OrderIntent:
     limit_price: float | None = None
     stop_price: float | None = None
     tag: str | None = None
+    oco_group: str | None = None
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:

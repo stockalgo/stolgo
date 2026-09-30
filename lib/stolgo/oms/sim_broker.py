@@ -36,6 +36,8 @@ class SimBroker:
         self._fill_seq = 0
 
     def submit(self, order: Order) -> str:
+        if order.order_type == OrderType.STOP_LIMIT:
+            raise NotImplementedError("STOP_LIMIT orders are not implemented")
         self._pending.append(order)
         return order.order_id
 
@@ -141,6 +143,7 @@ class SimBroker:
         stop_price: float | None = None,
         tag: str | None = None,
         size_pct: float | None = None,
+        oco_group: str | None = None,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -152,4 +155,5 @@ class SimBroker:
             stop_price=stop_price,
             tag=tag,
             size_pct=size_pct,
+            oco_group=oco_group,
         )
