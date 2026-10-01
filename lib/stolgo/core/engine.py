@@ -38,6 +38,7 @@ def _process_intents(
     symbol: str,
     peak_equity: float | None = None,
     current_equity: float | None = None,
+    active_from: int = 0,
 ) -> None:
     for intent in ctx.consume_intents():
         accepted = apply_risk(
@@ -67,6 +68,7 @@ def _process_intents(
             oco_group=accepted.oco_group,
             risk_per_unit=accepted.risk_per_unit,
             reduce_only=accepted.reduce_only,
+            active_from=active_from,
         )
         broker.submit(order)
 
@@ -158,6 +160,7 @@ class Engine:
                 all_events.append(fe)
 
             if ctx._intents:
+                active_from = i + 1 if self._config.fill_on in ("close", "next_close") else i
                 _process_intents(
                     ctx,
                     portfolio,
@@ -170,6 +173,7 @@ class Engine:
                     symbol,
                     peak_equity=running_peak if len(equity_vals) >= 2 else None,
                     current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
+                    active_from=active_from,
                 )
                 for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                     portfolio.apply_fill(fe.fill)
@@ -213,6 +217,7 @@ class Engine:
                 symbol,
                 peak_equity=running_peak if len(equity_vals) >= 2 else None,
                 current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
+                active_from=i + 1,
             )
 
             if self._config.fill_on == "signal_close":
@@ -242,6 +247,7 @@ class Engine:
                         symbol,
                         peak_equity=running_peak if len(equity_vals) >= 2 else None,
                         current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
+                        active_from=i + 1,
                     )
                     eq_close = portfolio.mark_to_market(bar)
                     equity_vals[-1] = eq_close
@@ -258,6 +264,7 @@ class Engine:
                 close_qty,
                 OrderType.MARKET,
                 tag="END_OF_DATA",
+                active_from=len(bars),
             )
             fe = broker._make_fill(
                 closing_order,

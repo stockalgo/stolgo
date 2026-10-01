@@ -25,11 +25,14 @@ class OrderBook:
     def resting(self) -> list[Order]:
         return list(self._resting)
 
-    def match(self, bar: Bar) -> list[tuple[Order, float]]:
+    def match(self, bar: Bar, bar_index: int = 0) -> list[tuple[Order, float]]:
         candidates: list[tuple[Order, float]] = []
         untriggered: list[Order] = []
 
         for order in self._resting:
+            if order.active_from > bar_index:
+                untriggered.append(order)
+                continue
             price = None
             if order.order_type == OrderType.LIMIT and order.limit_price is not None:
                 if order.side == Side.BUY and bar.low <= order.limit_price:

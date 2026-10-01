@@ -59,6 +59,7 @@ class Order:
     oco_group: str | None = None
     risk_per_unit: float | None = None
     reduce_only: bool = False
+    active_from: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,7 @@ class OrderIntent:
     oco_group: str | None = None
     risk_per_unit: float | None = None
     reduce_only: bool = False
+    active_from: int = 0
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:

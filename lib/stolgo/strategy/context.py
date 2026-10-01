@@ -135,6 +135,7 @@ class Context:
         oco_group: str | None = None,
         risk_per_unit: float | None = None,
         reduce_only: bool = False,
+        active_from: int = 0,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -148,6 +149,7 @@ class Context:
             oco_group=oco_group,
             risk_per_unit=risk_per_unit,
             reduce_only=reduce_only,
+            active_from=active_from,
         )
         self._intents.append(intent)
         return intent

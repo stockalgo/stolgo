@@ -83,7 +83,7 @@ class SimBroker:
                 fill_events.append(fe)
         self._pending = still_pending
 
-        for order, price in self._book.match(bar):
+        for order, price in self._book.match(bar, bar_index=bar_index):
             fe = self._make_fill(order, bar, price, bar_index, portfolio=portfolio, events=events)
             if fe is not None:
                 fill_events.append(fe)
@@ -195,6 +195,7 @@ class SimBroker:
         oco_group: str | None = None,
         risk_per_unit: float | None = None,
         reduce_only: bool = False,
+        active_from: int = 0,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -209,4 +210,5 @@ class SimBroker:
             oco_group=oco_group,
             risk_per_unit=risk_per_unit,
             reduce_only=reduce_only,
+            active_from=active_from,
         )
