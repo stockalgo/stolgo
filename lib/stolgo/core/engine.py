@@ -147,10 +147,8 @@ class Engine:
         fill_events: list[Any] = []
         all_events: list[Any] = []
 
-        running_peak: float | None = None
-        for i, bar in SimClock(bars):
-            ctx.i = i
-            for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
+        def _apply_fills(fills: list[Any]) -> None:
+            for fe in fills:
                 portfolio.apply_fill(fe.fill)
                 if portfolio.position.flat:
                     broker.cancel_reduce_only(fe.fill.symbol)
@@ -158,6 +156,11 @@ class Engine:
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)
                 all_events.append(fe)
+
+        running_peak: float | None = None
+        for i, bar in SimClock(bars):
+            ctx.i = i
+            _apply_fills(broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events))
 
             if ctx._intents:
                 active_from = i + 1 if self._config.fill_on in ("close", "next_close") else i
@@ -175,14 +178,7 @@ class Engine:
                     current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
                     active_from=active_from,
                 )
-                for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
-                    portfolio.apply_fill(fe.fill)
-                    if portfolio.position.flat:
-                        broker.cancel_reduce_only(fe.fill.symbol)
-                    ctx.on_fill(fe)
-                    strategy.on_fill(ctx, fe)
-                    fill_events.append(fe)
-                    all_events.append(fe)
+                _apply_fills(broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events))
 
             eq = portfolio.mark_to_market(bar)
             ctx._equity_val = eq
@@ -228,13 +224,7 @@ class Engine:
                     events=all_events,
                 )
                 if fills:
-                    for fe in fills:
-                        portfolio.apply_fill(fe.fill)
-                        if portfolio.position.flat:
-                            broker.cancel_reduce_only(fe.fill.symbol)
-                        strategy.on_fill(ctx, fe)
-                        fill_events.append(fe)
-                        all_events.append(fe)
+                    _apply_fills(fills)
                     _process_intents(
                         ctx,
                         portfolio,
@@ -275,13 +265,7 @@ class Engine:
                 events=all_events,
             )
             if fe is not None:
-                portfolio.apply_fill(fe.fill)
-                if portfolio.position.flat:
-                    broker.cancel_reduce_only(fe.fill.symbol)
-                ctx.on_fill(fe)
-                strategy.on_fill(ctx, fe)
-                fill_events.append(fe)
-                all_events.append(fe)
+                _apply_fills([fe])
                 eq = portfolio.mark_to_market(last_bar)
                 ctx._equity_val = eq
                 equity_vals[-1] = eq

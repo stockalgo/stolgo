@@ -720,6 +720,41 @@ def test_v2_next_close_bracket_exit_does_not_match_entry_bar_extremes():
     assert t["exit_reason"] != "long_stop"
 
 
+def test_v3_signal_close_bracket_places_exit_orders():
+    from stolgo.trade import long
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class B(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    r = Backtest(
+        B(),
+        frame40(
+            [100, 100, 96, 94],
+            [105, 101, 97, 95],
+            [95, 99, 94, 93],
+            [100, 100, 96, 94],
+        ),
+        cash=10_000,
+        fill_on="signal_close",
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["exit_price"] == 95.0
+    assert str(t["exit_reason"]).endswith("_stop")
+
+
+
 
 
 
