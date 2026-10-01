@@ -68,8 +68,8 @@ def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
                     "commission": entry_comm_part + exit_comm_part,
                     "return_on_notional": return_on_notional,
                     "r_multiple": r_multiple,
-                    "tag": f.tag or lot.tag or f.order_id,
-                    "exit_reason": f.tag if f.tag else "UNKNOWN",
+                    "tag": lot.tag,
+                    "exit_reason": f.tag if f.tag is not None else "SIGNAL",
                 }
             )
 

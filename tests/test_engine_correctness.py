@@ -839,3 +839,45 @@ def test_v5_qty_step_floors_resolved_fill_qty():
     rejections = [e for e in r_small.events if isinstance(e, OrderRejectedEvent)]
     assert len(rejections) == 1
     assert rejections[0].reason == "below_qty_step"
+
+
+def test_v7_trade_tag_and_exit_reason_semantics():
+    class S1(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10, tag="entry_signal")
+            if ctx.i == 2:
+                ctx.close()
+
+    r1 = Backtest(S1(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert t1["tag"] == "entry_signal"
+    assert t1["exit_reason"] == "SIGNAL"
+
+    class S2(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.sell(qty=10, tag="take_profit")
+
+    r2 = Backtest(S2(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert pd.isna(t2["tag"]) or t2["tag"] is None
+    assert t2["exit_reason"] == "take_profit"
+
+    class S3(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.close()
+
+    r3 = Backtest(S3(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r3.trades) == 1
+    t3 = r3.trades.iloc[0]
+    assert pd.isna(t3["tag"]) or t3["tag"] is None
+    assert t3["exit_reason"] == "SIGNAL"
+

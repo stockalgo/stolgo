@@ -70,7 +70,7 @@ def test_golden_ma_cross():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(GoldenMACross(), df, cash=100_000).run()
     assert len(res.trades) == 1
-    assert _sha256_df(res.trades) == "efc60af7e947b76b99601454177d5b2402e9cf704079484b740d16a1dacb946e"
+    assert _sha256_df(res.trades) == "3fa4bc625c5ac9bb677b9d043d90687436e83707fd80735e7597a5721fd4cb58"
     assert round(float(res.equity.iloc[-1]), 6) == 100142.226775
 
 
@@ -79,7 +79,7 @@ def test_golden_vector_lift():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(FastMomentum(), df, cash=100_000, commission=0.0003).run()
     assert len(res.trades) == 4
-    assert _sha256_df(res.trades) == "9dfdcbc859a062372c4261416900b1d35c2ffe03ed14e068f9c03b7a02aebb87"
+    assert _sha256_df(res.trades) == "27ab6a23cc6b809e9f991d12fa81123e82958a936aec81d51c9386011e92a359"
     assert round(float(res.equity.iloc[-1]), 6) == 106399.312205
 
 
@@ -88,7 +88,7 @@ def test_golden_bracket():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(GoldenBracket(), df, cash=100_000).run()
     assert len(res.trades) == 3
-    assert _sha256_df(res.trades) == "4a8b34700d34f27d1a966905ad6b0bc374781322d16009680e60373c6b2b60be"
+    assert _sha256_df(res.trades) == "f41c622e65a3aafbf5b683a0f15a1bb846e5552371fb7c7d8525edbf0fcbb15c"
     assert round(float(res.equity.iloc[-1]), 6) == 106211.726503
 
 
@@ -109,7 +109,7 @@ def test_golden_random_walk_200k():
     )
     res = Backtest(GoldenMom50(), df, cash=100_000).run()
     assert len(res.trades) == 6175
-    assert _sha256_df(res.trades) == "de80296e615257e3c2cc911a6f2b30e7d62d4e049435f1225ddacb52460a883e"
+    assert _sha256_df(res.trades) == "69e2aded067a342b221bf4784163017750e4a3834d86610e3f369c266964abaf"
     assert round(float(res.equity.iloc[-1]), 6) == 119429.215734
 
 
