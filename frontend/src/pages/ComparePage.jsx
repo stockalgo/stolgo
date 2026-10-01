@@ -2,28 +2,20 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { getRun, getDaily, listRuns } from "../api/endpoints.js";
 import { seriesColor } from "../lib/colors.js";
-import { isComparable, isBestComparableValue } from "../lib/verdict.js";
-import { inr, pct, ratio, sessionShort, prob } from "../lib/format.js";
+import { isComparable } from "../lib/verdict.js";
+import {
+  formatMonthYear,
+  parseRunIds,
+  getMetricValue,
+  isBestValue,
+  COMPARE_METRICS,
+} from "../lib/compareLogic.js";
 import { StatusBadge } from "../components/ui/StatusBadge.jsx";
 import { Banner } from "../components/ui/Banner.jsx";
 import { EmptyState } from "../components/ui/EmptyState.jsx";
 import { Button } from "../components/ui/Button.jsx";
 import { CompareChart } from "../components/chart/CompareChart.jsx";
 import { copyText } from "../lib/clipboard.js";
-
-const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
-
-function formatMonthYear(dateStr) {
-  if (!dateStr) return "";
-  const parts = String(dateStr).slice(0, 10).split("-");
-  if (parts.length < 2) return dateStr;
-  const [year, month] = parts;
-  const mIdx = parseInt(month, 10) - 1;
-  return `${MONTH_NAMES[mIdx] || month} ${year}`;
-}
 
 export function ComparePage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,15 +27,7 @@ export function ComparePage() {
   const [allAvailableRuns, setAllAvailableRuns] = useState([]);
 
   const idsParam = searchParams.get("ids") || "";
-  const runIds = useMemo(
-    () =>
-      idsParam
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .slice(0, 4),
-    [idsParam]
-  );
+  const runIds = useMemo(() => parseRunIds(idsParam), [idsParam]);
 
   const [loadedData, setLoadedData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -336,294 +320,39 @@ export function ComparePage() {
               ))}
             </tr>
 
-            {/* Net P&L */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Net P&amp;L</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "net_pnl", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {inr(r.metrics?.net_pnl, { signed: true })}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Total return */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Total return</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "total_return", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {pct(r.metrics?.total_return)}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* CAGR */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>CAGR</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "cagr", runs, "higher");
-                const isShort =
-                  !isComparable(r) || r.metrics?.annualised_from_short_window;
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {pct(r.metrics?.cagr)}
-                    {isShort && (
-                      <span
-                        className="accent"
-                        title="Annualised from short window; not comparable"
-                      >
-                        {" "}
-                        ⚠
-                      </span>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Sharpe */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Sharpe</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "sharpe", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {ratio(r.metrics?.sharpe)}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Sortino */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Sortino</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "sortino", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {ratio(r.metrics?.sortino)}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Max drawdown */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Max drawdown</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "max_drawdown", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {pct(r.metrics?.max_drawdown, { signed: true })}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Profit factor */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Profit factor</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "profit_factor", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {ratio(r.metrics?.profit_factor)}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Hit rate */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Hit rate</td>
-              {runs.map((r) => {
-                const isBest = isBestComparableValue(r, "hit_rate", runs, "higher");
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {pct(r.metrics?.hit_rate, { signed: false })}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* P(net > 0) · bootstrap */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>P(net &gt; 0) &middot; bootstrap</td>
-              {runs.map((r) => {
-                const pVal = r.robustness?.p_net_positive ?? r.metrics?.p_net_positive;
-                const isBest = isBestComparableValue(
-                  { ...r, metrics: { ...r.metrics, p_net_positive: pVal } },
-                  "p_net_positive",
-                  runs.map((item) => ({
-                    ...item,
-                    metrics: {
-                      ...item.metrics,
-                      p_net_positive:
-                        item.robustness?.p_net_positive ?? item.metrics?.p_net_positive,
-                    },
-                  })),
-                  "higher"
-                );
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {prob(pVal)}
-                  </td>
-                );
-              })}
-            </tr>
-
-            {/* Net without best 5 */}
-            <tr>
-              <td style={{ color: "var(--text-2)" }}>Net without best 5</td>
-              {runs.map((r) => {
-                const top5 =
-                  r.robustness?.net_without_top5 ?? r.metrics?.net_without_top5;
-                const isBest = isBestComparableValue(
-                  { ...r, metrics: { ...r.metrics, net_without_top5: top5 } },
-                  "net_without_top5",
-                  runs.map((item) => ({
-                    ...item,
-                    metrics: {
-                      ...item.metrics,
-                      net_without_top5:
-                        item.robustness?.net_without_top5 ??
-                        item.metrics?.net_without_top5,
-                    },
-                  })),
-                  "higher"
-                );
-                return (
-                  <td
-                    key={r.id}
-                    className="num"
-                    style={
-                      isBest
-                        ? {
-                            color: "var(--text-1)",
-                            fontWeight: 600,
-                            background: "rgba(245,165,36,.07)",
-                          }
-                        : {}
-                    }
-                  >
-                    {inr(top5, { signed: true })}
-                  </td>
-                );
-              })}
-            </tr>
+            {/* Structured metric rows */}
+            {COMPARE_METRICS.map(({ key, label, format, direction, warnIf, warnTitle }) => (
+              <tr key={key}>
+                <td style={{ color: "var(--text-2)" }}>{label}</td>
+                {runs.map((r) => {
+                  const val = getMetricValue(r, key);
+                  const isBest = isBestValue(r, key, runs, direction);
+                  const showWarn = warnIf && warnIf(r);
+                  return (
+                    <td
+                      key={r.id}
+                      className="num"
+                      style={
+                        isBest
+                          ? {
+                              color: "var(--text-1)",
+                              fontWeight: 600,
+                              background: "rgba(245,165,36,.07)",
+                            }
+                          : {}
+                      }
+                    >
+                      {format(val)}
+                      {showWarn && (
+                        <span className="accent" title={warnTitle}>
+                          {" "}⚠
+                        </span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
