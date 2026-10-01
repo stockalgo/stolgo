@@ -881,3 +881,39 @@ def test_v7_trade_tag_and_exit_reason_semantics():
     assert pd.isna(t3["tag"]) or t3["tag"] is None
     assert t3["exit_reason"] == "SIGNAL"
 
+
+def test_v8_halt_drawdown_trimmed_intent_preserves_order_fields():
+    from stolgo.core.config import RunConfig
+    from stolgo.core.types import OrderIntent, OrderType, Side
+    from stolgo.portfolio.portfolio import Portfolio
+    from stolgo.portfolio.risk import apply_risk
+
+    port = Portfolio(10_000.0, symbol="TEST")
+    port.position.qty = 50.0
+
+    intent = OrderIntent(
+        symbol="TEST",
+        side=Side.SELL,
+        order_type=OrderType.LIMIT,
+        qty=100.0,
+        limit_price=105.0,
+        oco_group="oco-group-123",
+        risk_per_unit=5.0,
+        reduce_only=True,
+    )
+
+    cfg = RunConfig(halt_drawdown=0.2)
+    trimmed = apply_risk(
+        intent,
+        port,
+        config=cfg,
+        peak_equity=10_000.0,
+        current_equity=7_000.0,
+    )
+
+    assert trimmed is not None
+    assert trimmed.qty == 50.0
+    assert trimmed.oco_group == "oco-group-123"
+    assert trimmed.risk_per_unit == 5.0
+    assert trimmed.reduce_only is True
+

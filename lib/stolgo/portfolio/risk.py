@@ -1,4 +1,4 @@
-from __future__ import annotations
+from dataclasses import replace
 
 import numpy as np
 
@@ -45,31 +45,13 @@ def apply_risk(
             if intent.side == Side.BUY:
                 return None
             if intent.qty is not None and intent.qty > pos_qty:
-                return OrderIntent(
-                    symbol=intent.symbol,
-                    side=intent.side,
-                    order_type=intent.order_type,
-                    qty=pos_qty,
-                    size_pct=intent.size_pct,
-                    limit_price=intent.limit_price,
-                    stop_price=intent.stop_price,
-                    tag=intent.tag,
-                )
+                return replace(intent, qty=pos_qty)
             return intent
         elif pos_qty < 0:
             if intent.side == Side.SELL:
                 return None
             if intent.qty is not None and intent.qty > abs(pos_qty):
-                return OrderIntent(
-                    symbol=intent.symbol,
-                    side=intent.side,
-                    order_type=intent.order_type,
-                    qty=abs(pos_qty),
-                    size_pct=intent.size_pct,
-                    limit_price=intent.limit_price,
-                    stop_price=intent.stop_price,
-                    tag=intent.tag,
-                )
+                return replace(intent, qty=abs(pos_qty))
             return intent
         else:
             return None
