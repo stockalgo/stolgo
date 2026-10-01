@@ -11,4 +11,6 @@ Format: `- [ ] YYYY-MM-DD · plan section · question · what you did in the mea
 - [ ] 2026-09-29 · 03 · Equity, drawdown, and compare charts are implemented with SVG rather than lightweight-charts as Plan 02 §2 outlined. Accepted as per Plan 03.
 - [ ] 2026-09-29 · 03 · Component directory layout groups components into subfolders (`components/chart`, `components/diagnostics`, `components/inspector`, `components/overview`, `components/trades`, etc.). Accepted as per Plan 03.
 - [ ] 2026-10-01 · 05 V4 · V4 (resolving bracket size_risk_pct at fill price rather than signal close) inherently changed GoldenBracket trades and final equity because fill open != signal close. Updated test_golden_bracket snapshot so test suite stays green after commit as required.
+- [ ] 2026-10-01 · 04 §6 · IndianOptionCharges: STT 0.15% on option sales from 2026-04-01 and exchange rates by date need verification against official NSE/BSE circulars with citations in docstring. · Kept existing schedule pending circular citation.
+- [ ] 2026-10-01 · 04 §6 · options/replay.py fills at next-minute open with valid() requiring volume > 0 as a coarse liquidity proxy. Consider spread/volume-aware slippage model later. · Kept existing fill model as out-of-scope for now.
 
