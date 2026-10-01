@@ -459,9 +459,58 @@ def test_lookahead_probe():
     assert len(res.equity) == 20
 
 
-def test_lookahead_probe_examples():
+from examples.vector_momentum_backtest import FastMomentum
+import stolgo.pa.preset as pa_preset
+from stolgo.strategy.context import Context
+
+
+class _PresetStrat(Strategy):
+    def __init__(self, rule_or_tuple):
+        self.rule_or_tuple = rule_or_tuple
+
+    def on_start(self, ctx: Context) -> None:
+        df = pd.DataFrame(
+            {
+                "open": ctx.data.open,
+                "high": ctx.data.high,
+                "low": ctx.data.low,
+                "close": ctx.data.close,
+                "volume": ctx.data.volume,
+            },
+            index=ctx.data._index,
+        )
+        if isinstance(self.rule_or_tuple, tuple):
+            long_rule, short_rule = self.rule_or_tuple
+            self.entries = long_rule.series(df).to_numpy(dtype=bool)
+            self.exits = short_rule.series(df).to_numpy(dtype=bool)
+        else:
+            self.entries = self.rule_or_tuple.series(df).to_numpy(dtype=bool)
+            self.exits = np.zeros(len(df), dtype=bool)
+
+
+@pytest.mark.parametrize(
+    "strat_factory",
+    [
+        FastMomentum,
+        lambda: _PresetStrat(pa_preset.consolidation_breakout()),
+        lambda: _PresetStrat(pa_preset.breakout_above_resistance()),
+        lambda: _PresetStrat(pa_preset.parabolic_short()),
+        lambda: _PresetStrat(pa_preset.scalp_green_fade()),
+        lambda: _PresetStrat(pa_preset.breakout_intraday(tf_daily="1d")),
+        lambda: _PresetStrat(pa_preset.failed_break_intraday(tf_daily="1d")),
+    ],
+    ids=[
+        "FastMomentum",
+        "consolidation_breakout",
+        "breakout_above_resistance",
+        "parabolic_short",
+        "scalp_green_fade",
+        "breakout_intraday",
+        "failed_break_intraday",
+    ],
+)
+def test_lookahead_probe_presets_and_examples(strat_factory):
     from stolgo.core.lookahead import probe
-    from examples.vector_momentum_backtest import FastMomentum
 
     df = pd.DataFrame(
         {
@@ -473,7 +522,7 @@ def test_lookahead_probe_examples():
         },
         index=pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC"),
     )
-    probe(FastMomentum, df)
+    probe(strat_factory, df)
 
 
 def test_parabolic_short_gap_stop():
