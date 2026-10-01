@@ -281,3 +281,29 @@ def test_dynamic_reconcile_on_runs_dir_change(tmp_path: Path) -> None:
     ids = {item["id"] for item in res2["items"]}
     assert ids == {"run-1", "run-2"}
 
+
+def test_dynamic_reconcile_on_manifest_mtime_change(tmp_path: Path) -> None:
+    import os
+    import time
+    runs_dir = tmp_path / "runs"
+    export_all(_result(), runs_dir / "run-1", strategy_name="InitialName")
+
+    app = create_app(runs_dir)
+    client = TestClient(app)
+
+    detail1 = client.get("/api/runs/run-1").json()
+    assert detail1["name"] == "InitialName"
+
+    runs_dir_mtime = runs_dir.stat().st_mtime_ns
+
+    time.sleep(0.01)
+    manifest_path = runs_dir / "run-1" / "manifest.json"
+    manifest_data = json.loads(manifest_path.read_text())
+    manifest_data["name"] = "UpdatedName"
+    manifest_path.write_text(json.dumps(manifest_data, indent=2))
+    os.utime(runs_dir, ns=(runs_dir_mtime, runs_dir_mtime))
+
+    detail2 = client.get("/api/runs/run-1").json()
+    assert detail2["name"] == "UpdatedName"
+
+

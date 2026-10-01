@@ -194,7 +194,7 @@ def get_manifest(run_id: str, *, index_path: Path | str = default_index_path()) 
             row = con.execute(
                 """
                 SELECT schema_version, run_id, kind, strategy, name, status, group_id,
-                       summary, params, metrics, created_at, path
+                       summary, params, metrics, created_at, path, mtime
                 FROM runs_index
                 WHERE run_id = ?
                 """,
@@ -207,7 +207,7 @@ def get_manifest(run_id: str, *, index_path: Path | str = default_index_path()) 
 
 def _row_to_manifest(row: tuple[Any, ...]) -> dict[str, Any]:
     created_at = row[10].isoformat() if hasattr(row[10], "isoformat") else row[10]
-    return {
+    out = {
         "schema_version": int(row[0]),
         "run_id": row[1],
         "kind": row[2],
@@ -221,3 +221,6 @@ def _row_to_manifest(row: tuple[Any, ...]) -> dict[str, Any]:
         "created_at": created_at,
         "path": row[11],
     }
+    if len(row) > 12 and row[12] is not None:
+        out["mtime"] = float(row[12])
+    return out

@@ -420,15 +420,32 @@ def _manifest_for_id(
     index_path: Path,
     expected_kind: str,
 ) -> dict[str, Any]:
-    manifest = runs_index.get_manifest(run_id, index_path=index_path)
-    if manifest is None or manifest.get("kind") != expected_kind:
+    runs_dir = index_path.parent
+    row = runs_index.get_manifest(run_id, index_path=index_path)
+    if row is None or row.get("kind") != expected_kind:
+        disk_manifest = runs_dir / run_id / "manifest.json"
+        if disk_manifest.is_file():
+            cur_mtime = disk_manifest.stat().st_mtime
+            loaded = json.loads(disk_manifest.read_text())
+            runs_index.upsert_run(loaded, index_path=index_path, mtime=cur_mtime)
+            row = runs_index.get_manifest(run_id, index_path=index_path)
+
+    if row is None or row.get("kind") != expected_kind:
         raise HTTPException(status_code=404, detail=f"{expected_kind} not found: {run_id}")
     try:
-        return _load_manifest_from_row(
-            manifest,
+        loaded = _load_manifest_from_row(
+            row,
             expected_kind=expected_kind,
-            runs_dir=index_path.parent,
+            runs_dir=runs_dir,
         )
+        run_path = _safe_run_path(loaded, runs_dir=runs_dir)
+        manifest_path = run_path / "manifest.json"
+        if manifest_path.is_file():
+            file_mtime = manifest_path.stat().st_mtime
+            index_mtime = row.get("mtime")
+            if index_mtime is None or file_mtime > index_mtime:
+                runs_index.upsert_run(loaded, index_path=index_path, mtime=file_mtime)
+        return loaded
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"manifest missing: {run_id}") from exc
     except json.JSONDecodeError as exc:
