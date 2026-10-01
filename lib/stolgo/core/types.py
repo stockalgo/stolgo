@@ -58,6 +58,7 @@ class Order:
     size_pct: float | None = None
     oco_group: str | None = None
     risk_per_unit: float | None = None
+    reduce_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +100,7 @@ class OrderIntent:
     tag: str | None = None
     oco_group: str | None = None
     risk_per_unit: float | None = None
+    reduce_only: bool = False
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:

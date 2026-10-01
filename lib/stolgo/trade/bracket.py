@@ -60,6 +60,7 @@ class Bracket:
             stop_price=self.stop_price,
             oco_group=oco,
             tag=f"{self.tag or 'bracket'}_stop",
+            reduce_only=True,
         )
         # Submit resting LIMIT
         ctx.order(
@@ -69,6 +70,7 @@ class Bracket:
             limit_price=self.target_price,
             oco_group=oco,
             tag=f"{self.tag or 'bracket'}_target",
+            reduce_only=True,
         )
         return True
 

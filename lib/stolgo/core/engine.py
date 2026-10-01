@@ -66,6 +66,7 @@ def _process_intents(
             size_pct=accepted.size_pct,
             oco_group=accepted.oco_group,
             risk_per_unit=accepted.risk_per_unit,
+            reduce_only=accepted.reduce_only,
         )
         broker.submit(order)
 
@@ -149,6 +150,8 @@ class Engine:
             ctx.i = i
             for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                 portfolio.apply_fill(fe.fill)
+                if portfolio.position.flat:
+                    broker.cancel_reduce_only(fe.fill.symbol)
                 ctx.on_fill(fe)
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)
@@ -170,6 +173,8 @@ class Engine:
                 )
                 for fe in broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events):
                     portfolio.apply_fill(fe.fill)
+                    if portfolio.position.flat:
+                        broker.cancel_reduce_only(fe.fill.symbol)
                     ctx.on_fill(fe)
                     strategy.on_fill(ctx, fe)
                     fill_events.append(fe)
@@ -220,6 +225,8 @@ class Engine:
                 if fills:
                     for fe in fills:
                         portfolio.apply_fill(fe.fill)
+                        if portfolio.position.flat:
+                            broker.cancel_reduce_only(fe.fill.symbol)
                         strategy.on_fill(ctx, fe)
                         fill_events.append(fe)
                         all_events.append(fe)
@@ -262,6 +269,8 @@ class Engine:
             )
             if fe is not None:
                 portfolio.apply_fill(fe.fill)
+                if portfolio.position.flat:
+                    broker.cancel_reduce_only(fe.fill.symbol)
                 ctx.on_fill(fe)
                 strategy.on_fill(ctx, fe)
                 fill_events.append(fe)

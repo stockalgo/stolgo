@@ -41,6 +41,14 @@ class SimBroker:
         self._pending = [o for o in self._pending if o.order_id != order_id]
         self._book.cancel(order_id)
 
+    def cancel_reduce_only(self, symbol: str) -> None:
+        self._pending = [o for o in self._pending if not (o.symbol == symbol and o.reduce_only)]
+        self._book.cancel_reduce_only(symbol)
+
+    def cancel_oco(self, oco_group: str) -> None:
+        self._pending = [o for o in self._pending if o.oco_group != oco_group]
+        self._book.cancel_oco(oco_group)
+
     def open_orders(self) -> list[Order]:
         return list(self._pending) + self._book.resting()
 
@@ -113,8 +121,30 @@ class SimBroker:
         portfolio: Any = None,
         events: list[Any] | None = None,
     ) -> FillEvent | None:
+        if order.reduce_only:
+            pos_qty = portfolio.position.qty if portfolio is not None else 0.0
+            if pos_qty == 0.0:
+                self.cancel(order.order_id)
+                if order.oco_group is not None:
+                    self.cancel_oco(order.oco_group)
+                return None
+            if (pos_qty > 0 and order.side != Side.SELL) or (pos_qty < 0 and order.side != Side.BUY):
+                self.cancel(order.order_id)
+                if order.oco_group is not None:
+                    self.cancel_oco(order.oco_group)
+                return None
+
         px = self._slippage.adjust(order.side, price, order.qty)
         qty = order.qty
+
+        if order.reduce_only:
+            pos_qty = portfolio.position.qty if portfolio is not None else 0.0
+            qty = min(qty, abs(pos_qty))
+            if qty <= 0:
+                self.cancel(order.order_id)
+                if order.oco_group is not None:
+                    self.cancel_oco(order.oco_group)
+                return None
 
         if order.size_pct is not None and portfolio is not None:
             comm_rate = getattr(self._commission, "_rate", 0.0)
@@ -164,6 +194,7 @@ class SimBroker:
         size_pct: float | None = None,
         oco_group: str | None = None,
         risk_per_unit: float | None = None,
+        reduce_only: bool = False,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -177,4 +208,5 @@ class SimBroker:
             size_pct=size_pct,
             oco_group=oco_group,
             risk_per_unit=risk_per_unit,
+            reduce_only=reduce_only,
         )

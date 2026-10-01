@@ -658,6 +658,40 @@ def test_fill_ids_and_tag_propagation():
     assert res.trades["tag"].iloc[0] == "breakout_signal"
 
 
+def test_v1_orphan_bracket_exit_does_not_open_reverse_position():
+    from stolgo.trade import long
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class BC(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop=95.0, size_risk_pct=0.02, rr=(1, 2))
+            if ctx.i == 2:
+                ctx.close(tag="manual")
+
+    r = Backtest(
+        BC(),
+        frame40(
+            [100] * 5 + [94] * 3,
+            [101] * 5 + [95] * 3,
+            [99] * 5 + [93] * 3,
+            [100] * 5 + [94] * 3,
+        ),
+        cash=10_000,
+    ).run()
+    assert len(r.trades) == 1
+    assert r.positions.qty.iloc[-1] == 0.0
+    assert (r.trades["side"] == "SHORT").sum() == 0
+
+
+
 
 
 

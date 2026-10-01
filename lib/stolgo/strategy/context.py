@@ -134,6 +134,7 @@ class Context:
         size_pct: float | None = None,
         oco_group: str | None = None,
         risk_per_unit: float | None = None,
+        reduce_only: bool = False,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -146,6 +147,7 @@ class Context:
             size_pct=size_pct,
             oco_group=oco_group,
             risk_per_unit=risk_per_unit,
+            reduce_only=reduce_only,
         )
         self._intents.append(intent)
         return intent

@@ -16,6 +16,12 @@ class OrderBook:
     def cancel(self, order_id: str) -> None:
         self._resting = [o for o in self._resting if o.order_id != order_id]
 
+    def cancel_reduce_only(self, symbol: str) -> None:
+        self._resting = [o for o in self._resting if not (o.symbol == symbol and o.reduce_only)]
+
+    def cancel_oco(self, oco_group: str) -> None:
+        self._resting = [o for o in self._resting if o.oco_group != oco_group]
+
     def resting(self) -> list[Order]:
         return list(self._resting)
 
