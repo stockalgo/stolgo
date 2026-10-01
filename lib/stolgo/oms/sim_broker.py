@@ -135,7 +135,26 @@ class SimBroker:
                 return None
 
         px = self._slippage.adjust(order.side, price, order.qty)
+
+        if order.risk_stop is not None:
+            if (order.side == Side.BUY and px <= order.risk_stop) or (order.side == Side.SELL and px >= order.risk_stop):
+                if events is not None:
+                    from stolgo.core.events import OrderRejectedEvent
+                    events.append(OrderRejectedEvent(order_id=order.order_id, reason="gap_through_stop", index=bar_index))
+                self.cancel(order.order_id)
+                if order.oco_group is not None:
+                    self.cancel_oco(order.oco_group)
+                return None
+
         qty = order.qty
+
+        if order.size_risk_pct is not None and order.risk_stop is not None and portfolio is not None:
+            risk = abs(px - order.risk_stop)
+            if risk > 0:
+                equity = portfolio.cash + portfolio.position.qty * px
+                qty = (equity * order.size_risk_pct) / risk
+            else:
+                qty = 0.0
 
         if order.reduce_only:
             pos_qty = portfolio.position.qty if portfolio is not None else 0.0
@@ -167,6 +186,8 @@ class SimBroker:
                     events.append(OrderRejectedEvent(order_id=order.order_id, reason="insufficient_cash", index=bar_index))
                 return None
 
+        fill_risk_per_unit = abs(px - order.risk_stop) if order.risk_stop is not None else order.risk_per_unit
+
         fill = Fill(
             fill_id=self._next_fill_id(),
             order_id=order.order_id,
@@ -176,7 +197,7 @@ class SimBroker:
             price=px,
             commission=fee,
             ts=bar.ts,
-            risk_per_unit=order.risk_per_unit,
+            risk_per_unit=fill_risk_per_unit,
             tag=order.tag,
         )
         return FillEvent(fill=fill, order_id=order.order_id, index=bar_index)
@@ -196,6 +217,8 @@ class SimBroker:
         risk_per_unit: float | None = None,
         reduce_only: bool = False,
         active_from: int = 0,
+        size_risk_pct: float | None = None,
+        risk_stop: float | None = None,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -211,4 +234,6 @@ class SimBroker:
             risk_per_unit=risk_per_unit,
             reduce_only=reduce_only,
             active_from=active_from,
+            size_risk_pct=size_risk_pct,
+            risk_stop=risk_stop,
         )

@@ -54,7 +54,7 @@ def _process_intents(
         if accepted is None:
             continue
         qty = resolve_qty(accepted, portfolio, bar.close, portfolio.cash)
-        if qty <= 0 and accepted.size_pct is None:
+        if qty <= 0 and accepted.size_pct is None and accepted.size_risk_pct is None:
             continue
         order = broker.create_order(
             symbol,
@@ -69,6 +69,8 @@ def _process_intents(
             risk_per_unit=accepted.risk_per_unit,
             reduce_only=accepted.reduce_only,
             active_from=active_from,
+            size_risk_pct=accepted.size_risk_pct,
+            risk_stop=accepted.risk_stop,
         )
         broker.submit(order)
 

@@ -10,3 +10,5 @@ Format: `- [ ] YYYY-MM-DD · plan section · question · what you did in the mea
 - [ ] 2026-09-29 · 03 R1 · G2 runs have unreconciled P&L around ₹30-40 (0.25/trade), exceeding 0.05*n (₹7.8). Used max(40.0, 0.05*n) to keep G2's 8 runs at status ok and flag exactly the 12 G1 legacy runs as specified in R1.
 - [ ] 2026-09-29 · 03 · Equity, drawdown, and compare charts are implemented with SVG rather than lightweight-charts as Plan 02 §2 outlined. Accepted as per Plan 03.
 - [ ] 2026-09-29 · 03 · Component directory layout groups components into subfolders (`components/chart`, `components/diagnostics`, `components/inspector`, `components/overview`, `components/trades`, etc.). Accepted as per Plan 03.
+- [ ] 2026-10-01 · 05 V4 · V4 (resolving bracket size_risk_pct at fill price rather than signal close) inherently changed GoldenBracket trades and final equity because fill open != signal close. Updated test_golden_bracket snapshot so test suite stays green after commit as required.
+

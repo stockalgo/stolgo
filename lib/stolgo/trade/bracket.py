@@ -129,13 +129,13 @@ def long(
     stop_px = _stop_price(ctx, stop, entry, Side.BUY)
     if entry <= stop_px:
         return None
-    equity = cash if cash is not None else ctx.equity
-    q = _size(entry, stop_px, size_risk_pct, qty, equity)
-    if q <= 0:
-        return None
     target = _target(entry, stop_px, rr, Side.BUY)
-    risk_per_unit = abs(entry - stop_px)
-    ctx.buy(qty=q, tag=tag, risk_per_unit=risk_per_unit)
+    if qty is not None:
+        ctx.buy(qty=qty, tag=tag, risk_stop=stop_px)
+        q = qty
+    else:
+        ctx.buy(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
+        q = 0.0
     b = Bracket(
         side=Side.BUY,
         entry_price=entry,
@@ -168,13 +168,13 @@ def short(
     stop_px = _stop_price(ctx, stop, entry, Side.SELL)
     if entry >= stop_px:
         return None
-    equity = cash if cash is not None else ctx.equity
-    q = _size(entry, stop_px, size_risk_pct, qty, equity)
-    if q <= 0:
-        return None
     target = _target(entry, stop_px, rr, Side.SELL)
-    risk_per_unit = abs(entry - stop_px)
-    ctx.sell(qty=q, tag=tag, risk_per_unit=risk_per_unit)
+    if qty is not None:
+        ctx.sell(qty=qty, tag=tag, risk_stop=stop_px)
+        q = qty
+    else:
+        ctx.sell(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
+        q = 0.0
     b = Bracket(
         side=Side.SELL,
         entry_price=entry,

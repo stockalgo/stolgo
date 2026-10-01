@@ -88,8 +88,8 @@ def test_golden_bracket():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(GoldenBracket(), df, cash=100_000).run()
     assert len(res.trades) == 3
-    assert _sha256_df(res.trades) == "99509429a57930f7f039b12ccea6fa1e4c137a9b434a57c825475a78b312f2b6"
-    assert round(float(res.equity.iloc[-1]), 6) == 105299.297659
+    assert _sha256_df(res.trades) == "478914d5845a809d691a76fac4d88aeead11911c15f290c088f4707d607a21b1"
+    assert round(float(res.equity.iloc[-1]), 6) == 106211.726503
 
 
 def test_golden_random_walk_200k():

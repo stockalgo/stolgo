@@ -60,6 +60,8 @@ class Order:
     risk_per_unit: float | None = None
     reduce_only: bool = False
     active_from: int = 0
+    size_risk_pct: float | None = None
+    risk_stop: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,9 +105,13 @@ class OrderIntent:
     risk_per_unit: float | None = None
     reduce_only: bool = False
     active_from: int = 0
+    size_risk_pct: float | None = None
+    risk_stop: float | None = None
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:
             raise ValueError("OrderIntent.qty must be positive when set")
         if self.size_pct is not None and self.size_pct <= 0:
             raise ValueError("OrderIntent.size_pct must be positive when set")
+        if self.size_risk_pct is not None and self.size_risk_pct <= 0:
+            raise ValueError("OrderIntent.size_risk_pct must be positive when set")

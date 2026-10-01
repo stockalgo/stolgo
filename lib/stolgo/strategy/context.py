@@ -89,6 +89,8 @@ class Context:
         size_pct: float | None = None,
         tag: str | None = None,
         risk_per_unit: float | None = None,
+        size_risk_pct: float | None = None,
+        risk_stop: float | None = None,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -98,6 +100,8 @@ class Context:
             size_pct=size_pct,
             tag=tag,
             risk_per_unit=risk_per_unit,
+            size_risk_pct=size_risk_pct,
+            risk_stop=risk_stop,
         )
         self._intents.append(intent)
         return intent
@@ -109,6 +113,8 @@ class Context:
         size_pct: float | None = None,
         tag: str | None = None,
         risk_per_unit: float | None = None,
+        size_risk_pct: float | None = None,
+        risk_stop: float | None = None,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -118,6 +124,8 @@ class Context:
             size_pct=size_pct,
             tag=tag,
             risk_per_unit=risk_per_unit,
+            size_risk_pct=size_risk_pct,
+            risk_stop=risk_stop,
         )
         self._intents.append(intent)
         return intent
@@ -136,6 +144,8 @@ class Context:
         risk_per_unit: float | None = None,
         reduce_only: bool = False,
         active_from: int = 0,
+        size_risk_pct: float | None = None,
+        risk_stop: float | None = None,
     ) -> OrderIntent:
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -150,6 +160,8 @@ class Context:
             risk_per_unit=risk_per_unit,
             reduce_only=reduce_only,
             active_from=active_from,
+            size_risk_pct=size_risk_pct,
+            risk_stop=risk_stop,
         )
         self._intents.append(intent)
         return intent

@@ -754,6 +754,53 @@ def test_v3_signal_close_bracket_places_exit_orders():
     assert str(t["exit_reason"]).endswith("_stop")
 
 
+def test_v4_bracket_equity_sizing_resolves_at_fill_price():
+    from stolgo.trade import long
+    from stolgo.core.events import OrderRejectedEvent
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class B(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    r = Backtest(
+        B(),
+        frame40([100, 102, 101, 90], [105, 103, 102, 91], [95, 100, 100, 89], [100, 101, 101, 90]),
+        cash=10_000,
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["qty"] == pytest.approx(28.5714, rel=1e-3)
+    assert t["r_multiple"] == pytest.approx(-1.7143, rel=1e-3)
+
+    # Gap through stop test
+    class BGap(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop=95.0, size_risk_pct=0.02, rr=(1, 2))
+
+    r_gap = Backtest(
+        BGap(),
+        frame40([100, 94, 94, 94], [105, 95, 95, 95], [95, 93, 93, 93], [100, 94, 94, 94]),
+        cash=10_000,
+    ).run()
+
+    assert len(r_gap.trades) == 0
+    rejections = [e for e in r_gap.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "gap_through_stop"
+
+
+
 
 
 
