@@ -60,6 +60,14 @@ Set `STOLGO_PERSIST_SERIES=0` to skip the optional OHLCV Parquet file:
 STOLGO_PERSIST_SERIES=0 python examples/trend_breakout_backtest.py
 ```
 
+### Multi-Market Timezone & Session Close
+
+Runs support customizable market sessions and timezones via the `instrument` manifest:
+- `timezone`: e.g. `"Asia/Kolkata"`, `"UTC"`, `"America/New_York"`.
+- `session_close`: e.g. `"15:30"` for NSE/BSE, `"16:00"` for NYSE/NASDAQ, or `"24:00"` for continuous 24/7 crypto markets.
+
+Resampling candles (`/api/runs/{id}/candles`) and calendar metrics automatically align to the instrument's session boundaries and timezone.
+
 ### Metric basis note
 
 All run-level performance metrics (`cagr`, `sharpe`, `sortino`, `calmar`, `max_drawdown`) use the **`calendar_daily`** basis computed over every trading session in the exchange calendar window (annualized with $\sqrt{252}$ and risk-free rate = 0). Days without closed trades record ₹0 P&L and preserve prior equity.
@@ -70,11 +78,13 @@ Legacy runs (v1 schema) can be migrated to v2 with the migration CLI:
 
 ```bash
 # Preview changes first
-PYTHONPATH=lib python scripts/migrate_runs_v2.py --runs-dir runs --dry-run
+PYTHONPATH=lib python scripts/migrations/2026_09_v2.py --runs-dir runs --dry-run
 
 # Run migration
-PYTHONPATH=lib python scripts/migrate_runs_v2.py --runs-dir runs
+PYTHONPATH=lib python scripts/migrations/2026_09_v2.py --runs-dir runs
 ```
+
+(The legacy path `scripts/migrate_runs_v2.py` forwards directly to this migration).
 
 ## Serve
 
@@ -100,8 +110,7 @@ The API is read-only:
 - `GET /api/groups/{id}`: Group details and list of constituent run summaries.
 - `GET /api/migration-report`: Migration report (`runs/_migration_report.md`).
 - `GET /api/runs/{id}/audit`: HTML audit report (when present).
-- `GET /api/runs/{id}/series`: Legacy series endpoint (maintained for backwards compatibility until UI migration).
-- `GET /api/sweeps` and `GET /api/sweeps/{id}`: Legacy parameter sweep results.
+- `GET /api/sweeps` and `GET /api/sweeps/{id}`: Sweep manifests and results.
 
 Unmigrated v1 runs return `409 Conflict` with `{"detail":"run_not_migrated","hint":"python scripts/migrate_runs_v2.py"}` on detail endpoints.
 

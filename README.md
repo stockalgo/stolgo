@@ -309,7 +309,22 @@ OHLCV (Bandl / load / DataFrame)
    RunResult: equity, trades, metrics, Plotly tearsheet
 ```
 
-Default fill model: signal on bar **t** → fill at bar **t+1 open** (`fill_on="next_open"`). Use `fill_on="close"` when you want same-bar close fills (e.g. breakout-on-close setups).
+Default fill model: signal on bar **t** → fill at bar **t+1 open** (`fill_on="next_open"`). Use `fill_on="signal_close"` when you want same-bar close fills (e.g. breakout-on-close setups).
+
+### Execution & Engine Configuration
+
+`Backtest(strategy, data, ...)` accepts configurable options via `RunConfig`:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `fill_on` | `"next_open" \| "next_close" \| "signal_close"` | `"next_open"` | Execution timing. `"next_open"` fills at the open of bar t+1. `"next_close"` fills at the close of bar t+1. `"signal_close"` fills at the close of signal bar t (breakout-on-close). Note: `"close"` is deprecated in favor of `"next_close"`. |
+| `halt_drawdown` | `float \| None` | `None` | Risk halt threshold (e.g. `0.20` for 20% drawdown). When breached, new risk positions are blocked and only closing orders are processed. |
+| `allow_leverage` | `bool` | `False` | When `False`, `size_pct` cannot size beyond available cash at fill time. |
+| `close_at_end` | `bool` | `True` | Automatically flattens open positions at the final bar's close price. |
+| `lookahead_check` | `bool` | `False` | Injects a lookahead probe in debug mode to verify strategies cannot observe future prices via `ctx.data`. |
+| `cash` | `float` | `100_000.0` | Initial starting capital. |
+| `commission` | `float` | `0.0` | Proportional fee per trade. |
+| `slippage_bps` | `float` | `0.0` | Execution slippage in basis points. |
 
 ---
 
