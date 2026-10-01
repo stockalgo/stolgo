@@ -1,4 +1,3 @@
-import requests
 import io
 
 from datetime import timedelta
@@ -69,14 +68,14 @@ class Nasdaq:
                 elif((end and (not start)) or periods):
                     s_from = None
                     e_till = dfs.index[-1] - timedelta(1)
-            except IndexError as err:
+            except IndexError:
                 raise Exception("Nasdaq Access error.")
             except Exception as exc:
                 raise Exception("Nasdaq data error: ",str(exc))
             try:
                 dfs_new = self.get_data(symbol,start = s_from,end = e_till,periods = new_periods)
                 dfs = self.__join_dfs(dfs,dfs_new).sort_index(ascending=False)
-            except Exception as exc:
+            except Exception:
                 #Small part of data may not be available
                 pass
         return dfs
@@ -123,7 +122,7 @@ class Nasdaq:
 
             try:
                 dfs = pd.read_csv(io.StringIO(res.content.decode('utf-8')))
-            except Exception as err:
+            except Exception:
                 #increase data range, nasdaq not returning for small set
                 if e_till ==  get_formated_dateframe():
                     raise Exception("Nasdaq not retruning data for this date range.\

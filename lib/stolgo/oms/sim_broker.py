@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Literal
-from uuid import uuid4
+from typing import Any, Literal
 
 from stolgo.core.events import FillEvent
 from stolgo.core.types import Bar, Fill, Order, OrderType, Side

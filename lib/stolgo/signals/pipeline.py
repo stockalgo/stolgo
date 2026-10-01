@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
 
 from stolgo.core.config import RunConfig

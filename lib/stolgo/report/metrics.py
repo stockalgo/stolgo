@@ -118,16 +118,13 @@ def compute_metrics(
 
 
 def _max_drawdown_duration_bars(dd: pd.Series) -> int:
-    in_dd = False
     current = 0
     longest = 0
     for v in dd.fillna(0):
         if v < 0:
-            in_dd = True
             current += 1
             longest = max(longest, current)
         else:
-            in_dd = False
             current = 0
     return longest
 

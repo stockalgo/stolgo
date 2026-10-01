@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from stolgo.core.types import OrderType, Side
 from stolgo.strategy.context import Context

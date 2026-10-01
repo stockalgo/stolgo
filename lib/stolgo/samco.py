@@ -1,9 +1,7 @@
-import requests
 import json
-from datetime import datetime,date
 import pandas as pd
 
-from stolgo.helper import get_formated_date,get_date_range,is_ind_index,get_data_resample
+from stolgo.helper import get_date_range, is_ind_index, get_data_resample
 from stolgo.request import RequestUrl
 
 #default params for url connection

@@ -10,7 +10,6 @@ import shutil
 import subprocess
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from stolgo.report._json import clean

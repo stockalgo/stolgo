@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Protocol
+from typing import Protocol
 
 from stolgo.core.types import Bar, Order, OrderType
 

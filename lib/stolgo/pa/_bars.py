@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from stolgo.data.normalize import normalize_ohlcv
-from stolgo.strategy.context import BarDataView, Context
+from stolgo.strategy.context import Context
 
 
 @dataclass(frozen=True)

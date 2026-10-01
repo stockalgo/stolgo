@@ -8,13 +8,13 @@ import pandas as pd
 from stolgo.core.clock import SimClock
 from stolgo.core.config import RunConfig
 from stolgo.core.exceptions import ModeNotSupportedError
-from stolgo.core.types import OrderType, Side
+from stolgo.core.types import Bar, OrderType, Side
 from stolgo.data.base import DataSource
 from stolgo.data.normalize import bars_from_dataframe, normalize_ohlcv
 from stolgo.oms.commission import BpsCommission
-from stolgo.oms.fill_model import CloseFill, NextCloseFill, NextOpenFill
+from stolgo.oms.fill_model import NextCloseFill, NextOpenFill
 from stolgo.oms.sim_broker import SimBroker
-from stolgo.oms.slippage import BpsSlippage, NoSlippage
+from stolgo.oms.slippage import BpsSlippage
 from stolgo.portfolio.portfolio import Portfolio
 from stolgo.portfolio.risk import apply_risk
 from stolgo.portfolio.sizing import resolve_qty

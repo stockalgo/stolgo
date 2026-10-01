@@ -1,6 +1,5 @@
 from datetime import date as dt
 import pandas as pd
-import requests
 
 import stolgo.common
 

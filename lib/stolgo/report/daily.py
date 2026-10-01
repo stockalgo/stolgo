@@ -115,7 +115,6 @@ def build_daily(
       - pnl = groupby(IST exit date).net_pnl.sum(); missing sessions → 0.0
       - if any trade has net_pnl NaN → that session's pnl = NaN
     """
-    cols = ["session", "pnl", "equity", "drawdown", "trades_closed"]
     if (trades is None or trades.empty) and (equity is None or equity.empty):
         return pd.DataFrame(
             {

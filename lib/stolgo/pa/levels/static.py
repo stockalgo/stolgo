@@ -3,7 +3,6 @@ from __future__ import annotations
 import pandas as pd
 
 from stolgo.pa._core import Level
-from stolgo.pa.levels.rolling import resistance, support
 
 
 def level(price: float) -> Level:

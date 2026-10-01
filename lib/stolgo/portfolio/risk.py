@@ -1,7 +1,5 @@
 from dataclasses import replace
 
-import numpy as np
-
 from stolgo.core.config import RunConfig
 from stolgo.core.events import RiskHaltEvent
 from stolgo.core.types import OrderIntent, Side
