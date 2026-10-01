@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
 from uuid import uuid4
 
@@ -20,12 +21,14 @@ class SimBroker:
         *,
         fill_on: Literal["next_open", "next_close", "signal_close", "close"] = "next_open",
         allow_leverage: bool = False,
+        qty_step: float | None = None,
     ) -> None:
         self._fill_model = fill_model
         self._slippage = slippage
         self._commission = commission
         self._fill_on = fill_on
         self._allow_leverage = allow_leverage
+        self._qty_step = qty_step
         self._pending: list[Order] = []
         self._book = OrderBook()
         self._seq = 0
@@ -147,6 +150,7 @@ class SimBroker:
                 return None
 
         qty = order.qty
+        resolved_at_fill = False
 
         if order.size_risk_pct is not None and order.risk_stop is not None and portfolio is not None:
             risk = abs(px - order.risk_stop)
@@ -155,6 +159,7 @@ class SimBroker:
                 qty = (equity * order.size_risk_pct) / risk
             else:
                 qty = 0.0
+            resolved_at_fill = True
 
         if order.reduce_only:
             pos_qty = portfolio.position.qty if portfolio is not None else 0.0
@@ -169,6 +174,18 @@ class SimBroker:
             comm_rate = getattr(self._commission, "_rate", 0.0)
             cost_per_unit = px * (1.0 + comm_rate)
             qty = (portfolio.cash * order.size_pct) / cost_per_unit if cost_per_unit > 0 else 0.0
+            resolved_at_fill = True
+
+        if resolved_at_fill and self._qty_step is not None and self._qty_step > 0:
+            qty = math.floor(qty / self._qty_step + 1e-9) * self._qty_step
+            if qty <= 0:
+                if events is not None:
+                    from stolgo.core.events import OrderRejectedEvent
+                    events.append(OrderRejectedEvent(order_id=order.order_id, reason="below_qty_step", index=bar_index))
+                self.cancel(order.order_id)
+                if order.oco_group is not None:
+                    self.cancel_oco(order.oco_group)
+                return None
 
         if qty <= 0:
             if not self._allow_leverage and order.side == Side.BUY and portfolio is not None and portfolio.cash <= 0:

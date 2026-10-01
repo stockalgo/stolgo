@@ -28,6 +28,7 @@ class RunConfig(BaseModel):
     allow_leverage: bool = False
     close_at_end: bool = True
     lookahead_check: bool = False
+    qty_step: float | None = None
 
     @field_validator("fill_on")
     @classmethod

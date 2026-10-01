@@ -800,17 +800,42 @@ def test_v4_bracket_equity_sizing_resolves_at_fill_price():
     assert rejections[0].reason == "gap_through_stop"
 
 
+def test_v5_qty_step_floors_resolved_fill_qty():
+    from stolgo.core.events import OrderRejectedEvent
 
+    class AllIn(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=1.0)
 
+    r = Backtest(
+        AllIn(),
+        frame([100] + [150] * 9, 0),
+        cash=10_000,
+        commission=0.001,
+        qty_step=1,
+    ).run()
 
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["qty"] == 66
+    close = 150.0
+    assert (r.positions.equity - r.positions.qty * close).min() >= 0
 
+    class SmallBuy(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=0.001)
 
+    r_small = Backtest(
+        SmallBuy(),
+        frame([100] + [150] * 9, 0),
+        cash=10_000,
+        commission=0.001,
+        qty_step=1,
+    ).run()
 
-
-
-
-
-
-
-
-
+    assert len(r_small.trades) == 0
+    rejections = [e for e in r_small.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "below_qty_step"

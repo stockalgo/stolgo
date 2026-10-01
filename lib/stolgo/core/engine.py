@@ -109,6 +109,7 @@ class Engine:
             BpsCommission(self._config.commission),
             fill_on=self._config.fill_on,
             allow_leverage=self._config.allow_leverage,
+            qty_step=self._config.qty_step,
         )
         portfolio = Portfolio(self._config.cash, symbol=symbol)
 
