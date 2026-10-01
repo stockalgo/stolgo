@@ -18,6 +18,7 @@ class _Lot:
     qty: float
     entry_commission: float
     risk_per_unit: float | None = None
+    tag: str | None = None
 
 
 def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
@@ -67,7 +68,7 @@ def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
                     "commission": entry_comm_part + exit_comm_part,
                     "return_on_notional": return_on_notional,
                     "r_multiple": r_multiple,
-                    "tag": f.tag or f.order_id,
+                    "tag": f.tag or lot.tag or f.order_id,
                     "exit_reason": f.tag if f.tag else "UNKNOWN",
                 }
             )
@@ -90,6 +91,7 @@ def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
                     qty=remaining,
                     entry_commission=remaining_comm,
                     risk_per_unit=risk_per_unit,
+                    tag=f.tag,
                 )
             )
 

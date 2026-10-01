@@ -630,6 +630,35 @@ def test_zero_trade_export_metrics(tmp_path):
     assert m["calmar"] is None
 
 
+def test_fill_ids_and_tag_propagation():
+    class TaggedEntryStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10, tag="breakout_signal")
+            elif ctx.i == 2:
+                ctx.close()
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 101.0, 102.0, 103.0],
+            "high": [101.0, 102.0, 103.0, 104.0],
+            "low": [99.0, 100.0, 101.0, 102.0],
+            "close": [100.0, 101.0, 102.0, 103.0],
+            "volume": [1.0, 1.0, 1.0, 1.0],
+        },
+        index=idx[:4],
+    )
+    res = Backtest(TaggedEntryStrat(), df, cash=10_000).run()
+    fills = [e.fill for e in res.events if hasattr(e, "fill")]
+    assert len(fills) >= 2
+    assert fills[0].fill_id.startswith("fill-")
+    assert fills[1].fill_id.startswith("fill-")
+    assert fills[0].fill_id != fills[1].fill_id
+    assert len(res.trades) == 1
+    assert res.trades["tag"].iloc[0] == "breakout_signal"
+
+
+
 
 
 
