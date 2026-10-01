@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from stolgo.report._json import clean
 from stolgo.report.daily import build_daily, sessions_from_ohlcv
 from stolgo.report.diagnostics import build_diagnostics
 from stolgo.report.quality import run_status
@@ -358,7 +359,7 @@ def export_all(
 
     # Robustness
     net_pnl_series = trades_v2["net_pnl"].values if not trades_v2.empty and "net_pnl" in trades_v2.columns else []
-    robustness_dict = robustness(net_pnl_series)
+    robustness_dict = clean(robustness(net_pnl_series))
 
     # Diagnostics
     source_manifest_mock = {"params": result.params, "metrics": result.metrics}

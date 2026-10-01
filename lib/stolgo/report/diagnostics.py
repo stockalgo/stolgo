@@ -185,7 +185,7 @@ def build_diagnostics(
         "report_available": report_avail,
     }
 
-    return {
+    out = {
         "exit_reasons": exit_counts,
         "data_quality": data_quality,
         "stability": stability,
@@ -194,3 +194,14 @@ def build_diagnostics(
         "decision_counts": decision_counts,
         "validation": validation,
     }
+
+    if not trades_v2.empty and "exit_reason" in trades_v2.columns:
+        open_rows = trades_v2[trades_v2["exit_reason"] == "OPEN"]
+        if not open_rows.empty:
+            last_open = open_rows.iloc[-1]
+            out["open_at_end"] = {
+                "qty": float(last_open["qty"]),
+                "mtm_pnl": float(last_open["net_pnl"]),
+            }
+
+    return out

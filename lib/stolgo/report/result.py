@@ -43,7 +43,7 @@ class RunResult:
         return {
             "params": self.params,
             "metrics": self.metrics,
-            "num_trades": int(len(self.trades)),
+            "num_trades": int(self.metrics.get("num_trades", len(self.trades))),
             "final_equity": self.metrics.get("final_equity", float(self.equity.iloc[-1]) if len(self.equity) else 0.0),
         }
 

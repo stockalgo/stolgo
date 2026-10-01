@@ -65,7 +65,13 @@ def compute_metrics(
         avg_equity = float(equity.mean()) if len(equity) else 0.0
         turnover = traded_notional / avg_equity if avg_equity > 0 else 0.0
 
-    num_trades = float(len(trades))
+    closed = trades
+    if not trades.empty and "exit_reason" in trades.columns:
+        closed = trades[trades["exit_reason"] != "OPEN"]
+    elif not trades.empty and "tag" in trades.columns:
+        closed = trades[trades["tag"] != "OPEN"]
+
+    num_trades = float(len(closed))
     hit_rate = 0.0
     expectancy = 0.0
     profit_factor = float("nan")
@@ -74,12 +80,6 @@ def compute_metrics(
     payoff = float("nan")
 
     if num_trades > 0 and "net_pnl" in trades.columns:
-        closed = trades
-        if "exit_reason" in trades.columns:
-            closed = trades[trades["exit_reason"] != "OPEN"]
-        elif "tag" in trades.columns:
-            closed = trades[trades["tag"] != "OPEN"]
-
         if not closed.empty:
             pnls = closed["net_pnl"]
             wins = pnls[pnls > 0]

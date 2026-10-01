@@ -917,3 +917,36 @@ def test_v8_halt_drawdown_trimmed_intent_preserves_order_fields():
     assert trimmed.risk_per_unit == 5.0
     assert trimmed.reduce_only is True
 
+
+def test_v9_close_at_end_false_num_trades_and_diagnostics(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class OneClosedOneOpen(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.close()
+            if ctx.i == 3:
+                ctx.buy(qty=20)
+
+    res = Backtest(
+        OneClosedOneOpen(),
+        frame([100, 101, 102, 103, 104], 0),
+        cash=10_000,
+        close_at_end=False,
+    ).run()
+
+    assert len(res.trades) == 2
+    assert res.trades.iloc[-1]["exit_reason"] == "OPEN"
+    assert res.metrics["num_trades"] == 1
+
+    export_all(res, tmp_path / "run_out")
+    manifest = json.loads((tmp_path / "run_out" / "manifest.json").read_text())
+    assert manifest["metrics"]["num_trades"] == 1
+    assert "open_at_end" in manifest["diagnostics"]
+    assert manifest["diagnostics"]["open_at_end"]["qty"] == 20.0
+    assert manifest["diagnostics"]["open_at_end"]["mtm_pnl"] == pytest.approx(0.0)
+
+

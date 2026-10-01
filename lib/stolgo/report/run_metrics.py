@@ -106,7 +106,12 @@ def compute_run_metrics(
     # Convert counts to int where appropriate
     if "max_drawdown_duration" in m and not (np.isnan(m["max_drawdown_duration"]) if isinstance(m["max_drawdown_duration"], float) else False):
         m["max_drawdown_duration"] = int(round(m["max_drawdown_duration"]))
-    m["num_trades"] = int(len(trades))
+    closed_trades = trades
+    if not trades.empty and "exit_reason" in trades.columns:
+        closed_trades = trades[trades["exit_reason"] != "OPEN"]
+    elif not trades.empty and "tag" in trades.columns:
+        closed_trades = trades[trades["tag"] != "OPEN"]
+    m["num_trades"] = int(len(closed_trades))
 
     if "intraday_max_drawdown" not in m:
         m["intraday_max_drawdown"] = None
