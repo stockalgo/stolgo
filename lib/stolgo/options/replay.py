@@ -148,7 +148,8 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
     def execute(j, side, i, reason, signal_i):
         nonlocal cash, raw_cash, fees, slippage
         # Every fill uses an actual later available contract bar through Stolgo OMS.
-        assert i > signal_i
+        if not (i > signal_i):
+            raise AccountingError(f"Execute bar index {i} must be greater than signal bar index {signal_i}")
         if j not in brokers:
             brokers[j] = SimBroker(NextOpenFill(), slip, charges)
         broker = brokers[j]
@@ -157,7 +158,8 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
         a = p[i, j]
         bar = Bar(int(s.timestamps[i]), *map(float, a[:4]), float(a[4]), symbol(j))
         events = broker.match(bar, bar_index=i)
-        assert len(events) == 1
+        if len(events) != 1:
+            raise AccountingError(f"Expected exactly 1 fill event, got {len(events)}")
         f = events[0].fill
         direction = 1 if side == Side.SELL else -1
         cash += direction * f.price * f.qty - f.commission
@@ -172,7 +174,8 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
                    fee=f.commission, slippage=impact, reason=reason)
         fills.append(rec)
         if side == Side.SELL:
-            assert j not in open_legs
+            if j in open_legs:
+                raise AccountingError(f"Contract {j} already in open_legs")
             open_legs[j] = rec
         else:
             entry = open_legs.pop(j)
