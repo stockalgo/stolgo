@@ -282,20 +282,27 @@ def trade_detail(
     if ohlcv_market is not None and trade_market is not None and str(trade_market).strip() != "":
         market_matches = (str(trade_market).strip().upper() == str(ohlcv_market).strip().upper())
 
-    session_date = str(trade_row.get("session_date", ""))
+    session_date = str(trade_row.get("session_date", "")).strip()
     if market_matches and ohlcv is not None and not ohlcv.empty and session_date:
-        work_ohlcv = ohlcv.copy()
+        work_ohlcv = ohlcv
         if not isinstance(work_ohlcv.index, pd.DatetimeIndex):
             if "timestamp" in work_ohlcv.columns:
                 work_ohlcv = work_ohlcv.set_index(pd.to_datetime(work_ohlcv["timestamp"], utc=True))
         if work_ohlcv.index.tz is None:
-            work_ohlcv.index = work_ohlcv.index.tz_localize("UTC").tz_convert("Asia/Kolkata")
+            tz_index = work_ohlcv.index.tz_localize("UTC").tz_convert("Asia/Kolkata")
         else:
-            work_ohlcv.index = work_ohlcv.index.tz_convert("Asia/Kolkata")
+            tz_index = work_ohlcv.index.tz_convert("Asia/Kolkata")
 
-        work_ohlcv["date"] = work_ohlcv.index.strftime("%Y-%m-%d")
-        session_bars = work_ohlcv[work_ohlcv["date"] == session_date]
+        try:
+            target_day = pd.Timestamp(session_date, tz="Asia/Kolkata").normalize()
+            mask = tz_index.normalize() == target_day
+        except Exception:
+            mask = np.zeros(len(tz_index), dtype=bool)
+
+        session_bars = work_ohlcv[mask]
         if not session_bars.empty:
+            session_bars = session_bars.copy()
+            session_bars.index = tz_index[mask]
             intraday = session_bars.between_time("09:15", "15:30")
             bars_to_use = intraday if not intraday.empty else session_bars
             has_vol = "volume" in bars_to_use.columns
