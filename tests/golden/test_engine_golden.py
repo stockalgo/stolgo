@@ -22,7 +22,7 @@ from stolgo.trade import long
 
 
 def _sha256_df(df: pd.DataFrame) -> str:
-    return hashlib.sha256(df.to_csv(float_format="%.10g").encode("utf-8")).hexdigest()
+    return hashlib.sha256(df.round(6).to_csv(index=False).encode("utf-8")).hexdigest()
 
 
 def _strip_volatile(d: Any) -> Any:
@@ -70,7 +70,7 @@ def test_golden_ma_cross():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(GoldenMACross(), df, cash=100_000).run()
     assert len(res.trades) == 1
-    assert _sha256_df(res.trades) == "e479f5e69e4a62abf4369aaf3ba07112e281d2fccf84af42eaba0a14ced38efe"
+    assert _sha256_df(res.trades) == "efc60af7e947b76b99601454177d5b2402e9cf704079484b740d16a1dacb946e"
     assert round(float(res.equity.iloc[-1]), 6) == 100142.226775
 
 
@@ -79,7 +79,7 @@ def test_golden_vector_lift():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(FastMomentum(), df, cash=100_000, commission=0.0003).run()
     assert len(res.trades) == 4
-    assert _sha256_df(res.trades) == "023bc96606db17221e734f817332814de6a1d0aaaa11954f5f8db5ffc2c0bad5"
+    assert _sha256_df(res.trades) == "9dfdcbc859a062372c4261416900b1d35c2ffe03ed14e068f9c03b7a02aebb87"
     assert round(float(res.equity.iloc[-1]), 6) == 106399.312205
 
 
@@ -88,7 +88,7 @@ def test_golden_bracket():
     df = load(fixture_path, symbol="TREND")
     res = Backtest(GoldenBracket(), df, cash=100_000).run()
     assert len(res.trades) == 3
-    assert _sha256_df(res.trades) == "478914d5845a809d691a76fac4d88aeead11911c15f290c088f4707d607a21b1"
+    assert _sha256_df(res.trades) == "4a8b34700d34f27d1a966905ad6b0bc374781322d16009680e60373c6b2b60be"
     assert round(float(res.equity.iloc[-1]), 6) == 106211.726503
 
 
@@ -109,15 +109,29 @@ def test_golden_random_walk_200k():
     )
     res = Backtest(GoldenMom50(), df, cash=100_000).run()
     assert len(res.trades) == 6175
-    assert _sha256_df(res.trades) == "3d32b77b038d89d0d8e88372beb606d639f2731a1a64f5d504ac9993e2f0c36c"
+    assert _sha256_df(res.trades) == "de80296e615257e3c2cc911a6f2b30e7d62d4e049435f1225ddacb52460a883e"
     assert round(float(res.equity.iloc[-1]), 6) == 119429.215734
 
 
-def test_golden_options_manifest_snapshot():
-    fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "golden_options_manifest.json"
+def test_golden_options_manifest_snapshot(tmp_path):
+    import importlib
+    from stolgo.report.daily import load_calendar
+
+    migration = importlib.import_module("scripts.migrations.2026_09_v2")
+
+    fixture_dir = Path(__file__).resolve().parents[1] / "fixtures"
+    fixture_path = fixture_dir / "golden_options_manifest.json"
     expected = json.loads(fixture_path.read_text())
 
-    run_dir = Path("runs/validated-timing-3y-nifty-0dte-static")
-    if (run_dir / "manifest.json").exists():
-        actual = json.loads((run_dir / "manifest.json").read_text())
-        assert _strip_volatile(actual) == expected
+    cal_base = Path("runs") if (Path("runs/_calendars/NSE.parquet")).is_file() else fixture_dir
+    calendars = {
+        "NSE": load_calendar(cal_base, "NSE"),
+        "BSE": load_calendar(cal_base, "BSE"),
+    }
+
+    v1_dir = fixture_dir / "v1_run"
+    target_dir = tmp_path / "migrated_run"
+    migration.migrate_run("validated-timing-3y-nifty-0dte-static", v1_dir, target_dir, calendars)
+
+    actual = json.loads((target_dir / "manifest.json").read_text())
+    assert _strip_volatile(actual) == expected

@@ -7,6 +7,7 @@
   "status_reasons": [
     "16 of 157 trades exited on missing data"
   ],
+  "equity_basis": "mark_to_market",
   "instrument": {
     "asset_class": "index_options",
     "markets": [
@@ -75,6 +76,7 @@
     "expected_shortfall_95": -2935.773157894737,
     "intraday_max_drawdown": -0.15823008677674344,
     "basis": "calendar_daily",
+    "equity_basis": "mark_to_market",
     "net_pnl": 12141.179999999993,
     "gross_pnl": 32750.5,
     "fees": 15619.319999999998,
