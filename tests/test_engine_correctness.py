@@ -1368,3 +1368,45 @@ def test_e9_cancel_all_clears_pending_and_resting():
     assert len(broker.open_orders()) == 2  # one pending market, one resting limit
     broker.cancel_all()
     assert broker.open_orders() == []
+
+
+def test_e10_trades_qty_dtype_is_float64_for_int_qty():
+    class RoundTrip(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+            if ctx.i == 3:
+                ctx.sell(qty=10)
+
+    r = Backtest(RoundTrip(), _flat_df(6), cash=10_000).run()
+    assert len(r.trades) == 1
+    assert r.trades["qty"].dtype == np.float64
+
+    class OpenOnly(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+
+    r2 = Backtest(OpenOnly(), _flat_df(6), cash=10_000, close_at_end=False).run()
+    assert len(r2.trades) == 1
+    assert r2.trades.iloc[0]["exit_reason"] == "OPEN"
+    assert r2.trades["qty"].dtype == np.float64
+
+    r3 = Backtest(OpenOnly(), _flat_df(1), cash=10_000).run()
+    assert len(r3.trades) == 0
+    assert r3.trades["qty"].dtype == np.float64
+
+
+def test_e10_build_trades_from_int_qty_fills_returns_float64():
+    from stolgo.core.events import FillEvent
+    from stolgo.core.types import Fill, Side
+    from stolgo.report.trades import build_trades_from_fills
+
+    def fe(fid, side, px, ts):
+        return FillEvent(fill=Fill(fid, "o" + fid, "X", side, 10, px, 0.0, ts), order_id="o" + fid, index=0)
+
+    closed = build_trades_from_fills([fe("1", Side.BUY, 100.0, 1), fe("2", Side.SELL, 101.0, 2)])
+    assert closed["qty"].dtype == np.float64
+    opened = build_trades_from_fills([fe("1", Side.BUY, 100.0, 1)], mark=(2, 101.0))
+    assert opened["qty"].dtype == np.float64
+    assert build_trades_from_fills([])["qty"].dtype == np.float64

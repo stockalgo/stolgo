@@ -138,7 +138,7 @@ def build_trades_from_fills(
             )
 
     if not rows:
-        return pd.DataFrame(
+        empty = pd.DataFrame(
             columns=[
                 "entry_ts",
                 "exit_ts",
@@ -155,4 +155,7 @@ def build_trades_from_fills(
                 "exit_reason",
             ]
         )
-    return pd.DataFrame(rows)
+        return empty.astype({"qty": "float64"})
+    df = pd.DataFrame(rows)
+    df["qty"] = df["qty"].astype("float64")
+    return df

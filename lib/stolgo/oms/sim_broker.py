@@ -250,7 +250,7 @@ class SimBroker:
             order_id=order.order_id,
             symbol=order.symbol,
             side=order.side,
-            qty=qty,
+            qty=float(qty),
             price=px,
             commission=fee,
             ts=bar.ts,
