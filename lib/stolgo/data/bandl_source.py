@@ -41,7 +41,7 @@ class BandlDataSource:
         # Distinguishes crypto_spot / crypto_perp / crypto_future for providers
         # (e.g. Binance) that serve both spot and USDT-M futures under the same
         # symbol. None preserves prior behaviour (provider default = crypto_spot
-        # for Binance). Added to support futures-only strategies (HLD §4.2 ext).
+        # for Binance). Added to support futures-only strategies.
         self._asset_type = asset_type
 
     def history(

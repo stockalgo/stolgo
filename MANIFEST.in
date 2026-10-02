@@ -1,2 +1,5 @@
 include README.md LICENSE
 recursive-include lib/stolgo *
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude .DS_Store
