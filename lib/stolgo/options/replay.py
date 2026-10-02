@@ -1,5 +1,8 @@
 """Multi-contract intraday short-options replay.
 
+EXPERIMENTAL: this API may change without notice between releases. See the
+"Known limitations" section of ``docs/OPTIONS_REPLAY.md``.
+
 This specialized runner extends the single-symbol Engine: every actual fill is
 matched by Stolgo SimBroker, with one broker per immutable contract. It does not
 pretend that the price of a synthetic spread has a tradeable OHLC path.
@@ -7,7 +10,7 @@ No bid/ask, SPAN margin or tick liquidity is implied by minute trade-price data.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 import math
 
 import numpy as np
@@ -54,8 +57,8 @@ class ReplayConfig:
     deep_steps: int = 2
     wing_steps: int = 1
     initial_steps: int = 2
-    target: float = 0.75
-    hard_loss: float = 2500.0  # whole session, never reset by roll
+    target: float | None = None  # fraction of initial credit; None disables the profit target
+    hard_loss: float | None = None  # whole-session loss in INR, never reset by roll; None disables the daily stop
     slippage_pct: float = 0.005
     tick: float = 0.05
     latency_bars: int = 1
@@ -70,7 +73,9 @@ class ReplayConfig:
             raise ValueError("Unknown scenario")
         if self.latency_bars < 1 or self.max_adjustments < 0 or self.initial_steps < 1:
             raise ValueError("Invalid replay settings")
-        if self.slippage_pct < 0 or self.tick <= 0 or self.hard_loss <= 0:
+        if self.slippage_pct < 0 or self.tick <= 0:
+            raise ValueError("Invalid cost/risk inputs")
+        if self.hard_loss is not None and self.hard_loss <= 0:
             raise ValueError("Invalid cost/risk inputs")
 
 
@@ -113,6 +118,10 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
     shorts open at least one full bar after old shorts close. Risk exits preempt
     pending opening risk. Ordinary entries require positive observed bar volume,
     which is a coarse fill assumption, not proof of liquidity at the open.
+
+    ``cfg.target`` and ``cfg.hard_loss`` are off when ``None`` (the default); the
+    returned dict carries the full ``ReplayConfig`` under ``config`` so a saved
+    result shows which exit rules were active.
     """
     p = s.prices
     lookup = {key: j for j, key in enumerate(s.contracts)}
@@ -135,7 +144,8 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
     initial_entry_i = next((i for i, m in enumerate(s.minutes) if m == cfg.entry_minute), None)
     if initial_entry_i is None or initial_entry_i < 1:
         return dict(index=s.index, date=s.date, expiry=s.expiry, dte=s.dte, strategy=cfg.name,
-                    status="SKIPPED", reason="missing_entry_grid", net_pnl=0.0, fills=[], trades=[], path=[], decisions=[])
+                    status="SKIPPED", reason="missing_entry_grid", net_pnl=0.0, fills=[], trades=[], path=[], decisions=[],
+                    config=asdict(cfg))
 
     def valid(j, i, field=0):
         a = p[i, j]
@@ -267,16 +277,16 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
             path.append((int(s.timestamps[i] + 60_000_000_000), value, len(open_legs)))
         # Mark-to-market and risk priorities apply even during a multi-step roll.
         if open_legs and state != "EXIT_PENDING":
-            if np.isfinite(value) and value <= -cfg.hard_loss:
+            if cfg.hard_loss is not None and np.isfinite(value) and value <= -cfg.hard_loss:
                 queue_exit(i, "DAILY_STOP")
             elif minute + 1 >= cfg.exit_minute:
                 queue_exit(i, "TIME_EXIT")
-            elif initial_credit and np.isfinite(value) and value >= cfg.target * initial_credit:
+            elif cfg.target is not None and initial_credit and np.isfinite(value) and value >= cfg.target * initial_credit:
                 queue_exit(i, "PORTFOLIO_TARGET")
             elif cfg.leg_stop is not None and any(np.isfinite(p[i,j,3]) and p[i,j,3] >= e["price"] * (1 + cfg.leg_stop) for j,e in open_legs.items()):
                 queue_exit(i, "LEG_THRESHOLD_CLOSE_ALL")
         # No new risk after a realized stop during a flat interval between rolls.
-        if pending and pending["stage"] == "roll_open" and cash <= -cfg.hard_loss:
+        if cfg.hard_loss is not None and pending and pending["stage"] == "roll_open" and cash <= -cfg.hard_loss:
             queue_exit(i, "DAILY_STOP")
         if pending or state == "EXIT_PENDING":
             continue
@@ -374,6 +384,7 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
                 net_pnl=net,gross_pnl=raw_cash,fees=fees,slippage=slippage,
                 conversions=conversions,defenses=defenses,adjustments=adjustments,
                 orders=len(fills),worst_mtm=worst_pnl,max_intraday_dd_inr=max_dd_inr,
-                stop_overshoot=max(0,-net-cfg.hard_loss) if np.isfinite(net) else float("nan"),
+                stop_overshoot=max(0,-net-cfg.hard_loss) if cfg.hard_loss is not None and np.isfinite(net) else float("nan"),
                 missing_marks=missing_marks,initial_credit=initial_credit,
-                fills=fills,trades=trades,path=path,decisions=decisions)
+                fills=fills,trades=trades,path=path,decisions=decisions,
+                config=asdict(cfg))

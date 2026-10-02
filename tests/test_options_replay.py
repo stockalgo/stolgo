@@ -18,7 +18,8 @@ def session(n=12):
 
 
 def config(**kwargs):
-    return replace(ReplayConfig('test',scenario='STATIC',exit_minute=578),**kwargs)
+    # The old ReplayConfig defaults are passed explicitly so these tests keep their meaning.
+    return replace(ReplayConfig('test',scenario='STATIC',exit_minute=578,target=0.75,hard_loss=2500.0),**kwargs)
 
 
 def test_cashflow_identity_and_next_open():
@@ -142,3 +143,44 @@ def test_failed_replacement_closes_retained_short():
     assert r['status']=='COMPLETE'
     assert r['adjustments']==0
     assert len([f for f in r['fills'] if f['side']=='sell'])==2
+
+
+def _target_session():
+    s=session()
+    s.prices[3:,:,:4]=10  # both short legs collapse: old default target (0.75) is hit
+    return s
+
+
+def _stop_session():
+    s=session(); j=s.contracts.index(('CE',25100))
+    s.prices[3:,j,:4]=300  # one leg triples: old default hard loss (2500) is hit
+    return s
+
+
+def test_default_config_has_no_target_or_daily_stop():
+    cfg=ReplayConfig('test',scenario='STATIC',exit_minute=578)
+    assert cfg.target is None and cfg.hard_loss is None
+    for s in (_target_session(),_stop_session()):
+        r=replay_session(s,cfg)
+        assert r['status']=='COMPLETE'
+        assert r['reason']=='TIME_EXIT'
+    assert np.isnan(r['stop_overshoot'])
+
+
+def test_explicit_old_values_reproduce_old_exits():
+    old=ReplayConfig('test',scenario='STATIC',exit_minute=578,target=0.75,hard_loss=2500.0)
+    assert replay_session(_target_session(),old)['reason']=='PORTFOLIO_TARGET'
+    assert replay_session(_stop_session(),old)['reason']=='DAILY_STOP'
+
+
+def test_result_records_full_replay_config():
+    from dataclasses import asdict
+    cfg=ReplayConfig('test',scenario='STATIC',exit_minute=578,target=0.5)
+    r=replay_session(session(),cfg)
+    assert r['config']==asdict(cfg)
+    assert r['config']['target']==0.5 and r['config']['hard_loss'] is None
+
+
+def test_non_positive_hard_loss_still_rejected():
+    with pytest.raises(ValueError):
+        ReplayConfig('test',hard_loss=0.0)

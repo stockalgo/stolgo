@@ -5,10 +5,21 @@ the single-symbol `Engine`. Every actual fill goes through Stolgo `SimBroker` an
 `NextOpenFill`, with a separate broker per immutable contract. It is a simulator;
 it does not submit live orders or authenticate vendor contract identities.
 
+**Status: experimental.** The options replay API (`stolgo.options`) may change
+without notice between releases. Read "Known limitations" below before relying
+on its results.
+
 `OptionSession` contains a continuous explicit minute grid, contract keys, spot
 observations and NumPy OHLCV arrays. `ReplayConfig` selects a deterministic policy.
 `replay_session` returns session P&L, explicit charges/slippage, fills, closed legs,
 state decisions and optionally a minute liquidation-value path.
+
+`ReplayConfig.target` (profit target as a fraction of the initial credit) and
+`ReplayConfig.hard_loss` (whole-session loss limit in rupees) are `None` by
+default, which switches that exit rule off. Pass them explicitly, for example
+`ReplayConfig("name", target=0.75, hard_loss=2500.0)`. The dict returned by
+`replay_session` includes the complete configuration under `config`, so saved
+results show which rules were active.
 
 Signals use completed minutes. An entry can fill only on a subsequent bar; an
 adjustment closes old shorts before opening replacements on a later bar. Daily
@@ -39,3 +50,20 @@ The generic resting-stop matcher now uses a gap-aware trigger price, rather than
 unconditionally returning the bar open after a later intrabar trigger. OHLC
 ambiguity and stop-limit queue/fill behavior still require more detailed models
 for strategies that depend on intrabar order ordering.
+
+## Known limitations
+
+- **STATIC sessions exit on a missing spot minute.** Spot is only needed at
+  entry for the `STATIC` scenario, but the replay still closes the position
+  (`MISSING_SPOT`) if any single spot minute is missing while it is held.
+- **One quiet minute can force an exit.** A held option with no usable trade
+  price for a minute cannot be marked, so the replay queues an exit
+  (`MISSING_HELD_QUOTE`). Entries and replacement legs also require
+  `volume > 0` as a coarse liquidity check, which a thinly traded minute can
+  fail even though trade prices alone say nothing about available depth.
+- **Fixed rupee limits are not comparable across periods.** `hard_loss` is a
+  fixed rupee amount for the whole position, and the entry premium floor is a
+  fixed rupee-per-unit threshold. The contract lot size changed roughly
+  threefold between 2024 and 2026, so the same limit is a different fraction of
+  notional in different periods. Do not compare results from different periods
+  directly.
