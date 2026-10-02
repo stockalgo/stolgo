@@ -294,45 +294,11 @@ class Engine:
         strategy.on_end(ctx)
 
         equity = pd.Series(equity_vals, index=pd.to_datetime(equity_ts, unit="ns", utc=True))
-        trades = build_trades_from_fills(fill_events)
-
+        mark = None
         if bars and not self._config.close_at_end and not portfolio.position.flat:
             last_bar = bars[-1]
-            last_ts = pd.Timestamp(last_bar.ts, unit="ns", tz="UTC")
-            qty = abs(portfolio.position.qty)
-            side_str = "LONG" if portfolio.position.qty > 0 else "SHORT"
-            entry_px = portfolio.position.avg_entry_price
-            exit_px = last_bar.close
-            gross = (exit_px - entry_px) * qty if side_str == "LONG" else (entry_px - exit_px) * qty
-            net = gross
-            notional = entry_px * qty
-            entry_ts = last_ts
-            if fill_events:
-                matching_fills = [
-                    fe.fill for fe in fill_events
-                    if fe.fill.side == (Side.BUY if side_str == "LONG" else Side.SELL)
-                ]
-                if matching_fills:
-                    entry_ts = pd.Timestamp(matching_fills[-1].ts, unit="ns", tz="UTC")
-            open_row = {
-                "entry_ts": entry_ts,
-                "exit_ts": last_ts,
-                "side": side_str,
-                "entry_price": entry_px,
-                "exit_price": exit_px,
-                "qty": qty,
-                "gross_pnl": gross,
-                "net_pnl": net,
-                "commission": 0.0,
-                "return_on_notional": net / notional if notional > 0 else 0.0,
-                "r_multiple": float("nan"),
-                "tag": "OPEN",
-                "exit_reason": "OPEN",
-            }
-            if trades.empty:
-                trades = pd.DataFrame([open_row])
-            else:
-                trades = pd.concat([trades, pd.DataFrame([open_row])], ignore_index=True)
+            mark = (last_bar.ts, last_bar.close)
+        trades = build_trades_from_fills(fill_events, mark=mark)
 
         positions = pd.DataFrame(
             {"qty": position_qty_vals, "equity": equity_vals},

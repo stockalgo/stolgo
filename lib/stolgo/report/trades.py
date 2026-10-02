@@ -21,7 +21,10 @@ class _Lot:
     tag: str | None = None
 
 
-def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
+def build_trades_from_fills(
+    fills: list[FillEvent],
+    mark: tuple[int | pd.Timestamp, float] | None = None,
+) -> pd.DataFrame:
     """FIFO match fills into round-trip trades (signed position matching)."""
     lots: list[_Lot] = []
     rows: list[dict] = []
@@ -93,6 +96,45 @@ def build_trades_from_fills(fills: list[FillEvent]) -> pd.DataFrame:
                     risk_per_unit=risk_per_unit,
                     tag=f.tag,
                 )
+            )
+
+    if mark is not None and lots:
+        mark_raw_ts, mark_px = mark
+        mark_ts = (
+            mark_raw_ts
+            if isinstance(mark_raw_ts, pd.Timestamp)
+            else pd.Timestamp(mark_raw_ts, unit="ns", tz="UTC")
+        )
+        total_qty = sum(l.qty for l in lots)
+        if total_qty > 1e-12:
+            side_str = "LONG" if lots[0].side == Side.BUY else "SHORT"
+            entry_px = sum(l.entry_price * l.qty for l in lots) / total_qty
+            earliest_ts = min(l.entry_ts for l in lots)
+            total_comm = sum(l.entry_commission for l in lots)
+            gross = (
+                (mark_px - entry_px) * total_qty
+                if side_str == "LONG"
+                else (entry_px - mark_px) * total_qty
+            )
+            net = gross - total_comm
+            notional = entry_px * total_qty
+            return_on_notional = net / notional if notional > 0 else 0.0
+            rows.append(
+                {
+                    "entry_ts": earliest_ts,
+                    "exit_ts": mark_ts,
+                    "side": side_str,
+                    "entry_price": entry_px,
+                    "exit_price": mark_px,
+                    "qty": total_qty,
+                    "gross_pnl": gross,
+                    "net_pnl": net,
+                    "commission": total_comm,
+                    "return_on_notional": return_on_notional,
+                    "r_multiple": float("nan"),
+                    "tag": "OPEN",
+                    "exit_reason": "OPEN",
+                }
             )
 
     if not rows:

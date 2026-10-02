@@ -1110,5 +1110,74 @@ def test_e2_next_open_brackets_do_not_accumulate():
     assert res is not None
 
 
+def test_e3_open_short_row_uses_real_entry():
+    opens = [100.0, 100.0, 100.0, 98.0]
+    highs = [101.0, 101.0, 101.0, 99.0]
+    lows = [99.0, 99.0, 99.0, 97.0]
+    closes = [100.0, 100.0, 100.0, 98.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.sell(qty=10)
+
+    # 1. Zero commission
+    res = Backtest(Strat(), df, cash=10_000, close_at_end=False, commission=0.0).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["side"] == "SHORT"
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 98.0
+    assert t["gross_pnl"] == pytest.approx(20.0)
+    assert t["net_pnl"] == pytest.approx(20.0)
+
+    # 2. Commission 0.001 (0.1%)
+    res2 = Backtest(Strat(), df, cash=10_000, close_at_end=False, commission=0.001).run()
+    assert len(res2.trades) == 1
+    t2 = res2.trades.iloc[0]
+    assert t2["side"] == "SHORT"
+    assert t2["entry_price"] == 100.0
+    assert t2["exit_price"] == 98.0
+    assert t2["commission"] == pytest.approx(1.0)
+    assert t2["net_pnl"] == pytest.approx(19.0)
+
+
+def test_e3_portfolio_avg_entry_short_and_flip():
+    from stolgo.portfolio.portfolio import Portfolio
+    from stolgo.core.types import Fill, Side
+
+    p = Portfolio(10_000, symbol="TEST")
+
+    # sell 10 @ 100 -> avg 100
+    p.apply_fill(Fill("f1", "o1", "TEST", Side.SELL, 10, 100.0, 0.0, 1))
+    assert p.position.qty == -10.0
+    assert p.position.avg_entry_price == 100.0
+
+    # sell 10 @ 110 -> avg 105
+    p.apply_fill(Fill("f2", "o2", "TEST", Side.SELL, 10, 110.0, 0.0, 2))
+    assert p.position.qty == -20.0
+    assert p.position.avg_entry_price == pytest.approx(105.0)
+
+    # buy 5 -> avg still 105
+    p.apply_fill(Fill("f3", "o3", "TEST", Side.BUY, 5, 95.0, 0.0, 3))
+    assert p.position.qty == -15.0
+    assert p.position.avg_entry_price == pytest.approx(105.0)
+
+    # Reset/test flip from long: long 10 @ 100, sell 20 @ 90 -> qty -10, avg 90
+    p2 = Portfolio(10_000, symbol="TEST")
+    p2.apply_fill(Fill("f4", "o4", "TEST", Side.BUY, 10, 100.0, 0.0, 1))
+    assert p2.position.qty == 10.0
+    assert p2.position.avg_entry_price == 100.0
+
+    p2.apply_fill(Fill("f5", "o5", "TEST", Side.SELL, 20, 90.0, 0.0, 2))
+    assert p2.position.qty == -10.0
+    assert p2.position.avg_entry_price == pytest.approx(90.0)
+
+
+
 
 
