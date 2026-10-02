@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from stolgo.core.events import FillEvent
 from stolgo.core.types import Bar, Fill, Order, OrderType, Side
@@ -32,6 +32,7 @@ class SimBroker:
         self._book = OrderBook()
         self._seq = 0
         self._fill_seq = 0
+        self._cancelled_ids: set[str] = set()
 
     def submit(self, order: Order) -> str:
         if order.order_type == OrderType.STOP_LIMIT:
@@ -40,14 +41,21 @@ class SimBroker:
         return order.order_id
 
     def cancel(self, order_id: str) -> None:
+        self._cancelled_ids.add(order_id)
         self._pending = [o for o in self._pending if o.order_id != order_id]
         self._book.cancel(order_id)
 
     def cancel_reduce_only(self, symbol: str) -> None:
+        cancelled = [o.order_id for o in self._pending if o.symbol == symbol and o.reduce_only]
+        cancelled.extend([o.order_id for o in self._book.resting() if o.symbol == symbol and o.reduce_only])
+        self._cancelled_ids.update(cancelled)
         self._pending = [o for o in self._pending if not (o.symbol == symbol and o.reduce_only)]
         self._book.cancel_reduce_only(symbol)
 
     def cancel_oco(self, oco_group: str) -> None:
+        cancelled = [o.order_id for o in self._pending if o.oco_group == oco_group]
+        cancelled.extend([o.order_id for o in self._book.resting() if o.oco_group == oco_group])
+        self._cancelled_ids.update(cancelled)
         self._pending = [o for o in self._pending if o.oco_group != oco_group]
         self._book.cancel_oco(oco_group)
 
@@ -69,12 +77,22 @@ class SimBroker:
         bar_index: int,
         portfolio: Any = None,
         events: list[Any] | None = None,
+        on_fill: Callable[[FillEvent], None] | None = None,
     ) -> list[FillEvent]:
         fill_events: list[FillEvent] = []
         still_pending: list[Order] = []
-        for order in self._pending:
+        market_orders: list[Order] = []
+        for order in list(self._pending):
+            if order.order_id in self._cancelled_ids:
+                continue
             if order.order_type != OrderType.MARKET:
                 self._book.add(order)
+            else:
+                market_orders.append(order)
+        self._pending = []
+
+        for order in market_orders:
+            if order.order_id in self._cancelled_ids:
                 continue
             price = self._fill_model.fill_price(order, bar, bar_index=bar_index)
             if price is None:
@@ -83,12 +101,18 @@ class SimBroker:
             fe = self._make_fill(order, bar, price, bar_index, portfolio=portfolio, events=events)
             if fe is not None:
                 fill_events.append(fe)
-        self._pending = still_pending
+                if on_fill is not None:
+                    on_fill(fe)
+        self._pending.extend([o for o in still_pending if o.order_id not in self._cancelled_ids])
 
         for order, price in self._book.match(bar, bar_index=bar_index):
+            if order.order_id in self._cancelled_ids:
+                continue
             fe = self._make_fill(order, bar, price, bar_index, portfolio=portfolio, events=events)
             if fe is not None:
                 fill_events.append(fe)
+                if on_fill is not None:
+                    on_fill(fe)
 
         return fill_events
 
@@ -99,17 +123,22 @@ class SimBroker:
         bar_index: int,
         portfolio: Any = None,
         events: list[Any] | None = None,
+        on_fill: Callable[[FillEvent], None] | None = None,
     ) -> list[FillEvent]:
         fill_events: list[FillEvent] = []
         still_pending: list[Order] = []
-        for order in self._pending:
+        for order in list(self._pending):
+            if order.order_id in self._cancelled_ids:
+                continue
             if order.order_type == OrderType.MARKET:
                 fe = self._make_fill(order, bar, bar.close, bar_index, portfolio=portfolio, events=events)
                 if fe is not None:
                     fill_events.append(fe)
+                    if on_fill is not None:
+                        on_fill(fe)
             else:
                 self._book.add(order)
-        self._pending = still_pending
+        self._pending = [o for o in still_pending if o.order_id not in self._cancelled_ids]
         return fill_events
 
 

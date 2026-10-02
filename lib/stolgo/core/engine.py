@@ -150,20 +150,19 @@ class Engine:
         fill_events: list[Any] = []
         all_events: list[Any] = []
 
-        def _apply_fills(fills: list[Any]) -> None:
-            for fe in fills:
-                portfolio.apply_fill(fe.fill)
-                if portfolio.position.flat:
-                    broker.cancel_reduce_only(fe.fill.symbol)
-                ctx.on_fill(fe)
-                strategy.on_fill(ctx, fe)
-                fill_events.append(fe)
-                all_events.append(fe)
+        def _apply_fill(fe: Any) -> None:
+            portfolio.apply_fill(fe.fill)
+            if portfolio.position.flat:
+                broker.cancel_reduce_only(fe.fill.symbol)
+            ctx.on_fill(fe)
+            strategy.on_fill(ctx, fe)
+            fill_events.append(fe)
+            all_events.append(fe)
 
         running_peak: float | None = None
         for i, bar in SimClock(bars):
             ctx.i = i
-            _apply_fills(broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events))
+            broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events, on_fill=_apply_fill)
 
             if ctx._intents:
                 active_from = i + 1 if self._config.fill_on in ("close", "next_close") else i
@@ -181,7 +180,7 @@ class Engine:
                     current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
                     active_from=active_from,
                 )
-                _apply_fills(broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events))
+                broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events, on_fill=_apply_fill)
 
             eq = portfolio.mark_to_market(bar)
             ctx._equity_val = eq
@@ -225,9 +224,9 @@ class Engine:
                     bar_index=i,
                     portfolio=portfolio,
                     events=all_events,
+                    on_fill=_apply_fill,
                 )
                 if fills:
-                    _apply_fills(fills)
                     _process_intents(
                         ctx,
                         portfolio,
@@ -268,7 +267,7 @@ class Engine:
                 events=all_events,
             )
             if fe is not None:
-                _apply_fills([fe])
+                _apply_fill(fe)
                 eq = portfolio.mark_to_market(last_bar)
                 ctx._equity_val = eq
                 equity_vals[-1] = eq

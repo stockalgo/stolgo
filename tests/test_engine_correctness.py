@@ -999,3 +999,58 @@ def test_v9_close_at_end_false_num_trades_and_diagnostics(tmp_path):
     assert manifest["diagnostics"]["open_at_end"]["mtm_pnl"] == pytest.approx(0.0)
 
 
+def test_e1_market_exit_and_bracket_stop_same_bar_no_reverse():
+    from stolgo.trade import bracket
+
+    opens = [100.0, 100.0, 100.0, 100.0, 96.0, 95.0, 95.0]
+    highs = [101.0, 101.0, 101.0, 101.0, 97.0, 96.0, 96.0]
+    lows = [99.0, 99.0, 99.0, 99.0, 94.0, 94.0, 94.0]
+    closes = [100.0, 100.0, 100.0, 100.0, 95.0, 95.0, 95.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, rr=(1, 2), qty=10)
+            if ctx.i == 3 and not ctx.position.flat:
+                ctx.close(tag="TIME_EXIT")
+
+    res = Backtest(Strat(), df, cash=10_000, close_at_end=False).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["side"] == "LONG"
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 96.0
+    assert t["exit_reason"] == "TIME_EXIT"
+    assert res.positions.iloc[-1]["qty"] == 0.0
+    assert res.positions.iloc[-1]["equity"] == 9960.0
+
+
+def test_e1_two_buys_same_bar_respect_cash():
+    from stolgo.core.events import OrderRejectedEvent
+
+    opens = [100.0] * 5
+    highs = [101.0] * 5
+    lows = [99.0] * 5
+    closes = [100.0] * 5
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class TwoBuys(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=60)
+                ctx.buy(qty=60)
+
+    res = Backtest(TwoBuys(), df, cash=10_000, close_at_end=False).run()
+    assert res.positions.iloc[-1]["qty"] == 60.0
+    rejected = [e for e in res.events if isinstance(e, OrderRejectedEvent) and e.reason == "insufficient_cash"]
+    assert len(rejected) == 1
+
+
+
