@@ -11,6 +11,8 @@ import pandas as pd
 from stolgo.core.exceptions import LookaheadError
 from stolgo.core.types import OrderIntent, OrderType, Position, Side
 
+_AUTO_CID_PREFIX = "_auto-"
+
 
 @dataclass
 class BarDataView:
@@ -69,10 +71,32 @@ class Context:
     _cash_val: float = 100_000.0
     _active_brackets: list[Any] = field(default_factory=list)
     _cid_seq: int = 0
+    _used_cids: set[str] = field(default_factory=set)
 
     def _next_cid(self) -> str:
         self._cid_seq += 1
-        return f"cid-{self._cid_seq}"
+        return f"{_AUTO_CID_PREFIX}{self._cid_seq}"
+
+    def _claim_cid(self, client_order_id: str | None) -> str:
+        """Return the id to use for a new intent and record it as issued.
+
+        Auto-generated ids live under the reserved ``_auto-`` prefix; a
+        user-supplied id may neither use that prefix nor repeat an id already
+        issued in this run.
+        """
+        if client_order_id is None:
+            cid = self._next_cid()
+        else:
+            if client_order_id.startswith(_AUTO_CID_PREFIX):
+                raise ValueError(
+                    f"client_order_id {client_order_id!r} uses the reserved "
+                    f"{_AUTO_CID_PREFIX!r} prefix"
+                )
+            if client_order_id in self._used_cids:
+                raise ValueError(f"duplicate client_order_id {client_order_id!r}")
+            cid = client_order_id
+        self._used_cids.add(cid)
+        return cid
 
     @property
     def cash(self) -> float:
@@ -99,7 +123,7 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
-        cid = client_order_id or self._next_cid()
+        cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.BUY,
@@ -126,7 +150,7 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
-        cid = client_order_id or self._next_cid()
+        cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.SELL,
@@ -160,7 +184,7 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
-        cid = client_order_id or self._next_cid()
+        cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=side,

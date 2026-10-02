@@ -1249,3 +1249,57 @@ def test_e6_bracket_gap_through_target_fills_target_at_open():
     assert t["exit_reason"] == "long_target"
     assert t["net_pnl"] == pytest.approx(120.0)
     assert r.positions.qty.iloc[-1] == 0
+
+
+def _flat_df(n=5):
+    return pd.DataFrame(
+        {
+            "open": [100.0] * n,
+            "high": [101.0] * n,
+            "low": [99.0] * n,
+            "close": [100.0] * n,
+            "volume": 1.0,
+        },
+        index=idx[:n],
+    )
+
+
+def test_e7_duplicate_client_order_id_raises():
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=5, client_order_id="dup")
+                ctx.buy(qty=5, client_order_id="dup")
+
+    with pytest.raises(ValueError, match="dup"):
+        Backtest(Strat(), _flat_df(), cash=10_000).run()
+
+
+def test_e7_reserved_prefix_rejected():
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=5, client_order_id="_auto-1")
+
+    with pytest.raises(ValueError, match="_auto-"):
+        Backtest(Strat(), _flat_df(), cash=10_000).run()
+
+
+def test_e7_user_cid_cannot_hijack_bracket():
+    from stolgo.trade import bracket
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, qty=10, tag="a")
+                ctx.buy(qty=5, client_order_id="cid-1")
+
+    r = Backtest(Strat(), _flat_df(), cash=10_000, close_at_end=False).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill")]
+    bracket_fills = [f for f in fills if f.tag == "a"]
+    manual_fills = [f for f in fills if f.client_order_id == "cid-1"]
+    assert len(bracket_fills) == 1
+    assert len(manual_fills) == 1
+    assert bracket_fills[0].client_order_id != "cid-1"
+    assert bracket_fills[0].qty == 10
+    assert r.positions.qty.iloc[-1] == 15
