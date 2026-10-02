@@ -123,6 +123,13 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
+        """Queue a market buy, filled according to ``RunConfig.fill_on``.
+
+        ``client_order_id`` is an optional caller-chosen id carried on the order
+        and its fills. It must be unique within the run and must not start with
+        the reserved ``_auto-`` prefix, otherwise ``ValueError`` is raised. When
+        omitted, a unique ``_auto-<n>`` id is generated.
+        """
         cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -150,6 +157,11 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
+        """Queue a market sell (opens or extends a short when not long).
+
+        ``client_order_id`` follows the same rules as in :meth:`buy`: unique per
+        run, never starting with ``_auto-``, otherwise ``ValueError``.
+        """
         cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,
@@ -184,6 +196,14 @@ class Context:
         risk_stop: float | None = None,
         client_order_id: str | None = None,
     ) -> OrderIntent:
+        """Queue an order of any type (market, limit or stop).
+
+        See ``docs/EXECUTION_MODEL.md`` for when each type fills. ``oco_group``
+        links orders so that one fill cancels the others; ``reduce_only`` orders
+        can only shrink the open position. ``client_order_id`` follows the same
+        rules as in :meth:`buy`: unique per run, never starting with
+        ``_auto-``, otherwise ``ValueError``.
+        """
         cid = self._claim_cid(client_order_id)
         intent = OrderIntent(
             symbol=self.position.symbol,

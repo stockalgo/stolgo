@@ -34,7 +34,7 @@ Write your logic once. Point it at market data or a CSV. Get metrics and charts.
 | **Composable** | Combine levels, relations, candles, and streaks with `&` `\|` `~` `.then()` |
 | **Trade in one line** | `trade.long(ctx, rr=(1, 2), stop="candle_low")` — stops, targets, sizing handled |
 | **Presets** | `pa.preset.consolidation_breakout(7)` and friends — proven setups, zero wiring |
-| **Honest simulation** | Event loop with configurable fill timing (`next_open` or `close`), commission, slippage |
+| **Honest simulation** | Event loop with configurable fill timing (`next_open`, `next_close` or `signal_close`), commission, slippage |
 | **No look-ahead** | `ctx.data` only exposes history up to the current bar; MTF levels align safely |
 | **Data your way** | **[bandl](https://bandl.io)** for crypto/equity OHLCV, or **`load()`** for CSV/Parquet |
 | **Built-in analytics** | Sharpe, drawdown, hit rate, profit factor, HTML tearsheet |
@@ -94,7 +94,7 @@ class Breakout(Strategy):
 # 3. Run it on real data
 end = datetime.now(timezone.utc)
 df = Bandl().history("BTCUSDT", "1h", end - timedelta(days=365), end)
-result = Backtest(Breakout(), df, fill_on="close").run()
+result = Backtest(Breakout(), df, fill_on="next_close").run()
 print(result.summary())
 result.report.to_html("tearsheet.html")
 ```
@@ -310,6 +310,8 @@ OHLCV (Bandl / load / DataFrame)
 ```
 
 Default fill model: signal on bar **t** → fill at bar **t+1 open** (`fill_on="next_open"`). Use `fill_on="signal_close"` when you want same-bar close fills (e.g. breakout-on-close setups).
+
+For the full rules (gaps, stop/target ties within one bar, limit fills on a touch, slippage and commission, the buy-side cash check, end-of-data behaviour) see the **[Execution model](docs/EXECUTION_MODEL.md)**.
 
 ### Execution & Engine Configuration
 

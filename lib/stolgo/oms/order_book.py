@@ -26,6 +26,20 @@ class OrderBook:
         return list(self._resting)
 
     def match(self, bar: Bar, bar_index: int = 0) -> list[tuple[Order, float]]:
+        """Return ``(order, fill_price)`` for every resting order triggered by ``bar``.
+
+        Orders with ``active_from > bar_index`` are skipped. Limits fill on a
+        touch at ``min(open, limit)`` (buy) or ``max(open, limit)`` (sell); stops
+        fill at ``max(open, stop)`` (buy) or ``min(open, stop)`` (sell), so a gap
+        fills at the open.
+
+        When several legs of one ``oco_group`` trigger in the same bar, exactly
+        one fills and its siblings are cancelled. OHLC data does not say which
+        was hit first, so the open decides: a leg whose trigger the open has
+        already crossed wins (a gap through a target fills the target at the
+        open); if the open crossed neither leg, or both, the STOP wins
+        (adverse-first).
+        """
         candidates: list[tuple[Order, float]] = []
         untriggered: list[Order] = []
 

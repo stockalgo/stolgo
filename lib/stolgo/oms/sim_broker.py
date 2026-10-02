@@ -86,6 +86,15 @@ class SimBroker:
         events: list[Any] | None = None,
         on_fill: Callable[[FillEvent], None] | None = None,
     ) -> list[FillEvent]:
+        """Match waiting orders against ``bar`` and return the resulting fills.
+
+        Market orders fill first (at the price given by the fill model), then
+        resting limit/stop orders from the order book. Fills are applied one at
+        a time: ``on_fill`` is invoked right after each fill is produced, before
+        the next order is checked, so the caller can update the portfolio and
+        later orders (cash check, ``size_pct`` sizing, ``reduce_only`` caps, OCO
+        cancellation) see the effect of earlier fills in the same bar.
+        """
         # Cancels remove orders from _pending and the book immediately; the set only
         # guards the snapshots iterated within a single call, so reset it per call.
         self._cancelled_ids.clear()
