@@ -290,7 +290,10 @@ class Engine:
                 equity_vals[-1] = eq
                 position_qty_vals[-1] = portfolio.position.qty
 
-        _clean_unresolved_brackets(ctx, broker)
+        # Nothing can fill after the last bar: drop unfilled brackets and any
+        # orders still pending or resting so on_end sees a settled state.
+        broker.cancel_all()
+        ctx._active_brackets = [b for b in ctx._active_brackets if b.filled]
         strategy.on_end(ctx)
 
         equity = pd.Series(equity_vals, index=pd.to_datetime(equity_ts, unit="ns", utc=True))

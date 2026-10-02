@@ -1331,3 +1331,40 @@ def test_e8_cancelled_ids_do_not_accumulate_across_match_calls():
     assert broker._cancelled_ids == {cancelled2.order_id}
     assert broker.match_signal_close(bar, bar_index=2) == []
     assert broker._cancelled_ids == set()
+
+
+@pytest.mark.parametrize("exit_mode", ["next_open", "bracket"])
+def test_e9_bracket_placed_on_last_bar_is_dropped_before_on_end(exit_mode):
+    from stolgo.trade import bracket
+
+    seen = {}
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == len(ctx.data._close) - 1:
+                bracket.long(ctx, stop=95.0, qty=10, exit=exit_mode)
+
+        def on_end(self, ctx):
+            seen["active"] = len(ctx._active_brackets)
+
+    r = Backtest(Strat(), _flat_df(4), cash=10_000).run()
+    assert seen["active"] == 0
+    assert len(r.trades) == 0
+
+
+def test_e9_cancel_all_clears_pending_and_resting():
+    from stolgo.core.types import Bar, OrderType, Side
+    from stolgo.oms.commission import BpsCommission
+    from stolgo.oms.fill_model import NextOpenFill
+    from stolgo.oms.sim_broker import SimBroker
+    from stolgo.oms.slippage import NoSlippage
+
+    broker = SimBroker(NextOpenFill(), NoSlippage(), BpsCommission(0.0))
+    broker.submit(broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET))
+    resting = broker.create_order("X", Side.SELL, 1.0, OrderType.LIMIT, limit_price=500.0)
+    broker.submit(resting)
+    broker.match(Bar(ts=1, open=10.0, high=11.0, low=9.0, close=10.0, volume=1.0, symbol="X"), bar_index=0)
+    broker.submit(broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET))
+    assert len(broker.open_orders()) == 2  # one pending market, one resting limit
+    broker.cancel_all()
+    assert broker.open_orders() == []

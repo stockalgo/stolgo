@@ -59,6 +59,12 @@ class SimBroker:
         self._pending = [o for o in self._pending if o.oco_group != oco_group]
         self._book.cancel_oco(oco_group)
 
+    def cancel_all(self) -> None:
+        """Drop every pending and resting order (used when the run ends)."""
+        self._cancelled_ids.update(o.order_id for o in self.open_orders())
+        self._pending = []
+        self._book = OrderBook()
+
     def open_orders(self) -> list[Order]:
         return list(self._pending) + self._book.resting()
 
