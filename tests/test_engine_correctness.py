@@ -1222,7 +1222,30 @@ def test_e4_oco_gap_through_target_fills_target_at_open():
     assert fills[0].side == Side.SELL
 
 
+def test_e6_bracket_gap_through_target_fills_target_at_open():
+    from stolgo.trade import bracket
 
+    opens = [100.0, 100.0, 100.0, 112.0, 100.0]
+    highs = [101.0, 101.0, 101.0, 113.0, 101.0]
+    lows = [99.0, 99.0, 99.0, 94.0, 99.0]
+    closes = [100.0, 100.0, 100.0, 100.0, 100.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=idx[: len(opens)],
+    )
 
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, rr=(1, 2), qty=10)
 
-
+    # Entry fills at bar 2 open = 100 -> target 110. Bar 3 gaps up to open 112
+    # (and its low 94 would also touch the stop): the target must fill at the open.
+    r = Backtest(Strat(), df, cash=10_000).run()
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 112.0
+    assert t["exit_reason"] == "long_target"
+    assert t["net_pnl"] == pytest.approx(120.0)
+    assert r.positions.qty.iloc[-1] == 0
