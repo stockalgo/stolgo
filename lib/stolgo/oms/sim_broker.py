@@ -79,6 +79,9 @@ class SimBroker:
         events: list[Any] | None = None,
         on_fill: Callable[[FillEvent], None] | None = None,
     ) -> list[FillEvent]:
+        # Cancels remove orders from _pending and the book immediately; the set only
+        # guards the snapshots iterated within a single call, so reset it per call.
+        self._cancelled_ids.clear()
         fill_events: list[FillEvent] = []
         still_pending: list[Order] = []
         market_orders: list[Order] = []
@@ -125,6 +128,9 @@ class SimBroker:
         events: list[Any] | None = None,
         on_fill: Callable[[FillEvent], None] | None = None,
     ) -> list[FillEvent]:
+        # Cancels remove orders from _pending and the book immediately; the set only
+        # guards the snapshots iterated within a single call, so reset it per call.
+        self._cancelled_ids.clear()
         fill_events: list[FillEvent] = []
         still_pending: list[Order] = []
         for order in list(self._pending):

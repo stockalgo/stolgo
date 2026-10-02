@@ -1303,3 +1303,31 @@ def test_e7_user_cid_cannot_hijack_bracket():
     assert bracket_fills[0].client_order_id != "cid-1"
     assert bracket_fills[0].qty == 10
     assert r.positions.qty.iloc[-1] == 15
+
+
+def test_e8_cancelled_ids_do_not_accumulate_across_match_calls():
+    from stolgo.core.types import Bar, OrderType, Side
+    from stolgo.oms.commission import BpsCommission
+    from stolgo.oms.fill_model import NextOpenFill
+    from stolgo.oms.sim_broker import SimBroker
+    from stolgo.oms.slippage import NoSlippage
+
+    broker = SimBroker(NextOpenFill(), NoSlippage(), BpsCommission(0.0))
+    cancelled = broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET)
+    kept = broker.create_order("X", Side.BUY, 2.0, OrderType.MARKET)
+    broker.submit(cancelled)
+    broker.submit(kept)
+    broker.cancel(cancelled.order_id)
+
+    bar = Bar(ts=1, open=10.0, high=11.0, low=9.0, close=10.5, volume=1.0, symbol="X")
+    fills = broker.match(bar, bar_index=1)
+    assert [fe.order_id for fe in fills] == [kept.order_id]
+    assert broker._cancelled_ids == set()
+
+    # Same for the signal_close path.
+    cancelled2 = broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET)
+    broker.submit(cancelled2)
+    broker.cancel(cancelled2.order_id)
+    assert broker._cancelled_ids == {cancelled2.order_id}
+    assert broker.match_signal_close(bar, bar_index=2) == []
+    assert broker._cancelled_ids == set()
