@@ -1178,6 +1178,51 @@ def test_e3_portfolio_avg_entry_short_and_flip():
     assert p2.position.avg_entry_price == pytest.approx(90.0)
 
 
+def test_e4_oco_gap_through_target_fills_target_at_open():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class OCOStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=105.0,
+                        oco_group="bracket-1",
+                    )
+                )
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.STOP,
+                        qty=10,
+                        stop_price=95.0,
+                        oco_group="bracket-1",
+                    )
+                )
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 110.0, 100.0],
+            "high": [101.0, 112.0, 101.0],
+            "low": [99.0, 90.0, 99.0],
+            "close": [100.0, 100.0, 100.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r = Backtest(OCOStrat(), df, cash=10_000, close_at_end=False).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills) == 1
+    assert fills[0].price == 110.0
+    assert fills[0].side == Side.SELL
+
+
+
 
 
 

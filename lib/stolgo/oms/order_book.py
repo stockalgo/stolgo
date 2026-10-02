@@ -62,9 +62,29 @@ class OrderBook:
                 filled.append((order, price))
 
         for grp, orders in oco_map.items():
-            # If both stop and limit hit in same bar, adverse-first: fill STOP
-            stop_candidates = [item for item in orders if item[0].order_type == OrderType.STOP]
-            winner = stop_candidates[0] if stop_candidates else orders[0]
+            # If the open alone satisfies one triggered leg, that leg wins at the open price.
+            open_satisfied = [
+                item for item in orders
+                if (
+                    (item[0].order_type == OrderType.LIMIT and item[0].limit_price is not None and (
+                        (item[0].side == Side.SELL and bar.open >= item[0].limit_price) or
+                        (item[0].side == Side.BUY and bar.open <= item[0].limit_price)
+                    )) or
+                    (item[0].order_type == OrderType.STOP and item[0].stop_price is not None and (
+                        (item[0].side == Side.SELL and bar.open <= item[0].stop_price) or
+                        (item[0].side == Side.BUY and bar.open >= item[0].stop_price)
+                    ))
+                )
+            ]
+            if len(open_satisfied) == 1:
+                winner = open_satisfied[0]
+            elif len(open_satisfied) > 1:
+                stop_candidates = [item for item in open_satisfied if item[0].order_type == OrderType.STOP]
+                winner = stop_candidates[0] if stop_candidates else open_satisfied[0]
+            else:
+                # Open is between the legs: adverse-first: fill STOP
+                stop_candidates = [item for item in orders if item[0].order_type == OrderType.STOP]
+                winner = stop_candidates[0] if stop_candidates else orders[0]
             filled.append(winner)
             filled_oco_groups.add(grp)
 
