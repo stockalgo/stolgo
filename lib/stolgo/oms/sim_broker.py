@@ -244,6 +244,7 @@ class SimBroker:
             ts=bar.ts,
             risk_per_unit=fill_risk_per_unit,
             tag=order.tag,
+            client_order_id=order.client_order_id,
         )
         return FillEvent(fill=fill, order_id=order.order_id, index=bar_index)
 
@@ -264,6 +265,7 @@ class SimBroker:
         active_from: int = 0,
         size_risk_pct: float | None = None,
         risk_stop: float | None = None,
+        client_order_id: str | None = None,
     ) -> Order:
         return Order(
             order_id=self._next_id(),
@@ -281,4 +283,5 @@ class SimBroker:
             active_from=active_from,
             size_risk_pct=size_risk_pct,
             risk_stop=risk_stop,
+            client_order_id=client_order_id,
         )

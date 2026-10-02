@@ -76,6 +76,7 @@ class Fill:
     ts: int
     risk_per_unit: float | None = None
     tag: str | None = None
+    client_order_id: str | None = None
 
 
 @dataclass
@@ -107,6 +108,7 @@ class OrderIntent:
     active_from: int = 0
     size_risk_pct: float | None = None
     risk_stop: float | None = None
+    client_order_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:

@@ -1053,4 +1053,62 @@ def test_e1_two_buys_same_bar_respect_cash():
     assert len(rejected) == 1
 
 
+def test_e2_rejected_bracket_does_not_hijack_next_entry():
+    from stolgo.trade import bracket
+    from stolgo.core.events import OrderRejectedEvent
+
+    opens = [100.0, 100.0, 90.0, 90.0, 90.0, 90.0, 91.0, 92.0]
+    highs = [101.0, 101.0, 91.0, 91.0, 91.0, 92.0, 93.0, 95.0]
+    lows = [99.0, 99.0, 89.0, 89.0, 89.0, 89.0, 90.0, 91.0]
+    closes = [100.0, 100.0, 90.0, 90.0, 90.0, 91.0, 92.0, 94.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, qty=10, tag="first")
+            elif ctx.i == 4:
+                bracket.long(ctx, stop=80.0, qty=10, tag="second")
+
+    res = Backtest(Strat(), df, cash=10_000).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["tag"] == "second"
+    assert t["entry_price"] == 90.0
+    assert t["exit_price"] == 94.0
+    assert t["exit_reason"] == "END_OF_DATA"
+    assert t["net_pnl"] == pytest.approx(40.0)
+    gap_rejections = [e for e in res.events if isinstance(e, OrderRejectedEvent) and e.reason == "gap_through_stop"]
+    assert len(gap_rejections) == 1
+    assert not any(str(r["exit_reason"]).startswith("first_") for _, r in res.trades.iterrows())
+
+
+def test_e2_next_open_brackets_do_not_accumulate():
+    from stolgo.trade import bracket
+
+    opens = [100.0] * 10
+    highs = [101.0] * 10
+    lows = [99.0] * 10
+    closes = [100.0] * 10
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i in (1, 3, 5):
+                bracket.long(ctx, exit="next_open", qty=10)
+
+        def on_end(self, ctx):
+            assert len(ctx._active_brackets) == 0
+
+    res = Backtest(Strat(), df, cash=10_000).run()
+    assert res is not None
+
+
+
 

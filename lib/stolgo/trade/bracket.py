@@ -24,12 +24,16 @@ class Bracket:
     oco_group: str | None = None
     exit: Literal["bracket", "next_open"] = "bracket"
     filled: bool = False
+    entry_cid: str | None = None
 
     def on_fill(self, ctx: Context, fe: Any) -> bool:
-        if self.filled or self.exit != "bracket":
+        if self.filled:
             return False
         fill = getattr(fe, "fill", fe)
-        if fill.side != self.side:
+        if self.entry_cid is not None:
+            if getattr(fill, "client_order_id", None) != self.entry_cid:
+                return False
+        elif fill.side != self.side:
             return False
 
         self.filled = True
@@ -37,6 +41,9 @@ class Bracket:
         qty = float(fill.qty)
         self.entry_price = fill_px
         self.qty = qty
+
+        if self.exit == "next_open":
+            return True
 
         if isinstance(self.stop, (int, float)):
             stop_px = float(self.stop)
@@ -131,10 +138,10 @@ def long(
         return None
     target = _target(entry, stop_px, rr, Side.BUY)
     if qty is not None:
-        ctx.buy(qty=qty, tag=tag, risk_stop=stop_px)
+        intent = ctx.buy(qty=qty, tag=tag, risk_stop=stop_px)
         q = qty
     else:
-        ctx.buy(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
+        intent = ctx.buy(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
         q = 0.0
     b = Bracket(
         side=Side.BUY,
@@ -147,6 +154,7 @@ def long(
         stop=stop,
         oco_group=oco_group,
         exit=exit,
+        entry_cid=intent.client_order_id,
     )
     ctx._active_brackets.append(b)
     return b
@@ -170,10 +178,10 @@ def short(
         return None
     target = _target(entry, stop_px, rr, Side.SELL)
     if qty is not None:
-        ctx.sell(qty=qty, tag=tag, risk_stop=stop_px)
+        intent = ctx.sell(qty=qty, tag=tag, risk_stop=stop_px)
         q = qty
     else:
-        ctx.sell(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
+        intent = ctx.sell(tag=tag, size_risk_pct=size_risk_pct, risk_stop=stop_px)
         q = 0.0
     b = Bracket(
         side=Side.SELL,
@@ -186,6 +194,7 @@ def short(
         stop=stop,
         oco_group=oco_group,
         exit=exit,
+        entry_cid=intent.client_order_id,
     )
     ctx._active_brackets.append(b)
     return b

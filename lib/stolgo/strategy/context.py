@@ -68,6 +68,11 @@ class Context:
     _equity_val: float | None = None
     _cash_val: float = 100_000.0
     _active_brackets: list[Any] = field(default_factory=list)
+    _cid_seq: int = 0
+
+    def _next_cid(self) -> str:
+        self._cid_seq += 1
+        return f"cid-{self._cid_seq}"
 
     @property
     def cash(self) -> float:
@@ -92,7 +97,9 @@ class Context:
         risk_per_unit: float | None = None,
         size_risk_pct: float | None = None,
         risk_stop: float | None = None,
+        client_order_id: str | None = None,
     ) -> OrderIntent:
+        cid = client_order_id or self._next_cid()
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.BUY,
@@ -103,6 +110,7 @@ class Context:
             risk_per_unit=risk_per_unit,
             size_risk_pct=size_risk_pct,
             risk_stop=risk_stop,
+            client_order_id=cid,
         )
         self._intents.append(intent)
         return intent
@@ -116,7 +124,9 @@ class Context:
         risk_per_unit: float | None = None,
         size_risk_pct: float | None = None,
         risk_stop: float | None = None,
+        client_order_id: str | None = None,
     ) -> OrderIntent:
+        cid = client_order_id or self._next_cid()
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=Side.SELL,
@@ -127,6 +137,7 @@ class Context:
             risk_per_unit=risk_per_unit,
             size_risk_pct=size_risk_pct,
             risk_stop=risk_stop,
+            client_order_id=cid,
         )
         self._intents.append(intent)
         return intent
@@ -147,7 +158,9 @@ class Context:
         active_from: int = 0,
         size_risk_pct: float | None = None,
         risk_stop: float | None = None,
+        client_order_id: str | None = None,
     ) -> OrderIntent:
+        cid = client_order_id or self._next_cid()
         intent = OrderIntent(
             symbol=self.position.symbol,
             side=side,
@@ -163,6 +176,7 @@ class Context:
             active_from=active_from,
             size_risk_pct=size_risk_pct,
             risk_stop=risk_stop,
+            client_order_id=cid,
         )
         self._intents.append(intent)
         return intent

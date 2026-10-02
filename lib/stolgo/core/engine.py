@@ -71,8 +71,21 @@ def _process_intents(
             active_from=active_from,
             size_risk_pct=accepted.size_risk_pct,
             risk_stop=accepted.risk_stop,
+            client_order_id=accepted.client_order_id,
         )
         broker.submit(order)
+
+
+def _clean_unresolved_brackets(ctx: Context, broker: SimBroker) -> None:
+    if not ctx._active_brackets:
+        return
+    open_cids = {o.client_order_id for o in broker.open_orders() if o.client_order_id is not None}
+    pending_intent_cids = {intent.client_order_id for intent in ctx._intents if intent.client_order_id is not None}
+    valid_cids = open_cids | pending_intent_cids
+    ctx._active_brackets = [
+        b for b in ctx._active_brackets
+        if (b.entry_cid in valid_cids if b.entry_cid is not None else not b.filled)
+    ]
 
 
 class Engine:
@@ -163,6 +176,7 @@ class Engine:
         for i, bar in SimClock(bars):
             ctx.i = i
             broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events, on_fill=_apply_fill)
+            _clean_unresolved_brackets(ctx, broker)
 
             if ctx._intents:
                 active_from = i + 1 if self._config.fill_on in ("close", "next_close") else i
@@ -181,6 +195,7 @@ class Engine:
                     active_from=active_from,
                 )
                 broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events, on_fill=_apply_fill)
+                _clean_unresolved_brackets(ctx, broker)
 
             eq = portfolio.mark_to_market(bar)
             ctx._equity_val = eq
@@ -217,6 +232,7 @@ class Engine:
                 current_equity=equity_vals[-1] if len(equity_vals) >= 2 else None,
                 active_from=i + 1,
             )
+            _clean_unresolved_brackets(ctx, broker)
 
             if self._config.fill_on == "signal_close":
                 fills = broker.match_signal_close(
@@ -245,6 +261,7 @@ class Engine:
                     equity_vals[-1] = eq_close
                     position_qty_vals[-1] = portfolio.position.qty
                     running_peak = eq_close if running_peak is None else max(running_peak, eq_close)
+                _clean_unresolved_brackets(ctx, broker)
 
         if bars and self._config.close_at_end and not portfolio.position.flat:
             last_bar = bars[-1]
@@ -273,6 +290,7 @@ class Engine:
                 equity_vals[-1] = eq
                 position_qty_vals[-1] = portfolio.position.qty
 
+        _clean_unresolved_brackets(ctx, broker)
         strategy.on_end(ctx)
 
         equity = pd.Series(equity_vals, index=pd.to_datetime(equity_ts, unit="ns", utc=True))
