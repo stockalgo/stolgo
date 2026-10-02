@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Callable, Literal
+from collections.abc import Callable
+from typing import Any, Literal
 
 from stolgo.core.events import FillEvent
 from stolgo.core.types import Bar, Fill, Order, OrderType, Side
