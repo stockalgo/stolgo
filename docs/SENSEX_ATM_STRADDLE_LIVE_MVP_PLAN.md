@@ -7,7 +7,7 @@ Date: 2026-09-13. Status: implementation plan; no deployment or live trading per
 User decisions:
 
 - Reproduce the audited ATM short straddle on verified expiry sessions, rather than introduce a new 1-DTE OTM strangle.
-- Deploy the runtime from `/Users/chiranjeev/Developer/stolgo`; use `/Users/chiranjeev/Developer/bandl` for broker/data integration; execution account is Zerodha.
+- Deploy the runtime from this repository; use a Kite Connect-compatible broker adapter via bandl for broker/data integration.
 - Session loss trigger: 5% of capital deployed.
 
 Operational interpretation: `session_capital_inr` is capital explicitly allocated to this strategy and fixed before daily arming. It is not fluctuating broker margin used, option premium collected, or the whole account balance by accident. A ₹180,000 allocation yields a ₹9,000 session loss trigger. Actual allocation remains to be set. Losses can exceed the trigger during gaps, liquidity shortages, or broker failures; a naked straddle has no contractual maximum loss. If a hard maximum loss is required, protective wings create a different strategy that must be tested separately.

@@ -60,5 +60,5 @@
     "mean_expiry_pct": 0.04296242038216557
   },
   "created_at": "2026-09-14T02:53:47.376606+00:00",
-  "path": "/Users/chiranjeev/Developer/stolgo/runs/validated-timing-3y-nifty-0dte-static"
+  "path": "runs/validated-timing-3y-nifty-0dte-static"
 }

@@ -40,8 +40,8 @@ evidence and the task that fixes it.
 | F19 | **All 99 validated-timing runs** have 11–35 of 157 trades (7–22%) that exited on `MISSING_SPOT`/`MISSING_HELD_QUOTE`. This is not surfaced anywhere | `trades.parquet` `tag` column | D6, D8 (`status = data_issues`) |
 
 **Non-goals:** changing strategy logic, adding new strategies, live trading, or
-rewriting the engine. The external generators in
-`~/Developer/AlgoTrader/research/...` are **out of scope**. They must adopt
+rewriting the engine. The external research generators
+(maintained outside this repo) are **out of scope**. They must adopt
 `export_all` v2 later (see §7).
 
 ---
@@ -743,5 +743,5 @@ Commit after each step with message `data-v2: step N — <tasks>`.
 - Do not change strategy logic or `lib/stolgo/options/replay.py`.
 - Do not delete `summary.json`/`tearsheet.html`. Other tools read them.
 - Do not add new Python dependencies.
-- External generators (AlgoTrader research) are out of scope. Open a follow-up issue named
+- External research generators (maintained outside this repo) are out of scope. Open a follow-up issue named
   "Adopt export_run_v2 in research generators" that links this plan.

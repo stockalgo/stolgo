@@ -27,9 +27,7 @@ observations for Sharpe. Optional intraday equity gives separately labeled
 intraday drawdown. Unknown P&L is rejected for complete-performance metrics.
 
 The prepared three-year experiment, all expiry/monthly reports and reproducible
-scripts are in:
-
-`/Users/chiranjeev/Developer/AlgoTrader/research/dhan_options_0_1dte/reports/stolgo_dynamic_3y_20260913/QUANT_REPORT.md`
+scripts are documented in an external research report (not part of this repo).
 
 Targeted checks:
 
