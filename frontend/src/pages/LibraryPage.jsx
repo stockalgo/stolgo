@@ -29,12 +29,13 @@ export function LibraryPage() {
   const [hasMigrationReport, setHasMigrationReport] = useState(true);
   useEffect(() => {
     document.title = "Library · Stolgo";
+    reload();
     fetch("/api/migration-report", { method: "HEAD" })
       .then((res) => {
         if (!res.ok) setHasMigrationReport(false);
       })
       .catch(() => setHasMigrationReport(false));
-  }, []);
+  }, [reload]);
 
   // Compare selection state (persisted in sessionStorage)
   const [selectedIds, setSelectedIds] = useState(() => {

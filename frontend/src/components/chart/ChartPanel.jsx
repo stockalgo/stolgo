@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useApi } from "../../hooks/useApi.js";
 import { getCandles, getDaily } from "../../api/endpoints.js";
-import { CandleChart } from "./CandleChart.jsx";
 import { PnlStepChart } from "./PnlStepChart.jsx";
+
+const CandleChart = React.lazy(() =>
+  import("./CandleChart.jsx").then((m) => ({ default: m.CandleChart }))
+);
 import { EquityChart } from "./EquityChart.jsx";
 import { DrawdownChart } from "./DrawdownChart.jsx";
 import { IndicatorsMenu } from "./IndicatorsMenu.jsx";
@@ -237,17 +240,33 @@ export function ChartPanel({ run, trades = [], onSelectTrade = null, selectedTra
       {/* Chart Body */}
       {activeView === "price" ? (
         <div>
-          <CandleChart
-            candles={candles}
-            trades={trades}
-            market={run?.has?.ohlcv_market || run?.instrument?.markets?.[0]}
-            selectedTradeId={selectedTradeId}
-            onSelectTrade={onSelectTrade}
-            activeIndicators={activeIndicators}
-            onHoverBar={setHoveredBar}
-            onVisibleRangeChange={setVisibleRange}
-            onTimeScaleChange={handleTimeScaleChange}
-          />
+          <React.Suspense
+            fallback={
+              <div
+                style={{
+                  height: "480px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--text-muted, #888)",
+                }}
+              >
+                Loading chart…
+              </div>
+            }
+          >
+            <CandleChart
+              candles={candles}
+              trades={trades}
+              market={run?.has?.ohlcv_market || run?.instrument?.markets?.[0]}
+              selectedTradeId={selectedTradeId}
+              onSelectTrade={onSelectTrade}
+              activeIndicators={activeIndicators}
+              onHoverBar={setHoveredBar}
+              onVisibleRangeChange={setVisibleRange}
+              onTimeScaleChange={handleTimeScaleChange}
+            />
+          </React.Suspense>
           <PnlStepChart
             trades={trades}
             candles={candles}

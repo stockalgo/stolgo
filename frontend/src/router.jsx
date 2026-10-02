@@ -23,17 +23,17 @@ const RunChartPage = React.lazy(() =>
 const NewRunPage = React.lazy(() =>
   import("./pages/NewRunPage.jsx").then((m) => ({ default: m.NewRunPage }))
 );
-const KitPage = React.lazy(() =>
-  import("./pages/KitPage.jsx").then((m) => ({ default: m.KitPage }))
-);
+const KitPage = import.meta.env.DEV
+  ? React.lazy(() =>
+      import("./pages/KitPage.jsx").then((m) => ({ default: m.KitPage }))
+    )
+  : null;
 
 const withSuspense = (Component) => (
   <React.Suspense fallback={<div style={{ padding: "24px", color: "var(--text-muted, #888)" }}>Loading…</div>}>
     <Component />
   </React.Suspense>
 );
-
-const isDev = Boolean(typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV);
 
 export const router = createBrowserRouter([
   {
@@ -54,7 +54,7 @@ export const router = createBrowserRouter([
       { path: "groups", element: withSuspense(GroupsPage) },
       { path: "groups/:groupId", element: withSuspense(GroupPage) },
       { path: "new", element: withSuspense(NewRunPage) },
-      ...(isDev ? [{ path: "_kit", element: withSuspense(KitPage) }] : []),
+      ...(import.meta.env.DEV ? [{ path: "_kit", element: withSuspense(KitPage) }] : []),
       { path: "*", element: <NotFoundPage /> },
     ],
   },
