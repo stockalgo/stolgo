@@ -51,6 +51,7 @@ runs/
 stolgo_tearsheet.html
 vector_momentum_tearsheet.html
 .cursor/
+.claude/
 
 # Data caches
 .cache/
