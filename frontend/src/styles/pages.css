@@ -1,0 +1,110 @@
+/* ==========================================================================
+   Stolgo page layout grids — "Cockpit"
+   ========================================================================== */
+
+/* App Shell container */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-app);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Min width notice */
+.min-width-notice {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg-app);
+  color: var(--text-1);
+  z-index: 9999;
+  padding: 32px;
+  text-align: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+@media (max-width: 1023px) {
+  .min-width-notice {
+    display: flex;
+  }
+}
+
+/* Page layouts */
+.p-library-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+.p-library-right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.p-library-row-a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--gap);
+}
+
+.p-run-overview__row1 {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.p-run-overview__row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: var(--gap);
+}
+
+.p-run-overview__row3 {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 560px;
+  gap: var(--gap);
+}
+
+.p-run-trades__expanded {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: var(--gap);
+  padding: 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+}
+
+.p-diagnostics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--gap);
+}
+
+.p-fullscreen-chart {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  height: calc(100vh - var(--topbar-h));
+}
+
+.p-compare-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.p-new-run-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: var(--gap);
+}

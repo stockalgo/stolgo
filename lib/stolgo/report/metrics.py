@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Tearsheet metrics (HLD §8.2)."""
 
 from __future__ import annotations
@@ -18,7 +16,11 @@ def compute_metrics(
     *,
     position_qty: pd.Series | None = None,
 ) -> dict[str, float]:
-    """Compute performance statistics from equity curve and trade log."""
+    """Compute performance statistics from equity curve and trade log.
+
+    Assumes one equity point per trading day. For sparse or per-trade
+    equity use `stolgo.report.run_metrics.compute_run_metrics`.
+    """
     if equity.empty:
         return _empty_metrics()
 
@@ -28,7 +30,11 @@ def compute_metrics(
 
     n_bars = len(equity)
     n_years = n_bars / TRADING_DAYS_PER_YEAR if n_bars else 0.0
-    cagr = ((end / start) ** (1.0 / n_years) - 1.0) if start > 0 and n_years > 0 else 0.0
+    cagr = (
+        (end / start) ** (1.0 / n_years) - 1.0
+        if start > 0 and end > 0 and n_years > 0
+        else float("nan")
+    )
 
     rets = equity.pct_change().dropna()
     vol = float(rets.std() * math.sqrt(TRADING_DAYS_PER_YEAR)) if len(rets) > 1 else 0.0
@@ -38,13 +44,8 @@ def compute_metrics(
         else 0.0
     )
 
-    downside = rets[rets < 0]
-    downside_std = float(downside.std() * math.sqrt(TRADING_DAYS_PER_YEAR)) if len(downside) > 1 else 0.0
-    sortino = (
-        float(rets.mean() / downside_std * math.sqrt(TRADING_DAYS_PER_YEAR))
-        if downside_std > 0
-        else 0.0
-    )
+    downside_rms = float(np.sqrt(np.mean(np.minimum(rets.to_numpy(), 0.0) ** 2))) if len(rets) > 1 else 0.0
+    sortino = float(rets.mean() / downside_rms * math.sqrt(TRADING_DAYS_PER_YEAR)) if downside_rms > 0 else float("nan")
 
     peak = equity.cummax()
     dd = (equity - peak) / peak.replace(0, np.nan)
@@ -61,31 +62,40 @@ def compute_metrics(
         exposure_pct = float((position_qty.abs() > 1e-12).mean())
 
     turnover = 0.0
-    if not trades.empty and "qty" in trades.columns:
+    if not trades.empty and "structure" in trades.columns and not set(trades["structure"].dropna().astype(str).str.lower().unique()).issubset({"long", "short"}):
+        turnover = float("nan")
+    elif not trades.empty and "qty" in trades.columns and "entry_price" in trades.columns and "exit_price" in trades.columns:
         traded_notional = float((trades["qty"] * (trades["entry_price"] + trades["exit_price"])).sum())
         avg_equity = float(equity.mean()) if len(equity) else 0.0
         turnover = traded_notional / avg_equity if avg_equity > 0 else 0.0
 
-    num_trades = float(len(trades))
+    closed = trades
+    if not trades.empty and "exit_reason" in trades.columns:
+        closed = trades[trades["exit_reason"] != "OPEN"]
+    elif not trades.empty and "tag" in trades.columns:
+        closed = trades[trades["tag"] != "OPEN"]
+
+    num_trades = float(len(closed))
     hit_rate = 0.0
     expectancy = 0.0
-    profit_factor = 0.0
+    profit_factor = float("nan")
     avg_win = 0.0
     avg_loss = 0.0
-    payoff = 0.0
+    payoff = float("nan")
 
     if num_trades > 0 and "net_pnl" in trades.columns:
-        pnls = trades["net_pnl"]
-        wins = pnls[pnls > 0]
-        losses = pnls[pnls < 0]
-        hit_rate = float((pnls > 0).mean())
-        expectancy = float(pnls.mean())
-        gross_profit = float(wins.sum()) if len(wins) else 0.0
-        gross_loss = float(abs(losses.sum())) if len(losses) else 0.0
-        profit_factor = gross_profit / gross_loss if gross_loss > 0 else 0.0
-        avg_win = float(wins.mean()) if len(wins) else 0.0
-        avg_loss = float(losses.mean()) if len(losses) else 0.0
-        payoff = avg_win / abs(avg_loss) if avg_loss < 0 else 0.0
+        if not closed.empty:
+            pnls = closed["net_pnl"]
+            wins = pnls[pnls > 0]
+            losses = pnls[pnls < 0]
+            hit_rate = float((pnls > 0).mean())
+            expectancy = float(pnls.mean())
+            gross_profit = float(wins.sum()) if len(wins) else 0.0
+            gross_loss = float(abs(losses.sum())) if len(losses) else 0.0
+            profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("nan")
+            avg_win = float(wins.mean()) if len(wins) else 0.0
+            avg_loss = float(losses.mean()) if len(losses) else 0.0
+            payoff = avg_win / abs(avg_loss) if (len(wins) > 0 and len(losses) > 0 and avg_loss != 0) else float("nan")
 
     return {
         "total_return": total_return,
@@ -112,16 +122,13 @@ def compute_metrics(
 
 
 def _max_drawdown_duration_bars(dd: pd.Series) -> int:
-    in_dd = False
     current = 0
     longest = 0
     for v in dd.fillna(0):
         if v < 0:
-            in_dd = True
             current += 1
             longest = max(longest, current)
         else:
-            in_dd = False
             current = 0
     return longest
 

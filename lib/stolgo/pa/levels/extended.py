@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """v1.1 levels: swing, pivots, vwap, session — optional extended API."""
 
 from __future__ import annotations

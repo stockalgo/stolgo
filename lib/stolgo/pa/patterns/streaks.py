@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Streak helpers exposed as ``pa.streak.green`` etc."""
 
 from __future__ import annotations

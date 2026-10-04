@@ -1,10 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-# [ ] no look-ahead: only data[:t+1] in strategy loop
-# [ ] no pandas in oms/portfolio hot path
-# [ ] no bandl imports outside stolgo.data / stolgo.broker
-# [ ] fill default = next_open unless RunConfig.fill_on == "close"
-# [ ] pytest tests for this module pass before next build step
-
 """Canonical domain types (HLD §4.1). Notional amounts are unitless floats (USD/INR)."""
 
 from __future__ import annotations
@@ -62,6 +55,13 @@ class Order:
     status: OrderStatus = OrderStatus.PENDING
     client_order_id: str | None = None
     tag: str | None = None
+    size_pct: float | None = None
+    oco_group: str | None = None
+    risk_per_unit: float | None = None
+    reduce_only: bool = False
+    active_from: int = 0
+    size_risk_pct: float | None = None
+    risk_stop: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,6 +74,9 @@ class Fill:
     price: Price
     commission: float
     ts: int
+    risk_per_unit: float | None = None
+    tag: str | None = None
+    client_order_id: str | None = None
 
 
 @dataclass
@@ -99,9 +102,18 @@ class OrderIntent:
     limit_price: float | None = None
     stop_price: float | None = None
     tag: str | None = None
+    oco_group: str | None = None
+    risk_per_unit: float | None = None
+    reduce_only: bool = False
+    active_from: int = 0
+    size_risk_pct: float | None = None
+    risk_stop: float | None = None
+    client_order_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.qty is not None and self.qty <= 0:
             raise ValueError("OrderIntent.qty must be positive when set")
         if self.size_pct is not None and self.size_pct <= 0:
             raise ValueError("OrderIntent.size_pct must be positive when set")
+        if self.size_risk_pct is not None and self.size_risk_pct <= 0:
+            raise ValueError("OrderIntent.size_risk_pct must be positive when set")

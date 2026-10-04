@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """OHLCV array helpers for price-action rules."""
 
 from __future__ import annotations
@@ -10,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from stolgo.data.normalize import normalize_ohlcv
-from stolgo.strategy.context import BarDataView, Context
+from stolgo.strategy.context import Context
 
 
 @dataclass(frozen=True)

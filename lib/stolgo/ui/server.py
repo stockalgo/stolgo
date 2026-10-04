@@ -2,19 +2,41 @@
 
 from __future__ import annotations
 
+import functools
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from stolgo.ui import adapters
 from stolgo.ui import index as runs_index
 
+logger = logging.getLogger("stolgo.ui.server")
 
-SUPPORTED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSION = 2
+NOT_MIGRATED = {"detail": "run_not_migrated", "hint": "python scripts/migrate_runs_v2.py"}
+
+
+@functools.lru_cache(maxsize=64)
+def _read_parquet_cached(path_str: str, mtime_ns: int) -> pd.DataFrame:
+    return pd.read_parquet(path_str)
+
+
+def read_parquet_cached(path: Path | str) -> pd.DataFrame:
+    p = Path(path)
+    stat = p.stat()
+    return _read_parquet_cached(str(p.resolve()), stat.st_mtime_ns)
+
+
+def _check_migrated(manifest: dict[str, Any]) -> JSONResponse | None:
+    if int(manifest.get("schema_version", 0)) < 2:
+        return JSONResponse(status_code=409, content=NOT_MIGRATED)
+    return None
 
 
 def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | None = None) -> FastAPI:
@@ -23,59 +45,292 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
     index_path = runs_index.default_index_path(runs_dir)
     runs_index.reconcile(runs_dir, index_path=index_path)
 
-    app = FastAPI(title="stolgo UI", version="1")
+    def _ensure_reconciled() -> None:
+        # Editing a manifest does not change its parent directory's mtime.
+        # Reconcile stats each manifest, parsing only those whose mtime changed.
+        runs_index.reconcile(runs_dir, index_path=index_path)
+
+    app = FastAPI(title="stolgo UI", version="2")
 
     @app.get("/api/runs")
     def list_runs() -> dict[str, Any]:
+        _ensure_reconciled()
         items = []
         warnings = 0
-        for manifest in runs_index.list_runs(index_path=index_path, kind="run"):
+        for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
             try:
-                manifest = _load_manifest_from_row(
-                    manifest,
-                    expected_kind="run",
-                    runs_dir=runs_dir,
-                )
-                items.append(adapters.run_summary(manifest))
-            except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError):
+                if int(manifest_row.get("schema_version", 0)) < 2:
+                    warnings += 1
+                    continue
+                summary = manifest_row.get("summary")
+                if summary is not None:
+                    items.append(summary)
+                else:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    items.append(adapters.run_summary_v2(manifest))
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load run %s in list_runs: %s", run_id, exc)
+                warnings += 1
+            except Exception as exc:
+                logger.error("Unexpected error loading run %s in list_runs: %s", run_id, exc, exc_info=True)
                 warnings += 1
         return {"items": items, "warnings": warnings}
 
     @app.get("/api/runs/{run_id}")
-    def get_run(run_id: str) -> dict[str, Any]:
+    def get_run(run_id: str):
+        _ensure_reconciled()
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
-        return {
-            "id": manifest["run_id"],
-            "strategy": manifest["strategy"],
-            "params": manifest.get("params", {}),
-            "metrics": adapters.metric_cards(manifest.get("metrics", {})),
-            "rawMetrics": manifest.get("metrics", {}),
-            "created_at": manifest.get("created_at"),
-        }
+        if err := _check_migrated(manifest):
+            return err
+        return adapters.run_detail_v2(manifest)
 
-    @app.get("/api/runs/{run_id}/series")
-    def get_run_series(run_id: str) -> dict[str, Any]:
+    @app.get("/api/runs/{run_id}/daily")
+    def get_run_daily(run_id: str):
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
-        parquet_dir = Path(manifest["path"]) / "parquet"
-        try:
-            ohlcv = pd.read_parquet(parquet_dir / "ohlcv.parquet")
-            equity = pd.read_parquet(parquet_dir / "equity.parquet")["equity"]
-            drawdown = pd.read_parquet(parquet_dir / "drawdown.parquet")["drawdown"]
-        except Exception as exc:
-            raise HTTPException(status_code=409, detail=f"run series unavailable: {exc}") from exc
-        return adapters.series(ohlcv, equity, drawdown)
+        if err := _check_migrated(manifest):
+            return err
+        daily_path = Path(manifest["path"]) / "parquet" / "daily.parquet"
+        if not daily_path.is_file():
+            raise HTTPException(status_code=409, detail="daily series unavailable")
+        daily_df = read_parquet_cached(daily_path)
+        return adapters.daily_rows(daily_df)
+
+    @app.get("/api/runs/{run_id}/monthly")
+    def get_run_monthly(run_id: str):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        if err := _check_migrated(manifest):
+            return err
+        daily_path = Path(manifest["path"]) / "parquet" / "daily.parquet"
+        if not daily_path.is_file():
+            raise HTTPException(status_code=409, detail="daily series unavailable")
+        daily_df = read_parquet_cached(daily_path)
+        capital = manifest.get("config", {}).get("capital", 0.0)
+        return adapters.monthly_rows(daily_df, capital)
 
     @app.get("/api/runs/{run_id}/trades")
-    def get_run_trades(run_id: str) -> list[dict[str, Any]]:
+    def get_run_trades(run_id: str):
         manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        if err := _check_migrated(manifest):
+            return err
+        trades_path = Path(manifest["path"]) / "parquet" / "trades.parquet"
+        if not trades_path.is_file():
+            raise HTTPException(status_code=409, detail="run trades unavailable")
+        trades_df = read_parquet_cached(trades_path)
+        return adapters.trades_v2_rows(trades_df)
+
+    @app.get("/api/runs/{run_id}/trades/{trade_id}")
+    def get_run_trade_detail(run_id: str, trade_id: int):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        if err := _check_migrated(manifest):
+            return err
+        run_dir = Path(manifest["path"])
+        trades_path = run_dir / "parquet" / "trades.parquet"
+        if not trades_path.is_file():
+            raise HTTPException(status_code=409, detail="run trades unavailable")
+        trades_df = read_parquet_cached(trades_path)
+        legs_path = run_dir / "parquet" / "legs.parquet"
+        legs_df = read_parquet_cached(legs_path) if legs_path.is_file() else None
+        ohlcv_path = run_dir / "parquet" / "ohlcv.parquet"
+        ohlcv_df = read_parquet_cached(ohlcv_path) if ohlcv_path.is_file() else None
+
+        has_block = manifest.get("has", {})
+        ohlcv_market = has_block.get("ohlcv_market")
+        if not ohlcv_market:
+            markets = manifest.get("instrument", {}).get("markets", [])
+            if len(markets) == 1:
+                ohlcv_market = markets[0]
+
         try:
-            trades_df = pd.read_parquet(Path(manifest["path"]) / "parquet" / "trades.parquet")
-        except Exception as exc:
-            raise HTTPException(status_code=409, detail=f"run trades unavailable: {exc}") from exc
-        return adapters.trades(trades_df)
+            return adapters.trade_detail(
+                trades_df,
+                legs_df,
+                ohlcv_df,
+                trade_id,
+                ohlcv_market=ohlcv_market,
+            )
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"trade {trade_id} not found")
+
+    @app.get("/api/runs/{run_id}/candles")
+    def get_run_candles(
+        run_id: str,
+        tf: str = "1D",
+        from_date: str | None = Query(None, alias="from"),
+        to_date: str | None = Query(None, alias="to"),
+    ):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        if err := _check_migrated(manifest):
+            return err
+        ohlcv_path = Path(manifest["path"]) / "parquet" / "ohlcv.parquet"
+        if not ohlcv_path.is_file():
+            return JSONResponse(status_code=409, content={"detail": "no_ohlcv"})
+        ohlcv_df = read_parquet_cached(ohlcv_path)
+        inst = manifest.get("instrument") or {}
+        tz = inst.get("timezone", "UTC")
+        session_close = inst.get("session_close", "15:30" if tz == "Asia/Kolkata" else "24:00")
+        return adapters.candles(ohlcv_df, tf=tf, frm=from_date, to=to_date, tz=tz, session_close=session_close)
+
+    @app.get("/api/runs/{run_id}/equity")
+    def get_run_equity(run_id: str):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        if err := _check_migrated(manifest):
+            return err
+        if not manifest.get("has", {}).get("intraday_equity", False):
+            raise HTTPException(status_code=404, detail="no intraday equity for run")
+        equity_path = Path(manifest["path"]) / "parquet" / "equity.parquet"
+        if not equity_path.is_file():
+            raise HTTPException(status_code=404, detail="equity file missing")
+        equity_df = read_parquet_cached(equity_path)
+        if "equity" in equity_df.columns:
+            eq_s = equity_df["equity"]
+        else:
+            eq_s = equity_df.iloc[:, 0]
+        rows = []
+        for idx, val in eq_s.items():
+            t_s = int(pd.to_datetime(idx, utc=True).timestamp())
+            rows.append({"time": t_s, "equity": float(val)})
+        return {"rows": adapters._clean(rows)}
+
+    @app.get("/api/groups")
+    def list_groups() -> dict[str, Any]:
+        _ensure_reconciled()
+        group_map: dict[str, dict[str, Any]] = {}
+        for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
+            try:
+                if int(manifest_row.get("schema_version", 0)) < 2:
+                    continue
+                summary = manifest_row.get("summary")
+                if summary is None:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    summary = adapters.run_summary_v2(manifest)
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load group summary for run %s: %s", run_id, exc)
+                continue
+
+            grp = summary.get("group")
+            if not isinstance(grp, dict) or not grp.get("id"):
+                continue
+            gid = str(grp["id"])
+            if gid not in group_map:
+                group_map[gid] = {
+                    "id": gid,
+                    "label": grp.get("label", gid),
+                    "runs": 0,
+                    "axes_sets": {},
+                }
+            group_map[gid]["runs"] += 1
+            axes = grp.get("axes", {})
+            if isinstance(axes, dict):
+                for k, v in axes.items():
+                    if k not in group_map[gid]["axes_sets"]:
+                        group_map[gid]["axes_sets"][k] = set()
+                    if isinstance(v, list):
+                        group_map[gid]["axes_sets"][k].update(v)
+                    elif v is not None:
+                        group_map[gid]["axes_sets"][k].add(v)
+
+        items = []
+        for gid, data in group_map.items():
+            axes = {}
+            for k, s in data["axes_sets"].items():
+                try:
+                    axes[k] = sorted(list(s))
+                except TypeError:
+                    axes[k] = list(s)
+            items.append(
+                {
+                    "id": data["id"],
+                    "label": data["label"],
+                    "runs": data["runs"],
+                    "axes": axes,
+                }
+            )
+        return {"items": items}
+
+    @app.get("/api/groups/{group_id}")
+    def get_group(group_id: str) -> dict[str, Any]:
+        _ensure_reconciled()
+        group_info = None
+        runs = []
+        axes_sets: dict[str, set] = {}
+        for manifest_row in runs_index.list_runs(index_path=index_path, kind="run"):
+            run_id = manifest_row.get("id") or manifest_row.get("run_id") or "<unknown>"
+            try:
+                if int(manifest_row.get("schema_version", 0)) < 2:
+                    continue
+                summary = manifest_row.get("summary")
+                if summary is None:
+                    manifest = _load_manifest_from_row(
+                        manifest_row,
+                        expected_kind="run",
+                        runs_dir=runs_dir,
+                    )
+                    summary = adapters.run_summary_v2(manifest)
+            except (FileNotFoundError, json.JSONDecodeError, KeyError, ValueError) as exc:
+                logger.warning("Failed to load group run %s: %s", run_id, exc)
+                continue
+
+            grp = summary.get("group")
+            if isinstance(grp, dict) and str(grp.get("id")) == group_id:
+                if group_info is None:
+                    group_info = {"id": group_id, "label": grp.get("label", group_id)}
+                runs.append(summary)
+                for k, v in grp.get("axes", {}).items():
+                    if k not in axes_sets:
+                        axes_sets[k] = set()
+                    if isinstance(v, list):
+                        axes_sets[k].update(v)
+                    elif v is not None:
+                        axes_sets[k].add(v)
+
+        if group_info is None:
+            raise HTTPException(status_code=404, detail=f"group not found: {group_id}")
+
+        axes = {}
+        for k, s in axes_sets.items():
+            try:
+                axes[k] = sorted(list(s))
+            except TypeError:
+                axes[k] = list(s)
+
+        return {
+            "id": group_info["id"],
+            "label": group_info["label"],
+            "axes": axes,
+            "runs": runs,
+        }
+
+    @app.api_route("/api/migration-report", methods=["GET", "HEAD"])
+    def get_migration_report():
+        report_path = (runs_dir / "_migration_report.md").resolve()
+        if not report_path.is_file():
+            raise HTTPException(status_code=404, detail="migration report not found")
+        return FileResponse(report_path, media_type="text/markdown")
+
+    @app.get("/api/runs/{run_id}/audit")
+    def get_run_audit(run_id: str):
+        manifest = _manifest_for_id(run_id, index_path=index_path, expected_kind="run")
+        directory = Path(manifest["path"]).resolve()
+        report = (directory / "audit.html").resolve()
+        if not report.is_relative_to(runs_dir.resolve()) or report.parent != directory:
+            raise HTTPException(status_code=409, detail="Audit path outside run directory")
+        if not report.is_file():
+            raise HTTPException(status_code=404, detail="No audit report exported for this run")
+        return FileResponse(report, media_type="text/html")
 
     @app.get("/api/sweeps")
     def list_sweeps() -> dict[str, Any]:
+        _ensure_reconciled()
         items = []
         warnings = 0
         for manifest in runs_index.list_runs(index_path=index_path, kind="sweep"):
@@ -102,8 +357,9 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
     def get_sweep(sweep_id: str) -> dict[str, Any]:
         manifest = _manifest_for_id(sweep_id, index_path=index_path, expected_kind="sweep")
         try:
-            rows = pd.read_parquet(Path(manifest["path"]) / "results.parquet").to_dict("records")
-        except Exception as exc:
+            rows = read_parquet_cached(Path(manifest["path"]) / "results.parquet").to_dict("records")
+        except (OSError, KeyError, ValueError) as exc:
+            logger.warning("Sweep results unavailable for %s: %s", sweep_id, exc)
             raise HTTPException(status_code=409, detail=f"sweep results unavailable: {exc}") from exc
         return {
             "id": manifest["run_id"],
@@ -112,9 +368,25 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
             "rows": rows,
         }
 
-    dist = Path(frontend_dist) if frontend_dist is not None else _default_frontend_dist()
+    dist = (Path(frontend_dist) if frontend_dist is not None else _default_frontend_dist()).resolve()
     if dist.exists():
-        app.mount("/", StaticFiles(directory=dist, html=True), name="frontend")
+        assets_dir = dist / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        @app.get("/{full_path:path}")
+        def spa_fallback(full_path: str):
+            if full_path.startswith("api/") or full_path == "api":
+                raise HTTPException(status_code=404, detail="Not found")
+            file_path = (dist / full_path).resolve()
+            if not file_path.is_relative_to(dist):
+                raise HTTPException(status_code=404, detail="Not found")
+            if file_path.is_file():
+                return FileResponse(file_path)
+            index_html = dist / "index.html"
+            if index_html.resolve().is_relative_to(dist) and index_html.is_file():
+                return FileResponse(index_html)
+            raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
     return app
 
@@ -145,15 +417,32 @@ def _manifest_for_id(
     index_path: Path,
     expected_kind: str,
 ) -> dict[str, Any]:
-    manifest = runs_index.get_manifest(run_id, index_path=index_path)
-    if manifest is None or manifest.get("kind") != expected_kind:
+    runs_dir = index_path.parent
+    row = runs_index.get_manifest(run_id, index_path=index_path)
+    if row is None or row.get("kind") != expected_kind:
+        disk_manifest = runs_dir / run_id / "manifest.json"
+        if disk_manifest.is_file():
+            cur_mtime = disk_manifest.stat().st_mtime
+            loaded = json.loads(disk_manifest.read_text())
+            runs_index.upsert_run(loaded, index_path=index_path, mtime=cur_mtime)
+            row = runs_index.get_manifest(run_id, index_path=index_path)
+
+    if row is None or row.get("kind") != expected_kind:
         raise HTTPException(status_code=404, detail=f"{expected_kind} not found: {run_id}")
     try:
-        return _load_manifest_from_row(
-            manifest,
+        loaded = _load_manifest_from_row(
+            row,
             expected_kind=expected_kind,
-            runs_dir=index_path.parent,
+            runs_dir=runs_dir,
         )
+        run_path = _safe_run_path(loaded, runs_dir=runs_dir)
+        manifest_path = run_path / "manifest.json"
+        if manifest_path.is_file():
+            file_mtime = manifest_path.stat().st_mtime
+            index_mtime = row.get("mtime")
+            if index_mtime is None or file_mtime > index_mtime:
+                runs_index.upsert_run(loaded, index_path=index_path, mtime=file_mtime)
+        return loaded
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"manifest missing: {run_id}") from exc
     except json.JSONDecodeError as exc:

@@ -1,0 +1,1412 @@
+"""Tests reproducing engine and report correctness bugs from Plan 04."""
+
+import numpy as np
+import pandas as pd
+import pytest
+
+from stolgo import Backtest, Strategy
+
+idx = pd.date_range("2024-01-01", periods=10, freq="D", tz="UTC")
+
+
+def frame(px, spread=1.0):
+    px = np.asarray(px, float)
+    return pd.DataFrame(
+        {
+            "open": px,
+            "high": px + spread,
+            "low": px - spread,
+            "close": px,
+            "volume": 1.0,
+        },
+        index=idx[: len(px)],
+    )
+
+
+def test_short_round_trip():
+    class ShortRT(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 2:
+                ctx.sell(qty=10)
+            if ctx.i == 6:
+                ctx.buy(qty=10)
+
+    # Prices: [100, 101, 102, 103, 104, 103, 102, 101, 100, 99]
+    # On bar 2 (close 102), ctx.sell(qty=10) -> fills on bar 3 open = 103
+    # On bar 6 (close 102), ctx.buy(qty=10) -> fills on bar 7 open = 101
+    r = Backtest(ShortRT(), frame([100, 101, 102, 103, 104, 103, 102, 101, 100, 99]), cash=10_000).run()
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["side"] == "SHORT"
+    assert t["entry_price"] == 103.0
+    assert t["exit_price"] == 101.0
+    assert t["qty"] == 10.0
+    assert t["gross_pnl"] == 20.0
+
+
+def test_exit_not_blocked_by_drawdown():
+    class Hold(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            if ctx.i == 4:
+                ctx.close()
+
+    r = Backtest(Hold(), frame([100, 100, 40, 40, 40, 30, 30, 30, 30, 30], 0), cash=10_000).run()
+    assert r.positions.qty.iloc[-1] == 0
+    assert len(r.trades) == 1
+
+    # With halt_drawdown=0.5, a new buy after breach is rejected and close still goes through
+    class BuyAfterHalt(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            if ctx.i == 3:
+                ctx.buy(qty=50)  # should be rejected by risk halt
+            if ctx.i == 4:
+                ctx.close()  # should be accepted
+
+    r2 = Backtest(
+        BuyAfterHalt(),
+        frame([100, 100, 40, 40, 40, 30, 30, 30, 30, 30], 0),
+        cash=10_000,
+        halt_drawdown=0.5,
+    ).run()
+    assert r2.positions.qty.iloc[-1] == 0
+    assert len(r2.trades) == 1
+    assert r2.trades.iloc[0]["qty"] == 100.0
+    from stolgo.core.events import RiskHaltEvent
+    halts = [e for e in r2.events if isinstance(e, RiskHaltEvent)]
+    assert len(halts) == 1
+    assert halts[0].drawdown >= 0.5
+
+
+def test_size_pct_does_not_overspend_cash():
+    class AllIn(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=1.0)
+
+    df = frame([100] + [150] * 9, 0)
+    r = Backtest(AllIn(), df, cash=10_000, commission=0.001).run()
+    cash_series = r.positions.equity - r.positions.qty * df["close"].values
+    assert cash_series.min() >= 0
+    # Fill qty should be around 10,000 / (150 * 1.001) = 66.6
+    assert r.positions.qty.iloc[1] == pytest.approx(10_000 / (150 * 1.001), rel=1e-3)
+
+    # When allow_leverage=False (default), buying more than cash allows emits ORDER_REJECTED
+    class Overbuy(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=1000)  # Requires 150,000 but cash is 10,000
+
+    r2 = Backtest(Overbuy(), df, cash=10_000, commission=0.001).run()
+    assert r2.positions.qty.iloc[1] == 0
+    from stolgo.core.events import OrderRejectedEvent
+    rejections = [e for e in r2.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "insufficient_cash"
+
+
+def test_limit_intent_fills_and_gap_improvement():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    # Test 1: Limit buy fills at limit
+    class LimitStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.BUY,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=95.0,
+                    )
+                )
+
+    # Bar 0: open 100, close 100
+    # Bar 1: open 98, high 102, low 94, close 99 (bar opens at 98, goes down to 94 through 95)
+    df1 = pd.DataFrame(
+        {
+            "open": [100.0, 98.0, 99.0],
+            "high": [101.0, 102.0, 100.0],
+            "low": [99.0, 94.0, 98.0],
+            "close": [100.0, 99.0, 99.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r1 = Backtest(LimitStrat(), df1, cash=10_000).run()
+    assert r1.positions.qty.iloc[1] == 10.0
+    fill = [e.fill for e in r1.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"][0]
+    assert fill.price == 95.0
+
+    # Test 2: Gap-through open fills at open (min(open, limit) = 90)
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 90.0, 91.0],
+            "high": [101.0, 92.0, 92.0],
+            "low": [99.0, 89.0, 90.0],
+            "close": [100.0, 91.0, 91.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r2 = Backtest(LimitStrat(), df2, cash=10_000).run()
+    assert r2.positions.qty.iloc[1] == 10.0
+    fill2 = [e.fill for e in r2.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"][0]
+    assert fill2.price == 90.0
+
+
+def test_stop_limit_raises_not_implemented():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class StopLimitStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.BUY,
+                        order_type=OrderType.STOP_LIMIT,
+                        qty=10,
+                        stop_price=105.0,
+                        limit_price=106.0,
+                    )
+                )
+
+    with pytest.raises(NotImplementedError):
+        Backtest(StopLimitStrat(), frame([100, 101, 102], 0), cash=10_000).run()
+
+
+def test_oco_both_hit_on_same_bar_fills_stop():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class OCOStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                # Target limit at 110, stop at 90 with same oco_group
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=110.0,
+                        oco_group="bracket-1",
+                    )
+                )
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.STOP,
+                        qty=10,
+                        stop_price=90.0,
+                        oco_group="bracket-1",
+                    )
+                )
+
+    # Bar 0: open 100, close 100
+    # Bar 1: wide bar: open 100, high 115, low 85, close 100 (both 110 limit and 90 stop hit)
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 100.0],
+            "high": [101.0, 115.0, 101.0],
+            "low": [99.0, 85.0, 99.0],
+            "close": [100.0, 100.0, 100.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r = Backtest(OCOStrat(), df, cash=10_000).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills) == 1
+    # Adverse-first: fill the STOP order (at stop price 90.0)
+    assert fills[0].price == 90.0
+
+
+def test_fill_on_modes():
+    class SignalOnBar1(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+
+    # Bar 0: open 100.0, close 100.0
+    # Bar 1: open 101.0, close 101.2
+    # Bar 2: open 102.0, close 102.2
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 101.0, 102.0],
+            "high": [100.5, 101.5, 102.5],
+            "low": [99.5, 100.5, 101.5],
+            "close": [100.0, 101.2, 102.2],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+
+    # 1. next_open (default): fills at bar 2 open = 102.0
+    r_open = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_open").run()
+    fills_open = [e.fill for e in r_open.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills_open) == 1
+    assert fills_open[0].price == 102.0
+
+    # 2. next_close: fills at bar 2 close = 102.2
+    r_next_close = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="next_close").run()
+    fills_nc = [e.fill for e in r_next_close.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills_nc) == 1
+    assert fills_nc[0].price == 102.2
+
+    # Deprecated alias "close" gives warning and fills at 102.2
+    with pytest.deprecated_call():
+        r_dep = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="close").run()
+    fills_dep = [e.fill for e in r_dep.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills_dep) == 1
+    assert fills_dep[0].price == 102.2
+
+    # 3. signal_close: fills at bar 1 close = 101.2
+    r_sig = Backtest(SignalOnBar1(), df, cash=10_000, fill_on="signal_close").run()
+    fills_sig = [e.fill for e in r_sig.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills_sig) == 1
+    assert fills_sig[0].price == 101.2
+
+
+def test_bracket_sizing_and_intrabar_stop():
+    from stolgo.trade import long
+
+    class BracketStrat(Strategy):
+        def __init__(self):
+            self.b = None
+
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                # equity = 10,000, risk 2% = 200 risk
+                # bar 0: close 100, low 95 -> risk_per_unit = 5
+                # expected qty = 200 / 5 = 40
+                self.b = long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    # Case 1: Intrabar stop hit on bar 1
+    # Bar 0: open 100, high 105, low 95, close 100
+    # Bar 1: open 100 (fills entry at 100), high 102, low 94 (touches stop 95 intrabar), close 96
+    df1 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0],
+            "high": [105.0, 102.0],
+            "low": [95.0, 94.0],
+            "close": [100.0, 96.0],
+            "volume": [1.0, 1.0],
+        },
+        index=idx[:2],
+    )
+    r1 = Backtest(BracketStrat(), df1, cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert t1.side == "LONG"
+    assert t1.entry_price == 100.0
+    assert t1.qty == 40.0
+    assert t1.exit_price == 95.0
+
+    # Case 2: Gap down on bar 2 below stop 95 -> exits at gap open
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 90.0],
+            "high": [105.0, 102.0, 92.0],
+            "low": [95.0, 98.0, 89.0],
+            "close": [100.0, 99.0, 91.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r2 = Backtest(BracketStrat(), df2, cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert t2.side == "LONG"
+    assert t2.entry_price == 100.0
+    assert t2.qty == 40.0
+    assert t2.exit_price == 90.0
+
+
+def test_r_multiple_vs_return_on_notional():
+    from stolgo.trade import long
+
+    class NoBracketStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            elif ctx.i == 1:
+                ctx.sell(qty=10)
+
+    # 1. Trade without bracket: return_on_notional is set, r_multiple is NaN
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 100.0, 110.0],
+            "high": [101.0, 101.0, 111.0],
+            "low": [99.0, 99.0, 109.0],
+            "close": [100.0, 100.0, 110.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r1 = Backtest(NoBracketStrat(), df, cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert "return_on_notional" in r1.trades.columns
+    assert t1.return_on_notional == pytest.approx(0.1)  # 100 net / 1000 notional
+    assert np.isnan(t1.r_multiple)
+
+    # 2. Trade with bracket: risk per unit known, r_multiple is set
+    class BracketStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", qty=10, rr=(1, 2))
+
+    # bar 0: close 100, low 95 -> risk_per_unit = 5. target = 110
+    # bar 1: open 100, high 112 (hits target 110 intrabar), low 99, close 111
+    df2 = pd.DataFrame(
+        {
+            "open": [100.0, 100.0],
+            "high": [105.0, 112.0],
+            "low": [95.0, 99.0],
+            "close": [100.0, 111.0],
+            "volume": [1.0, 1.0],
+        },
+        index=idx[:2],
+    )
+    r2 = Backtest(BracketStrat(), df2, cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert t2.exit_price == 110.0
+    assert t2.return_on_notional == pytest.approx(0.1)  # 100 / 1000
+    assert t2.r_multiple == pytest.approx(2.0)  # 10 gain / 5 risk per unit
+
+
+def test_close_at_end_true_and_false():
+    class BuyAndHold(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+
+    # 3 bars: 100, 105, 110
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 105.0, 110.0],
+            "high": [102.0, 107.0, 112.0],
+            "low": [99.0, 104.0, 109.0],
+            "close": [101.0, 106.0, 111.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+
+    # 1. close_at_end=True (default): position is closed at end of data at bar 2 close
+    r_true = Backtest(BuyAndHold(), df, cash=10_000, close_at_end=True).run()
+    assert len(r_true.trades) == 1
+    t_true = r_true.trades.iloc[0]
+    assert t_true.exit_price == 111.0
+    assert t_true.tag == "END_OF_DATA" or getattr(t_true, "exit_reason", None) == "END_OF_DATA"
+    assert r_true.positions.qty.iloc[-1] == 0.0
+
+    # 2. close_at_end=False: trade row emitted with exit_reason="OPEN" and net_pnl = MTM
+    r_false = Backtest(BuyAndHold(), df, cash=10_000, close_at_end=False).run()
+    assert len(r_false.trades) == 1
+    t_false = r_false.trades.iloc[0]
+    assert t_false.tag == "OPEN" or getattr(t_false, "exit_reason", None) == "OPEN"
+    assert t_false.net_pnl == pytest.approx((111.0 - 105.0) * 10.0)  # entered at bar 1 open 105, marked at bar 2 close 111
+    assert r_false.positions.qty.iloc[-1] == 10.0  # position still open in portfolio
+
+
+def test_lookahead_probe():
+    from stolgo.core.lookahead import probe
+    from stolgo.core.exceptions import LookaheadError
+
+    # 1. Non-causal strategy: entries leak future data by looking 1 bar ahead
+    class NonCausalStrat(Strategy):
+        def on_start(self, ctx):
+            close = ctx.data.close
+            # Lookahead: shifted by -1 so it looks at tomorrow's close
+            self.entries = np.r_[close[1:] > close[:-1], False]
+            self.exits = np.zeros(len(close), dtype=bool)
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0 + i for i in range(20)],
+            "high": [101.0 + i for i in range(20)],
+            "low": [99.0 + i for i in range(20)],
+            "close": [100.0 + i for i in range(20)],
+            "volume": [1.0] * 20,
+        },
+        index=pd.date_range("2024-01-01", periods=20, freq="D", tz="UTC"),
+    )
+
+    with pytest.raises(LookaheadError):
+        probe(NonCausalStrat, df)
+
+    with pytest.raises(LookaheadError):
+        Backtest(NonCausalStrat(), df, cash=10_000, lookahead_check=True).run()
+
+    # 2. Causal vector strategy passes
+    class CausalStrat(Strategy):
+        def on_start(self, ctx):
+            close = ctx.data.close
+            # Strictly backward-looking (mom > 0)
+            self.entries = np.r_[False, close[1:] > close[:-1]]
+            self.exits = np.zeros(len(close), dtype=bool)
+
+    probe(CausalStrat, df)
+    res = Backtest(CausalStrat(), df, cash=10_000, lookahead_check=True).run()
+    assert len(res.equity) == 20
+
+
+from examples.vector_momentum_backtest import FastMomentum
+import stolgo.pa.preset as pa_preset
+from stolgo.strategy.context import Context
+
+
+class _PresetStrat(Strategy):
+    def __init__(self, rule_or_tuple):
+        self.rule_or_tuple = rule_or_tuple
+
+    def on_start(self, ctx: Context) -> None:
+        df = pd.DataFrame(
+            {
+                "open": ctx.data.open,
+                "high": ctx.data.high,
+                "low": ctx.data.low,
+                "close": ctx.data.close,
+                "volume": ctx.data.volume,
+            },
+            index=ctx.data._index,
+        )
+        if isinstance(self.rule_or_tuple, tuple):
+            long_rule, short_rule = self.rule_or_tuple
+            self.entries = long_rule.series(df).to_numpy(dtype=bool)
+            self.exits = short_rule.series(df).to_numpy(dtype=bool)
+        else:
+            self.entries = self.rule_or_tuple.series(df).to_numpy(dtype=bool)
+            self.exits = np.zeros(len(df), dtype=bool)
+
+
+@pytest.mark.parametrize(
+    "strat_factory",
+    [
+        FastMomentum,
+        lambda: _PresetStrat(pa_preset.consolidation_breakout()),
+        lambda: _PresetStrat(pa_preset.breakout_above_resistance()),
+        lambda: _PresetStrat(pa_preset.parabolic_short()),
+        lambda: _PresetStrat(pa_preset.scalp_green_fade()),
+        lambda: _PresetStrat(pa_preset.breakout_intraday(tf_daily="1d")),
+        lambda: _PresetStrat(pa_preset.failed_break_intraday(tf_daily="1d")),
+    ],
+    ids=[
+        "FastMomentum",
+        "consolidation_breakout",
+        "breakout_above_resistance",
+        "parabolic_short",
+        "scalp_green_fade",
+        "breakout_intraday",
+        "failed_break_intraday",
+    ],
+)
+def test_lookahead_probe_presets_and_examples(strat_factory):
+    from stolgo.core.lookahead import probe
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0 + i for i in range(100)],
+            "high": [101.0 + i for i in range(100)],
+            "low": [99.0 + i for i in range(100)],
+            "close": [100.0 + i for i in range(100)],
+            "volume": [1.0] * 100,
+        },
+        index=pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC"),
+    )
+    probe(strat_factory, df)
+
+
+def test_parabolic_short_gap_stop():
+    from stolgo.strategy.builtins.parabolic_short import (
+        ParabolicShortConfig,
+        detect_setups,
+        simulate_trade,
+    )
+    from tests.test_strategy_parabolic_short import _RED_DAY, _build_df
+
+    cfg = ParabolicShortConfig()
+    # Base + Rally + Red Day: entry=28.0, stop=33.5 -> 1R = 5.5
+    # Next day gaps up to open=35.15 (which is 28.0 + 1.3 * 5.5 = 1.3R above entry)
+    tail = [
+        _RED_DAY,
+        (35.15, 36.0, 34.0, 34.5, 4000),  # open 35.15 > stop 33.5
+    ]
+    df = _build_df(tail)
+    setups = detect_setups(df, cfg, symbol="TESTUSDT")
+    assert len(setups) == 1
+    trade = simulate_trade(df, setups[0], cfg)
+    assert trade is not None
+    assert trade.exit_reason == "stop"
+    assert trade.exit_price == 35.15
+    assert trade.r_multiple == pytest.approx(-1.3, abs=1e-4)
+
+
+def test_accounting_error_raised():
+    from stolgo.core.exceptions import AccountingError
+    from stolgo.report.run_metrics import compute_run_metrics
+
+    daily = pd.DataFrame({"session": ["2024-01-01", "2024-01-02"], "pnl": [100.0, -50.0]})
+    trades = pd.DataFrame(
+        [
+            {
+                "trade_id": "T1",
+                "entry_time": pd.Timestamp("2024-01-01", tz="UTC"),
+                "exit_time": pd.Timestamp("2024-01-02", tz="UTC"),
+                "net_pnl": 200.0,
+                "gross_pnl": 200.0,
+                "fees": 0.0,
+                "slippage": 0.0,
+            }
+        ]
+    )
+    with pytest.raises(AccountingError):
+        compute_run_metrics(trades, 10_000.0, daily)
+
+
+def test_export_all_mark_to_market_equity(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class HoldStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=100)
+            elif ctx.i == 2:
+                ctx.close()
+
+    # 3 daily bars: 100 -> 70 -> 101
+    dt_idx = pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 70.0, 101.0],
+            "high": [100.0, 70.0, 101.0],
+            "low": [100.0, 70.0, 101.0],
+            "close": [100.0, 70.0, 101.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=dt_idx,
+    )
+    res = Backtest(HoldStrat(), df, cash=10_000, fill_on="signal_close").run()
+    run_dir = tmp_path / "test_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["metrics"]["equity_basis"] == "mark_to_market"
+    assert manifest["metrics"]["max_drawdown"] == pytest.approx(-0.30, abs=0.001)
+
+
+def test_btc_run_utc_and_24h_candles(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+    from stolgo.ui.adapters import candles
+
+    class DummyStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=1)
+            elif ctx.i == 23:
+                ctx.close()
+
+    # 24 hourly bars covering 1 full UTC day: 2024-01-01 00:00 to 23:00 UTC
+    dt_idx = pd.date_range("2024-01-01 00:00:00", periods=24, freq="1h", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [40000.0 + i for i in range(24)],
+            "high": [40050.0 + i for i in range(24)],
+            "low": [39950.0 + i for i in range(24)],
+            "close": [40010.0 + i for i in range(24)],
+            "volume": [10.0] * 24,
+        },
+        index=dt_idx,
+    )
+    res = Backtest(DummyStrat(), df, cash=100_000, symbol="BTCUSDT").run()
+    run_dir = tmp_path / "btc_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    assert manifest["instrument"]["timezone"] == "UTC"
+    assert manifest["instrument"]["exchange"] is None
+    assert manifest["instrument"]["currency"] is None
+    assert manifest["instrument"]["markets"] == ["BTCUSDT"]
+
+    # Read daily and candles
+    daily = pd.read_parquet(run_dir / "parquet" / "daily.parquet")
+    assert list(daily["session"]) == ["2024-01-01"]
+
+    # 1H candles should cover all 24 hours of the day
+    c = candles(df, tf="1H", tz="UTC", session_close="24:00")
+    assert len(c["rows"]) == 24
+
+
+def test_zero_trade_export_metrics(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class NoTradeStrat(Strategy):
+        def on_bar(self, ctx):
+            pass
+
+    dt_idx = pd.date_range("2024-01-01", periods=5, freq="D", tz="UTC")
+    df = pd.DataFrame(
+        {
+            "open": [100.0] * 5,
+            "high": [105.0] * 5,
+            "low": [95.0] * 5,
+            "close": [100.0] * 5,
+            "volume": [100.0] * 5,
+        },
+        index=dt_idx,
+    )
+    res = Backtest(NoTradeStrat(), df, cash=100_000).run()
+    run_dir = tmp_path / "zero_trade_run"
+    export_all(res, run_dir)
+    manifest = json.loads((run_dir / "manifest.json").read_text())
+    m = manifest["metrics"]
+    assert m["num_trades"] == 0
+    assert m["net_pnl"] == 0.0
+    assert m["final_equity"] == 100_000.0
+    assert m["sharpe"] is None
+    assert m["cagr"] is None
+    assert m["max_drawdown"] is None
+    assert m["hit_rate"] is None
+    assert m["calmar"] is None
+
+
+def test_fill_ids_and_tag_propagation():
+    class TaggedEntryStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10, tag="breakout_signal")
+            elif ctx.i == 2:
+                ctx.close()
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 101.0, 102.0, 103.0],
+            "high": [101.0, 102.0, 103.0, 104.0],
+            "low": [99.0, 100.0, 101.0, 102.0],
+            "close": [100.0, 101.0, 102.0, 103.0],
+            "volume": [1.0, 1.0, 1.0, 1.0],
+        },
+        index=idx[:4],
+    )
+    res = Backtest(TaggedEntryStrat(), df, cash=10_000).run()
+    fills = [e.fill for e in res.events if hasattr(e, "fill")]
+    assert len(fills) >= 2
+    assert fills[0].fill_id.startswith("fill-")
+    assert fills[1].fill_id.startswith("fill-")
+    assert fills[0].fill_id != fills[1].fill_id
+    assert len(res.trades) == 1
+    assert res.trades["tag"].iloc[0] == "breakout_signal"
+
+
+def test_v1_orphan_bracket_exit_does_not_open_reverse_position():
+    from stolgo.trade import long
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class BC(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop=95.0, size_risk_pct=0.02, rr=(1, 2))
+            if ctx.i == 2:
+                ctx.close(tag="manual")
+
+    r = Backtest(
+        BC(),
+        frame40(
+            [100] * 5 + [94] * 3,
+            [101] * 5 + [95] * 3,
+            [99] * 5 + [93] * 3,
+            [100] * 5 + [94] * 3,
+        ),
+        cash=10_000,
+    ).run()
+    assert len(r.trades) == 1
+    assert r.positions.qty.iloc[-1] == 0.0
+    assert (r.trades["side"] == "SHORT").sum() == 0
+
+
+def test_v2_next_close_bracket_exit_does_not_match_entry_bar_extremes():
+    from stolgo.trade import long
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class B(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    r = Backtest(
+        B(),
+        frame40([100] * 4, [105, 101, 101, 101], [95, 90, 99, 99], [100] * 4),
+        cash=10_000,
+        fill_on="next_close",
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["entry_ts"] != t["exit_ts"]
+    assert t["exit_reason"] != "long_stop"
+
+
+def test_v3_signal_close_bracket_places_exit_orders():
+    from stolgo.trade import long
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class B(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    r = Backtest(
+        B(),
+        frame40(
+            [100, 100, 96, 94],
+            [105, 101, 97, 95],
+            [95, 99, 94, 93],
+            [100, 100, 96, 94],
+        ),
+        cash=10_000,
+        fill_on="signal_close",
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["exit_price"] == 95.0
+    assert str(t["exit_reason"]).endswith("_stop")
+
+
+def test_v4_bracket_equity_sizing_resolves_at_fill_price():
+    from stolgo.trade import long
+    from stolgo.core.events import OrderRejectedEvent
+
+    idx_40 = pd.date_range("2024-01-01", periods=40, freq="D", tz="UTC")
+
+    def frame40(o, h, l, c):
+        return pd.DataFrame(
+            {"open": o, "high": h, "low": l, "close": c, "volume": 1.0},
+            index=idx_40[: len(o)],
+        )
+
+    class B(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop="candle_low", size_risk_pct=0.02, rr=(1, 2))
+
+    r = Backtest(
+        B(),
+        frame40([100, 102, 101, 90], [105, 103, 102, 91], [95, 100, 100, 89], [100, 101, 101, 90]),
+        cash=10_000,
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["qty"] == pytest.approx(28.5714, rel=1e-3)
+    assert t["r_multiple"] == pytest.approx(-1.7143, rel=1e-3)
+
+    # Gap through stop test
+    class BGap(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                long(ctx, stop=95.0, size_risk_pct=0.02, rr=(1, 2))
+
+    r_gap = Backtest(
+        BGap(),
+        frame40([100, 94, 94, 94], [105, 95, 95, 95], [95, 93, 93, 93], [100, 94, 94, 94]),
+        cash=10_000,
+    ).run()
+
+    assert len(r_gap.trades) == 0
+    rejections = [e for e in r_gap.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "gap_through_stop"
+
+
+def test_v5_qty_step_floors_resolved_fill_qty():
+    from stolgo.core.events import OrderRejectedEvent
+
+    class AllIn(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=1.0)
+
+    r = Backtest(
+        AllIn(),
+        frame([100] + [150] * 9, 0),
+        cash=10_000,
+        commission=0.001,
+        qty_step=1,
+    ).run()
+
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["qty"] == 66
+    close = 150.0
+    assert (r.positions.equity - r.positions.qty * close).min() >= 0
+
+    class SmallBuy(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(size_pct=0.001)
+
+    r_small = Backtest(
+        SmallBuy(),
+        frame([100] + [150] * 9, 0),
+        cash=10_000,
+        commission=0.001,
+        qty_step=1,
+    ).run()
+
+    assert len(r_small.trades) == 0
+    rejections = [e for e in r_small.events if isinstance(e, OrderRejectedEvent)]
+    assert len(rejections) == 1
+    assert rejections[0].reason == "below_qty_step"
+
+
+def test_v7_trade_tag_and_exit_reason_semantics():
+    class S1(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10, tag="entry_signal")
+            if ctx.i == 2:
+                ctx.close()
+
+    r1 = Backtest(S1(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r1.trades) == 1
+    t1 = r1.trades.iloc[0]
+    assert t1["tag"] == "entry_signal"
+    assert t1["exit_reason"] == "SIGNAL"
+
+    class S2(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.sell(qty=10, tag="take_profit")
+
+    r2 = Backtest(S2(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r2.trades) == 1
+    t2 = r2.trades.iloc[0]
+    assert pd.isna(t2["tag"]) or t2["tag"] is None
+    assert t2["exit_reason"] == "take_profit"
+
+    class S3(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.close()
+
+    r3 = Backtest(S3(), frame([100, 101, 102, 103], 0), cash=10_000).run()
+    assert len(r3.trades) == 1
+    t3 = r3.trades.iloc[0]
+    assert pd.isna(t3["tag"]) or t3["tag"] is None
+    assert t3["exit_reason"] == "SIGNAL"
+
+
+def test_v8_halt_drawdown_trimmed_intent_preserves_order_fields():
+    from stolgo.core.config import RunConfig
+    from stolgo.core.types import OrderIntent, OrderType, Side
+    from stolgo.portfolio.portfolio import Portfolio
+    from stolgo.portfolio.risk import apply_risk
+
+    port = Portfolio(10_000.0, symbol="TEST")
+    port.position.qty = 50.0
+
+    intent = OrderIntent(
+        symbol="TEST",
+        side=Side.SELL,
+        order_type=OrderType.LIMIT,
+        qty=100.0,
+        limit_price=105.0,
+        oco_group="oco-group-123",
+        risk_per_unit=5.0,
+        reduce_only=True,
+    )
+
+    cfg = RunConfig(halt_drawdown=0.2)
+    trimmed = apply_risk(
+        intent,
+        port,
+        config=cfg,
+        peak_equity=10_000.0,
+        current_equity=7_000.0,
+    )
+
+    assert trimmed is not None
+    assert trimmed.qty == 50.0
+    assert trimmed.oco_group == "oco-group-123"
+    assert trimmed.risk_per_unit == 5.0
+    assert trimmed.reduce_only is True
+
+
+def test_v9_close_at_end_false_num_trades_and_diagnostics(tmp_path):
+    import json
+    from stolgo.report.exporters import export_all
+
+    class OneClosedOneOpen(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx.buy(qty=10)
+            if ctx.i == 2:
+                ctx.close()
+            if ctx.i == 3:
+                ctx.buy(qty=20)
+
+    res = Backtest(
+        OneClosedOneOpen(),
+        frame([100, 101, 102, 103, 104], 0),
+        cash=10_000,
+        close_at_end=False,
+    ).run()
+
+    assert len(res.trades) == 2
+    assert res.trades.iloc[-1]["exit_reason"] == "OPEN"
+    assert res.metrics["num_trades"] == 1
+
+    export_all(res, tmp_path / "run_out")
+    manifest = json.loads((tmp_path / "run_out" / "manifest.json").read_text())
+    assert manifest["metrics"]["num_trades"] == 1
+    assert "open_at_end" in manifest["diagnostics"]
+    assert manifest["diagnostics"]["open_at_end"]["qty"] == 20.0
+    assert manifest["diagnostics"]["open_at_end"]["mtm_pnl"] == pytest.approx(0.0)
+
+
+def test_e1_market_exit_and_bracket_stop_same_bar_no_reverse():
+    from stolgo.trade import bracket
+
+    opens = [100.0, 100.0, 100.0, 100.0, 96.0, 95.0, 95.0]
+    highs = [101.0, 101.0, 101.0, 101.0, 97.0, 96.0, 96.0]
+    lows = [99.0, 99.0, 99.0, 99.0, 94.0, 94.0, 94.0]
+    closes = [100.0, 100.0, 100.0, 100.0, 95.0, 95.0, 95.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, rr=(1, 2), qty=10)
+            if ctx.i == 3 and not ctx.position.flat:
+                ctx.close(tag="TIME_EXIT")
+
+    res = Backtest(Strat(), df, cash=10_000, close_at_end=False).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["side"] == "LONG"
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 96.0
+    assert t["exit_reason"] == "TIME_EXIT"
+    assert res.positions.iloc[-1]["qty"] == 0.0
+    assert res.positions.iloc[-1]["equity"] == 9960.0
+
+
+def test_e1_two_buys_same_bar_respect_cash():
+    from stolgo.core.events import OrderRejectedEvent
+
+    opens = [100.0] * 5
+    highs = [101.0] * 5
+    lows = [99.0] * 5
+    closes = [100.0] * 5
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class TwoBuys(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=60)
+                ctx.buy(qty=60)
+
+    res = Backtest(TwoBuys(), df, cash=10_000, close_at_end=False).run()
+    assert res.positions.iloc[-1]["qty"] == 60.0
+    rejected = [e for e in res.events if isinstance(e, OrderRejectedEvent) and e.reason == "insufficient_cash"]
+    assert len(rejected) == 1
+
+
+def test_e2_rejected_bracket_does_not_hijack_next_entry():
+    from stolgo.trade import bracket
+    from stolgo.core.events import OrderRejectedEvent
+
+    opens = [100.0, 100.0, 90.0, 90.0, 90.0, 90.0, 91.0, 92.0]
+    highs = [101.0, 101.0, 91.0, 91.0, 91.0, 92.0, 93.0, 95.0]
+    lows = [99.0, 99.0, 89.0, 89.0, 89.0, 89.0, 90.0, 91.0]
+    closes = [100.0, 100.0, 90.0, 90.0, 90.0, 91.0, 92.0, 94.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, qty=10, tag="first")
+            elif ctx.i == 4:
+                bracket.long(ctx, stop=80.0, qty=10, tag="second")
+
+    res = Backtest(Strat(), df, cash=10_000).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["tag"] == "second"
+    assert t["entry_price"] == 90.0
+    assert t["exit_price"] == 94.0
+    assert t["exit_reason"] == "END_OF_DATA"
+    assert t["net_pnl"] == pytest.approx(40.0)
+    gap_rejections = [e for e in res.events if isinstance(e, OrderRejectedEvent) and e.reason == "gap_through_stop"]
+    assert len(gap_rejections) == 1
+    assert not any(str(r["exit_reason"]).startswith("first_") for _, r in res.trades.iterrows())
+
+
+def test_e2_next_open_brackets_do_not_accumulate():
+    from stolgo.trade import bracket
+
+    opens = [100.0] * 10
+    highs = [101.0] * 10
+    lows = [99.0] * 10
+    closes = [100.0] * 10
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i in (1, 3, 5):
+                bracket.long(ctx, exit="next_open", qty=10)
+
+        def on_end(self, ctx):
+            assert len(ctx._active_brackets) == 0
+
+    res = Backtest(Strat(), df, cash=10_000).run()
+    assert res is not None
+
+
+def test_e3_open_short_row_uses_real_entry():
+    opens = [100.0, 100.0, 100.0, 98.0]
+    highs = [101.0, 101.0, 101.0, 99.0]
+    lows = [99.0, 99.0, 99.0, 97.0]
+    closes = [100.0, 100.0, 100.0, 98.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=pd.date_range("2024-01-01", periods=len(opens), freq="D", tz="UTC"),
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.sell(qty=10)
+
+    # 1. Zero commission
+    res = Backtest(Strat(), df, cash=10_000, close_at_end=False, commission=0.0).run()
+    assert len(res.trades) == 1
+    t = res.trades.iloc[0]
+    assert t["side"] == "SHORT"
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 98.0
+    assert t["gross_pnl"] == pytest.approx(20.0)
+    assert t["net_pnl"] == pytest.approx(20.0)
+
+    # 2. Commission 0.001 (0.1%)
+    res2 = Backtest(Strat(), df, cash=10_000, close_at_end=False, commission=0.001).run()
+    assert len(res2.trades) == 1
+    t2 = res2.trades.iloc[0]
+    assert t2["side"] == "SHORT"
+    assert t2["entry_price"] == 100.0
+    assert t2["exit_price"] == 98.0
+    assert t2["commission"] == pytest.approx(1.0)
+    assert t2["net_pnl"] == pytest.approx(19.0)
+
+
+def test_e3_portfolio_avg_entry_short_and_flip():
+    from stolgo.portfolio.portfolio import Portfolio
+    from stolgo.core.types import Fill, Side
+
+    p = Portfolio(10_000, symbol="TEST")
+
+    # sell 10 @ 100 -> avg 100
+    p.apply_fill(Fill("f1", "o1", "TEST", Side.SELL, 10, 100.0, 0.0, 1))
+    assert p.position.qty == -10.0
+    assert p.position.avg_entry_price == 100.0
+
+    # sell 10 @ 110 -> avg 105
+    p.apply_fill(Fill("f2", "o2", "TEST", Side.SELL, 10, 110.0, 0.0, 2))
+    assert p.position.qty == -20.0
+    assert p.position.avg_entry_price == pytest.approx(105.0)
+
+    # buy 5 -> avg still 105
+    p.apply_fill(Fill("f3", "o3", "TEST", Side.BUY, 5, 95.0, 0.0, 3))
+    assert p.position.qty == -15.0
+    assert p.position.avg_entry_price == pytest.approx(105.0)
+
+    # Reset/test flip from long: long 10 @ 100, sell 20 @ 90 -> qty -10, avg 90
+    p2 = Portfolio(10_000, symbol="TEST")
+    p2.apply_fill(Fill("f4", "o4", "TEST", Side.BUY, 10, 100.0, 0.0, 1))
+    assert p2.position.qty == 10.0
+    assert p2.position.avg_entry_price == 100.0
+
+    p2.apply_fill(Fill("f5", "o5", "TEST", Side.SELL, 20, 90.0, 0.0, 2))
+    assert p2.position.qty == -10.0
+    assert p2.position.avg_entry_price == pytest.approx(90.0)
+
+
+def test_e4_oco_gap_through_target_fills_target_at_open():
+    from stolgo.core.types import OrderIntent, OrderType, Side
+
+    class OCOStrat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 0:
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.LIMIT,
+                        qty=10,
+                        limit_price=105.0,
+                        oco_group="bracket-1",
+                    )
+                )
+                ctx._intents.append(
+                    OrderIntent(
+                        symbol=ctx.position.symbol,
+                        side=Side.SELL,
+                        order_type=OrderType.STOP,
+                        qty=10,
+                        stop_price=95.0,
+                        oco_group="bracket-1",
+                    )
+                )
+
+    df = pd.DataFrame(
+        {
+            "open": [100.0, 110.0, 100.0],
+            "high": [101.0, 112.0, 101.0],
+            "low": [99.0, 90.0, 99.0],
+            "close": [100.0, 100.0, 100.0],
+            "volume": [1.0, 1.0, 1.0],
+        },
+        index=idx[:3],
+    )
+    r = Backtest(OCOStrat(), df, cash=10_000, close_at_end=False).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill") and getattr(e.fill, "tag", None) != "END_OF_DATA"]
+    assert len(fills) == 1
+    assert fills[0].price == 110.0
+    assert fills[0].side == Side.SELL
+
+
+def test_e6_bracket_gap_through_target_fills_target_at_open():
+    from stolgo.trade import bracket
+
+    opens = [100.0, 100.0, 100.0, 112.0, 100.0]
+    highs = [101.0, 101.0, 101.0, 113.0, 101.0]
+    lows = [99.0, 99.0, 99.0, 94.0, 99.0]
+    closes = [100.0, 100.0, 100.0, 100.0, 100.0]
+    df = pd.DataFrame(
+        {"open": opens, "high": highs, "low": lows, "close": closes, "volume": 1.0},
+        index=idx[: len(opens)],
+    )
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, rr=(1, 2), qty=10)
+
+    # Entry fills at bar 2 open = 100 -> target 110. Bar 3 gaps up to open 112
+    # (and its low 94 would also touch the stop): the target must fill at the open.
+    r = Backtest(Strat(), df, cash=10_000).run()
+    assert len(r.trades) == 1
+    t = r.trades.iloc[0]
+    assert t["entry_price"] == 100.0
+    assert t["exit_price"] == 112.0
+    assert t["exit_reason"] == "long_target"
+    assert t["net_pnl"] == pytest.approx(120.0)
+    assert r.positions.qty.iloc[-1] == 0
+
+
+def _flat_df(n=5):
+    return pd.DataFrame(
+        {
+            "open": [100.0] * n,
+            "high": [101.0] * n,
+            "low": [99.0] * n,
+            "close": [100.0] * n,
+            "volume": 1.0,
+        },
+        index=idx[:n],
+    )
+
+
+def test_e7_duplicate_client_order_id_raises():
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=5, client_order_id="dup")
+                ctx.buy(qty=5, client_order_id="dup")
+
+    with pytest.raises(ValueError, match="dup"):
+        Backtest(Strat(), _flat_df(), cash=10_000).run()
+
+
+def test_e7_reserved_prefix_rejected():
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=5, client_order_id="_auto-1")
+
+    with pytest.raises(ValueError, match="_auto-"):
+        Backtest(Strat(), _flat_df(), cash=10_000).run()
+
+
+def test_e7_user_cid_cannot_hijack_bracket():
+    from stolgo.trade import bracket
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                bracket.long(ctx, stop=95.0, qty=10, tag="a")
+                ctx.buy(qty=5, client_order_id="cid-1")
+
+    r = Backtest(Strat(), _flat_df(), cash=10_000, close_at_end=False).run()
+    fills = [e.fill for e in r.events if hasattr(e, "fill")]
+    bracket_fills = [f for f in fills if f.tag == "a"]
+    manual_fills = [f for f in fills if f.client_order_id == "cid-1"]
+    assert len(bracket_fills) == 1
+    assert len(manual_fills) == 1
+    assert bracket_fills[0].client_order_id != "cid-1"
+    assert bracket_fills[0].qty == 10
+    assert r.positions.qty.iloc[-1] == 15
+
+
+def test_e8_cancelled_ids_do_not_accumulate_across_match_calls():
+    from stolgo.core.types import Bar, OrderType, Side
+    from stolgo.oms.commission import BpsCommission
+    from stolgo.oms.fill_model import NextOpenFill
+    from stolgo.oms.sim_broker import SimBroker
+    from stolgo.oms.slippage import NoSlippage
+
+    broker = SimBroker(NextOpenFill(), NoSlippage(), BpsCommission(0.0))
+    cancelled = broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET)
+    kept = broker.create_order("X", Side.BUY, 2.0, OrderType.MARKET)
+    broker.submit(cancelled)
+    broker.submit(kept)
+    broker.cancel(cancelled.order_id)
+
+    bar = Bar(ts=1, open=10.0, high=11.0, low=9.0, close=10.5, volume=1.0, symbol="X")
+    fills = broker.match(bar, bar_index=1)
+    assert [fe.order_id for fe in fills] == [kept.order_id]
+    assert broker._cancelled_ids == set()
+
+    # Same for the signal_close path.
+    cancelled2 = broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET)
+    broker.submit(cancelled2)
+    broker.cancel(cancelled2.order_id)
+    assert broker._cancelled_ids == {cancelled2.order_id}
+    assert broker.match_signal_close(bar, bar_index=2) == []
+    assert broker._cancelled_ids == set()
+
+
+@pytest.mark.parametrize("exit_mode", ["next_open", "bracket"])
+def test_e9_bracket_placed_on_last_bar_is_dropped_before_on_end(exit_mode):
+    from stolgo.trade import bracket
+
+    seen = {}
+
+    class Strat(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == len(ctx.data._close) - 1:
+                bracket.long(ctx, stop=95.0, qty=10, exit=exit_mode)
+
+        def on_end(self, ctx):
+            seen["active"] = len(ctx._active_brackets)
+
+    r = Backtest(Strat(), _flat_df(4), cash=10_000).run()
+    assert seen["active"] == 0
+    assert len(r.trades) == 0
+
+
+def test_e9_cancel_all_clears_pending_and_resting():
+    from stolgo.core.types import Bar, OrderType, Side
+    from stolgo.oms.commission import BpsCommission
+    from stolgo.oms.fill_model import NextOpenFill
+    from stolgo.oms.sim_broker import SimBroker
+    from stolgo.oms.slippage import NoSlippage
+
+    broker = SimBroker(NextOpenFill(), NoSlippage(), BpsCommission(0.0))
+    broker.submit(broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET))
+    resting = broker.create_order("X", Side.SELL, 1.0, OrderType.LIMIT, limit_price=500.0)
+    broker.submit(resting)
+    broker.match(Bar(ts=1, open=10.0, high=11.0, low=9.0, close=10.0, volume=1.0, symbol="X"), bar_index=0)
+    broker.submit(broker.create_order("X", Side.BUY, 1.0, OrderType.MARKET))
+    assert len(broker.open_orders()) == 2  # one pending market, one resting limit
+    broker.cancel_all()
+    assert broker.open_orders() == []
+
+
+def test_e10_trades_qty_dtype_is_float64_for_int_qty():
+    class RoundTrip(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+            if ctx.i == 3:
+                ctx.sell(qty=10)
+
+    r = Backtest(RoundTrip(), _flat_df(6), cash=10_000).run()
+    assert len(r.trades) == 1
+    assert r.trades["qty"].dtype == np.float64
+
+    class OpenOnly(Strategy):
+        def on_bar(self, ctx):
+            if ctx.i == 1:
+                ctx.buy(qty=10)
+
+    r2 = Backtest(OpenOnly(), _flat_df(6), cash=10_000, close_at_end=False).run()
+    assert len(r2.trades) == 1
+    assert r2.trades.iloc[0]["exit_reason"] == "OPEN"
+    assert r2.trades["qty"].dtype == np.float64
+
+    r3 = Backtest(OpenOnly(), _flat_df(1), cash=10_000).run()
+    assert len(r3.trades) == 0
+    assert r3.trades["qty"].dtype == np.float64
+
+
+def test_e10_build_trades_from_int_qty_fills_returns_float64():
+    from stolgo.core.events import FillEvent
+    from stolgo.core.types import Fill, Side
+    from stolgo.report.trades import build_trades_from_fills
+
+    def fe(fid, side, px, ts):
+        return FillEvent(fill=Fill(fid, "o" + fid, "X", side, 10, px, 0.0, ts), order_id="o" + fid, index=0)
+
+    closed = build_trades_from_fills([fe("1", Side.BUY, 100.0, 1), fe("2", Side.SELL, 101.0, 2)])
+    assert closed["qty"].dtype == np.float64
+    opened = build_trades_from_fills([fe("1", Side.BUY, 100.0, 1)], mark=(2, 101.0))
+    assert opened["qty"].dtype == np.float64
+    assert build_trades_from_fills([])["qty"].dtype == np.float64

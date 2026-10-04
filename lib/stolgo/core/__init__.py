@@ -2,8 +2,18 @@
 
 from stolgo.core.config import RunConfig
 from stolgo.core.engine import Backtest, Engine
-from stolgo.core.events import BarEvent, FillEvent, OrderEvent, SignalEvent, TimerEvent
+from stolgo.core.events import (
+    BarEvent,
+    FillEvent,
+    OrderEvent,
+    OrderRejectedEvent,
+    RiskHaltEvent,
+    SignalEvent,
+    TimerEvent,
+)
+from stolgo.core.lookahead import probe
 from stolgo.core.exceptions import (
+    AccountingError,
     BrokerNotImplementedError,
     ConfigurationError,
     DataError,
@@ -24,6 +34,7 @@ from stolgo.core.types import (
 )
 
 __all__ = [
+    "AccountingError",
     "Backtest",
     "Bar",
     "Engine",
@@ -39,9 +50,12 @@ __all__ = [
     "OrderEvent",
     "OrderIntent",
     "OrderRejectedError",
+    "OrderRejectedEvent",
     "OrderStatus",
     "OrderType",
     "Position",
+    "probe",
+    "RiskHaltEvent",
     "RunConfig",
     "Side",
     "SignalEvent",

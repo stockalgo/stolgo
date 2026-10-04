@@ -30,11 +30,12 @@ stolgo = "stolgo.cli.main:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = [".", "lib"]
 markers = [
     "integration: hits real bandl/network (not run in CI)",
     "benchmark: optional perf regression",
 ]
-addopts = "-m 'not integration'"
+addopts = "-m 'not integration and not benchmark'"
 
 [tool.ruff]
 line-length = 100

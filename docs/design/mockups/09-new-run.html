@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New run — Stolgo mockup</title>
+<link rel="stylesheet" href="fonts/fonts.css"><link rel="stylesheet" href="../tokens.css"><link rel="stylesheet" href="../components.css">
+<style>body{width:1440px;} .rail{position:relative;height:auto;min-height:100%}</style></head>
+<body><div class="app" style="">
+<nav class="rail" aria-label="Primary"><div class="rail__logo">S</div><button class="rail__btn" aria-label="Library" title="Library"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button><button class="rail__btn" aria-label="Run" title="Run"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/></svg></button><button class="rail__btn" aria-label="Compare" title="Compare"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="4" x2="8" y2="20"/><line x1="16" y1="4" x2="16" y2="20"/><polyline points="4 8 8 4 12 8"/><polyline points="12 16 16 20 20 16"/></svg></button><button class="rail__btn" aria-label="Groups" title="Groups"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><circle cx="12" cy="12" r="2"/></svg></button><button class="rail__btn" aria-current="page" aria-label="New run" title="New run"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button><div class="rail__spacer"></div>
+<button class="rail__btn" aria-label="Help"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5V14"/><line x1="12" y1="17" x2="12" y2="17.01"/></svg></button></nav>
+<div class="main"><header class="topbar"><div class="crumbs"><b>New run</b></div>
+<label class="cmdk"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg><input aria-label="Command bar" placeholder="Jump to run, trade #, date, metric…"><span class="kbd">⌘K</span></label></header>
+<main class="page"><section><div class="eyebrow">New run</div><h1 style="margin:4px 0 0;font-size:28px;font-weight:600">Build a backtest command</h1>
+<div class="muted" style="max-width:760px">The UI cannot start runs yet. Fill the form, copy the command, run it in a terminal, then refresh the Library. Only the flags the <span class="mono">stolgo</span> CLI supports today are shown.</div></section>
+<div class="grid" style="grid-template-columns:minmax(0,1fr) 420px">
+<section class="panel"><div class="panel__head"><span class="panel__title">Parameters</span></div>
+<div class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+<label class="field">Strategy file (.py) <input class="input mono" value="examples/trend_breakout_backtest.py"></label>
+<label class="field">Strategy class <input class="input mono" value="TrendBreakout"></label>
+<label class="field">Data CSV (OHLCV) <input class="input mono" value="data/NIFTY_15m.csv"></label>
+<label class="field">Run id (folder name under runs/) <input class="input mono" value="nifty-trend-breakout-15m"><span class="faint">Lowercase, digits and dashes only. Must not already exist.</span></label>
+<label class="field">Starting cash (₹) <input class="input mono" value="180000"></label>
+<label class="field">Commission (fraction per fill) <input class="input mono" value="0.0003"><span class="faint">0.0003 = 3 bps. Statutory F&amp;O charges are not modelled by this CLI.</span></label></div>
+<div class="eyebrow" style="margin:18px 0 8px">Command</div>
+<div class="code">stolgo examples/trend_breakout_backtest.py \
+  --class TrendBreakout \
+  --data data/NIFTY_15m.csv \
+  --cash 180000 \
+  --commission 0.0003 \
+  --output runs/nifty-trend-breakout-15m</div>
+<div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn--primary"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>Copy command</button><button class="btn">Reset</button></div></section>
+<aside class="grid" style="align-content:start">
+<section class="panel"><div class="panel__head"><span class="panel__title">After it finishes</span></div>
+<ol style="margin:0;padding-left:18px;color:var(--text-2);line-height:1.8"><li>The run folder appears in <span class="mono">runs/</span> with a v2 manifest.</li><li>The server re-indexes on the next Library load.</li><li>Open it from the Library. It is sorted by creation time when you choose “Newest”.</li></ol></section>
+<section class="panel"><div class="panel__head"><span class="panel__title">Options research runs</span></div>
+<div style="color:var(--text-2);font-size:13px">Options replays (strangles, iron condors, timing sweeps) come from the research generators. They must call <span class="mono">export_run_v2()</span> to appear here with full diagnostics.</div>
+<div class="callout" style="margin-top:10px">Runner API (queue from UI) is <b>not built</b>. This page will gain a “Run” button when <span class="mono">POST /api/runs</span> exists.</div></section></aside></div></main></div></div></body></html>

@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 from __future__ import annotations
 
 from stolgo.core.types import Bar, Fill, Position, Side
@@ -20,20 +18,34 @@ class Portfolio:
 
     def apply_fill(self, fill: Fill) -> None:
         notional = fill.price * fill.qty
+        old_qty = self._position.qty
+        fill_signed = fill.qty if fill.side == Side.BUY else -fill.qty
+        new_qty = old_qty + fill_signed
+
         if fill.side == Side.BUY:
             self._cash -= notional + fill.commission
-            new_qty = self._position.qty + fill.qty
-            if new_qty > 0:
-                self._position.avg_entry_price = (
-                    self._position.avg_entry_price * self._position.qty + notional
-                ) / new_qty
-            self._position.qty = new_qty
         else:
             self._cash += notional - fill.commission
-            self._position.qty -= fill.qty
-            if abs(self._position.qty) < 1e-12:
-                self._position.qty = 0.0
-                self._position.avg_entry_price = 0.0
+
+        if abs(new_qty) < 1e-12:
+            self._position.qty = 0.0
+            self._position.avg_entry_price = 0.0
+        elif old_qty == 0.0:
+            self._position.qty = new_qty
+            self._position.avg_entry_price = fill.price
+        elif (old_qty > 0 and fill_signed > 0) or (old_qty < 0 and fill_signed < 0):
+            self._position.avg_entry_price = (
+                self._position.avg_entry_price * abs(old_qty) + notional
+            ) / abs(new_qty)
+            self._position.qty = new_qty
+        elif (old_qty > 0 and new_qty > 0) or (old_qty < 0 and new_qty < 0):
+            self._position.qty = new_qty
+        else:
+            self._position.qty = new_qty
+            self._position.avg_entry_price = fill.price
+
+        if abs(self._cash) < 1e-9:
+            self._cash = 0.0
 
     def mark_to_market(self, bar: Bar) -> float:
         return self._cash + self._position.qty * bar.close

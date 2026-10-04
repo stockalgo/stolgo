@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Plotly tearsheet builder (HLD §8.3)."""
 
 from __future__ import annotations

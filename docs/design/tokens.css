@@ -1,0 +1,97 @@
+/* ==========================================================================
+   Stolgo design tokens — "Cockpit" (dark). SOURCE OF TRUTH.
+   Copy verbatim to frontend/src/styles/tokens.css (UI plan step U1).
+   Never hard-code a hex value in a component. Always use a var().
+   ========================================================================== */
+:root {
+  /* ---- Surfaces (darkest → lightest) ---- */
+  --bg-app: #0a0c0e;        /* page background behind panels */
+  --bg-rail: #080a0c;       /* left navigation rail */
+  --bg-panel: #0d1013;      /* cards / panels */
+  --bg-raised: #14181c;     /* chips, inputs, hover rows, inner boxes */
+  --bg-active: #1c2127;     /* selected tab / selected row / pressed */
+  --bg-overlay: rgba(4, 6, 8, 0.72); /* modal scrim */
+
+  /* ---- Lines ---- */
+  --line: #1b1f24;          /* panel borders, table row dividers */
+  --line-strong: #2a3037;   /* input borders, focus-off outlines */
+  --line-faint: #14181c;    /* chart grid lines */
+
+  /* ---- Text (contrast on --bg-panel) ---- */
+  --text-1: #e6e8ea;        /* primary: values, titles        (15.9:1) */
+  --text-2: #c9ced3;        /* secondary: labels in rows      (12.3:1) */
+  --text-3: #a7aeb5;        /* tertiary: chip text            (8.7:1)  */
+  --text-muted: #8a929b;    /* captions, section eyebrows     (6.1:1)  */
+  --text-faint: #6b737c;    /* axis ticks, footnotes only     (4.0:1 → only ≥ 11px mono on dark, never body copy) */
+
+  /* ---- Semantic ---- */
+  --accent: #f5a524;        /* brand amber: primary buttons, selection rings, "fragile" verdict */
+  --accent-ink: #0a0c0e;    /* text on --accent */
+  --accent-bg: #1a1407;
+  --accent-line: #5a4413;
+  --accent-text: #c9b894;
+
+  --pos: #3ddc97;           /* gains, up candles, OK status */
+  --pos-bg: rgba(61, 220, 151, 0.10);
+  --neg: #e5484d;           /* losses (fills, candles, bars) */
+  --neg-text: #ff7a7e;      /* losses as TEXT (lighter for contrast) */
+  --neg-bg: rgba(229, 72, 77, 0.12);
+  --info: #5ab0ff;          /* informational, PE strike line, links on dark */
+  --info-bg: rgba(90, 176, 255, 0.10);
+  --warn: #f5a524;          /* = accent; warnings share amber */
+  --warn-bg: #1a1407;
+
+  /* ---- Categorical series (compare page, market×dte). Differ in lightness too. ---- */
+  --series-1: #f5a524;      /* amber  */
+  --series-2: #5ab0ff;      /* blue   */
+  --series-3: #3ddc97;      /* green  */
+  --series-4: #c792ff;      /* violet */
+  --market-nifty-0: #7cc4ff;
+  --market-nifty-1: #2f6fd6;
+  --market-sensex-0: #ffb35c;
+  --market-sensex-1: #c4561b;
+  --market-other: #9aa3b2;
+
+  /* ---- Type ---- */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --fs-10: 10px;  /* chart ticks only */
+  --fs-11: 11px;  /* eyebrows (mono, uppercase, +0.08em), footnotes */
+  --fs-12: 12px;  /* chips, table secondary, captions */
+  --fs-13: 13px;  /* body, table cells, buttons */
+  --fs-15: 15px;  /* panel titles */
+  --fs-20: 20px;  /* small KPI values */
+  --fs-24: 24px;  /* KPI values */
+  --fs-30: 30px;  /* page title (run name) */
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+  --tracking-eyebrow: 0.08em;
+
+  /* ---- Space (4px grid) ---- */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px;
+
+  /* ---- Radius / shadow ---- */
+  --r-sm: 4px;  /* badges, tiny swatches */
+  --r-md: 6px;  /* buttons, chips, inputs */
+  --r-lg: 10px; /* panels */
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45); /* menus, tooltips, modals only */
+
+  /* ---- Layout ---- */
+  --rail-w: 60px;
+  --topbar-h: 56px;
+  --page-pad-x: 24px;
+  --page-pad-y: 16px;
+  --gap: 14px;              /* gap between panels */
+  --content-max: 1680px;
+
+  /* ---- Motion ---- */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur: 200ms;
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur: 0ms; }
+}

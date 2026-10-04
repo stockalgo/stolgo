@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 """Cross-sectional factor pipeline (HLD §4.3, §6.3) — v0.2."""
 
 from __future__ import annotations
@@ -8,7 +6,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-import numpy as np
 import pandas as pd
 
 from stolgo.core.config import RunConfig

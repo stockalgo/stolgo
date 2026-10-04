@@ -1,10 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-# [ ] no look-ahead: only data[:t+1] in strategy loop
-# [ ] no pandas in oms/portfolio hot path
-# [ ] no bandl imports outside stolgo.data / stolgo.broker
-# [ ] fill default = next_open unless RunConfig.fill_on == "close"
-# [ ] pytest tests for this module pass before next build step
-
 """Run configuration (HLD §4.1, §8)."""
 
 from __future__ import annotations
@@ -12,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from typing import Literal
+import warnings
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -26,10 +20,26 @@ class RunConfig(BaseModel):
     cash: float = 100_000.0
     commission: float = 0.0
     slippage_bps: float = 0.0
-    fill_on: Literal["next_open", "close"] = "next_open"
+    fill_on: Literal["next_open", "next_close", "signal_close", "close"] = "next_open"
     fast: bool = False
     symbol: str | None = None
     interval: str | None = None
+    halt_drawdown: float | None = None
+    allow_leverage: bool = False
+    close_at_end: bool = True
+    lookahead_check: bool = False
+    qty_step: float | None = None
+
+    @field_validator("fill_on")
+    @classmethod
+    def _validate_fill_on(cls, v: str) -> str:
+        if v == "close":
+            warnings.warn(
+                "fill_on='close' is deprecated, use fill_on='next_close'",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return v
 
     @field_validator("cash")
     @classmethod

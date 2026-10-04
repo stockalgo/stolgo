@@ -1,5 +1,3 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 from stolgo.broker.base import BrokerAdapter
 from stolgo.core.exceptions import BrokerNotImplementedError
 

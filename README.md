@@ -34,7 +34,7 @@ Write your logic once. Point it at market data or a CSV. Get metrics and charts.
 | **Composable** | Combine levels, relations, candles, and streaks with `&` `\|` `~` `.then()` |
 | **Trade in one line** | `trade.long(ctx, rr=(1, 2), stop="candle_low")` — stops, targets, sizing handled |
 | **Presets** | `pa.preset.consolidation_breakout(7)` and friends — proven setups, zero wiring |
-| **Honest simulation** | Event loop with configurable fill timing (`next_open` or `close`), commission, slippage |
+| **Honest simulation** | Event loop with configurable fill timing (`next_open`, `next_close` or `signal_close`), commission, slippage |
 | **No look-ahead** | `ctx.data` only exposes history up to the current bar; MTF levels align safely |
 | **Data your way** | **[bandl](https://bandl.io)** for crypto/equity OHLCV, or **`load()`** for CSV/Parquet |
 | **Built-in analytics** | Sharpe, drawdown, hit rate, profit factor, HTML tearsheet |
@@ -94,7 +94,7 @@ class Breakout(Strategy):
 # 3. Run it on real data
 end = datetime.now(timezone.utc)
 df = Bandl().history("BTCUSDT", "1h", end - timedelta(days=365), end)
-result = Backtest(Breakout(), df, fill_on="close").run()
+result = Backtest(Breakout(), df, fill_on="next_close").run()
 print(result.summary())
 result.report.to_html("tearsheet.html")
 ```
@@ -309,7 +309,24 @@ OHLCV (Bandl / load / DataFrame)
    RunResult: equity, trades, metrics, Plotly tearsheet
 ```
 
-Default fill model: signal on bar **t** → fill at bar **t+1 open** (`fill_on="next_open"`). Use `fill_on="close"` when you want same-bar close fills (e.g. breakout-on-close setups).
+Default fill model: signal on bar **t** → fill at bar **t+1 open** (`fill_on="next_open"`). Use `fill_on="signal_close"` when you want same-bar close fills (e.g. breakout-on-close setups).
+
+For the full rules (gaps, stop/target ties within one bar, limit fills on a touch, slippage and commission, the buy-side cash check, end-of-data behaviour) see the **[Execution model](docs/EXECUTION_MODEL.md)**.
+
+### Execution & Engine Configuration
+
+`Backtest(strategy, data, ...)` accepts configurable options via `RunConfig`:
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `fill_on` | `"next_open" \| "next_close" \| "signal_close"` | `"next_open"` | Execution timing. `"next_open"` fills at the open of bar t+1. `"next_close"` fills at the close of bar t+1. `"signal_close"` fills at the close of signal bar t (breakout-on-close). Note: `"close"` is deprecated in favor of `"next_close"`. |
+| `halt_drawdown` | `float \| None` | `None` | Risk halt threshold (e.g. `0.20` for 20% drawdown). When breached, new risk positions are blocked and only closing orders are processed. |
+| `allow_leverage` | `bool` | `False` | When `False`, `size_pct` cannot size beyond available cash at fill time. |
+| `close_at_end` | `bool` | `True` | Automatically flattens open positions at the final bar's close price. |
+| `lookahead_check` | `bool` | `False` | Injects a lookahead probe in debug mode to verify strategies do not leak future prices (checks `on_start` masks only, not `ctx.data`). |
+| `cash` | `float` | `100_000.0` | Initial starting capital. |
+| `commission` | `float` | `0.0` | Proportional fee per trade. |
+| `slippage_bps` | `float` | `0.0` | Execution slippage in basis points. |
 
 ---
 

@@ -37,7 +37,7 @@ def test_html_contains_plotly_and_traces(tmp_path):
     assert "drawdown" in html
 
 
-def test_m3_tearsheet_from_backtest(synthetic_100bars_df):
+def test_m3_tearsheet_from_backtest(synthetic_100bars_df, tmp_path):
     from stolgo import Backtest, Strategy
     from stolgo.strategy.context import Context
 
@@ -50,8 +50,7 @@ def test_m3_tearsheet_from_backtest(synthetic_100bars_df):
 
     result = Backtest(BuySell(), synthetic_100bars_df, cash=100_000).run()
     assert len(result.trades) >= 1
-    path = Path("stolgo_tearsheet_test.html")
+    path = tmp_path / "tearsheet.html"
     result.report.to_html(path)
     html = path.read_text().lower()
     assert "plotly" in html
-    path.unlink(missing_ok=True)

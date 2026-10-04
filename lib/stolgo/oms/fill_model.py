@@ -1,8 +1,6 @@
-# stolgo agent mistake checklist — docs/IMPLEMENTATION_PLAN_BACKTEST.md §D
-
 from __future__ import annotations
 
-from typing import Literal, Protocol
+from typing import Protocol
 
 from stolgo.core.types import Bar, Order, OrderType
 
@@ -18,8 +16,13 @@ class NextOpenFill:
         return None
 
 
-class CloseFill:
+class NextCloseFill:
     def fill_price(self, order: Order, bar: Bar, *, bar_index: int) -> float | None:
         if order.order_type == OrderType.MARKET:
             return bar.close
         return None
+
+
+# Deprecated alias
+CloseFill = NextCloseFill
+

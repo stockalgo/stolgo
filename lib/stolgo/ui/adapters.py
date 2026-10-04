@@ -2,21 +2,345 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import numpy as np
 import pandas as pd
 
+from stolgo.report._json import clean as _clean
+from stolgo.report.metric_registry import metric_defs
 
-def _to_secs(ts) -> int:
-    return int(pd.Timestamp(ts).timestamp())
+
+def _to_secs(ts: Any) -> int | None:
+    if ts is None or pd.isna(ts):
+        return None
+    t = pd.Timestamp(ts)
+    if t.tzinfo is None:
+        t = t.tz_localize("UTC")
+    return int(t.timestamp())
 
 
+def run_summary_v2(manifest: dict) -> dict:
+    """Format manifest as §4.1 RunSummary JSON object."""
+    run_id = str(manifest.get("run_id", ""))
+    inst = manifest.get("instrument") or {}
+    group = manifest.get("group") or {}
+    config = manifest.get("config") or {}
+    window = manifest.get("window") or config.get("window") or {}
+    metrics = manifest.get("metrics") or {}
+    rob = manifest.get("robustness") or {}
+    diag = manifest.get("diagnostics") or {}
+    dq = diag.get("data_quality") or {}
+    has_flags = manifest.get("has") or {}
+
+    summary_metrics = {
+        "net_pnl": metrics.get("net_pnl"),
+        "total_return": metrics.get("total_return"),
+        "cagr": metrics.get("cagr"),
+        "sharpe": metrics.get("sharpe"),
+        "max_drawdown": metrics.get("max_drawdown"),
+        "profit_factor": metrics.get("profit_factor"),
+        "hit_rate": metrics.get("hit_rate"),
+        "num_trades": metrics.get("num_trades"),
+        "expectancy": metrics.get("expectancy"),
+        "annualised_from_short_window": metrics.get("annualised_from_short_window", False),
+    }
+
+    raw = {
+        "id": run_id,
+        "name": manifest.get("name") or run_id,
+        "status": manifest.get("status", "ok"),
+        "status_reasons": manifest.get("status_reasons", []),
+        "markets": inst.get("markets", []),
+        "structure": inst.get("structure", ""),
+        "dte": inst.get("dte", []),
+        "group": {
+            "id": group.get("id"),
+            "label": group.get("label"),
+            "axes": group.get("axes", {}),
+        },
+        "window": {
+            "start": window.get("start"),
+            "end": window.get("end"),
+            "sessions": window.get("sessions", 0),
+        },
+        "capital": float(config.get("capital", 0.0)) if config.get("capital") is not None else 0.0,
+        "metrics": summary_metrics,
+        "robustness": {
+            "p_net_positive": rob.get("p_net_positive"),
+            "net_without_top5": rob.get("net_without_top5"),
+        },
+        "data_quality": {
+            "trades_with_missing_data": dq.get("trades_with_missing_data", 0),
+            "trades_total": dq.get("trades_total", metrics.get("num_trades", 0)),
+        },
+        "has": {
+            "ohlcv": bool(has_flags.get("ohlcv", False)),
+            "legs": bool(has_flags.get("legs", False)),
+            "intraday_equity": bool(has_flags.get("intraday_equity", False)),
+            "audit": bool(has_flags.get("audit", False)),
+        },
+        "created_at": manifest.get("created_at"),
+        "migrated_at": manifest.get("migrated_at"),
+        "migrated_changed_basis": manifest.get("migrated_changed_basis", False),
+    }
+    return _clean(raw)
+
+
+def run_detail_v2(manifest: dict) -> dict:
+    """Format manifest as §4.2 RunDetail JSON object."""
+    summary = run_summary_v2(manifest)
+    detail = dict(summary)
+    detail["instrument"] = manifest.get("instrument", {})
+    detail["config"] = manifest.get("config", {})
+    detail["metrics"] = manifest.get("metrics", {})
+    detail["robustness"] = manifest.get("robustness", {})
+    detail["diagnostics"] = manifest.get("diagnostics", {})
+    detail["metric_defs"] = metric_defs()
+    return _clean(detail)
+
+
+def trades_v2_rows(df: pd.DataFrame) -> dict:
+    """Format trades dataframe as §4.5 TradeV2[] response."""
+    if df.empty:
+        return {"rows": [], "columns": list(df.columns)}
+    work = df.copy()
+    for col in ("entry_ts", "exit_ts"):
+        if col in work.columns:
+            work[col] = work[col].apply(_to_secs)
+    return {
+        "rows": _clean(work.to_dict(orient="records")),
+        "columns": list(df.columns),
+    }
+
+
+def daily_rows(daily_df: pd.DataFrame) -> dict:
+    """Format daily dataframe as §4.3 response."""
+    if daily_df.empty:
+        return {"rows": []}
+    work = daily_df.copy()
+    if "session" in work.columns:
+        work["session"] = work["session"].astype(str).str.slice(0, 10)
+    records = work.to_dict(orient="records")
+    return {"rows": _clean(records)}
+
+
+def monthly_rows(daily_df: pd.DataFrame, capital: float) -> dict:
+    """Format monthly aggregation from daily dataframe as §4.4 response."""
+    if daily_df.empty:
+        return {"rows": []}
+    work = daily_df.copy()
+    work["month"] = work["session"].astype(str).str.slice(0, 7)
+    grouped = work.groupby("month", sort=True)
+    rows = []
+    cap = float(capital) if capital and capital > 0 else 0.0
+    for month, group in grouped:
+        pnl = float(group["pnl"].sum())
+        ret_pct = pnl / cap if cap > 0 else None
+        trades = int(group["trades_closed"].sum()) if "trades_closed" in group.columns else 0
+        rows.append(
+            {
+                "month": str(month),
+                "pnl": pnl,
+                "return_pct": ret_pct,
+                "trades": trades,
+            }
+        )
+    return {"rows": _clean(rows)}
+
+
+def candles(
+    ohlcv: pd.DataFrame,
+    tf: str = "1D",
+    frm: str | None = None,
+    to: str | None = None,
+    *,
+    tz: str | None = None,
+    session_close: str | None = None,
+) -> dict:
+    """Format and resample ohlcv as §4.7 Candle[] response."""
+    if ohlcv is None or ohlcv.empty:
+        return {"rows": [], "tf": tf}
+
+    target_tz = tz or "Asia/Kolkata"
+    target_close = session_close or ("15:30" if target_tz == "Asia/Kolkata" else "24:00")
+    is_indian = (target_tz == "Asia/Kolkata" and target_close == "15:30")
+
+    work = ohlcv
+    if not isinstance(work.index, pd.DatetimeIndex):
+        if "timestamp" in work.columns:
+            work = work.set_index(pd.to_datetime(work["timestamp"], utc=True))
+        else:
+            raise ValueError("ohlcv must have a DatetimeIndex or timestamp column")
+
+    if work.index.tz is None:
+        idx = work.index.tz_localize("UTC").tz_convert(target_tz)
+    else:
+        idx = work.index.tz_convert(target_tz)
+
+    work = work.copy(deep=False)
+    work.index = idx
+
+    norm = idx.normalize()
+    if frm is not None or to is not None:
+        if frm is not None:
+            frm_ts = pd.Timestamp(frm, tz=target_tz).normalize()
+            mask = norm >= frm_ts
+            work = work[mask]
+            norm = norm[mask]
+        if to is not None:
+            to_ts = pd.Timestamp(to, tz=target_tz).normalize()
+            mask = norm <= to_ts
+            work = work[mask]
+            norm = norm[mask]
+    else:
+        unique_sessions = norm.unique()
+        limit = 180 if tf == "1D" else (20 if tf == "1H" else 5)
+        if len(unique_sessions) > limit:
+            cutoff = unique_sessions[-limit]
+            mask = norm >= cutoff
+            work = work[mask]
+
+    if work.empty:
+        return {"rows": [], "tf": tf}
+
+    has_vol = "volume" in work.columns
+    work["_time"] = (work.index.tz_convert("UTC").asi8 // 1_000_000_000).astype(int)
+
+    if tf == "1D":
+        agg_dict = {
+            "_time": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+        }
+        if has_vol:
+            agg_dict["volume"] = "sum"
+        res = work.resample("1D").agg(agg_dict).dropna(subset=["open"])
+        res = res.rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
+        return {"rows": _clean(records), "tf": tf}
+
+    elif tf == "1H":
+        agg_dict = {
+            "_time": "first",
+            "open": "first",
+            "high": "max",
+            "low": "min",
+            "close": "last",
+        }
+        if has_vol:
+            agg_dict["volume"] = "sum"
+        offset = "15min" if is_indian else None
+        res = work.resample("60min", offset=offset).agg(agg_dict).dropna(subset=["open"])
+        res = res.rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
+        return {"rows": _clean(records), "tf": tf}
+
+    else:  # 15m or raw
+        cols = ["_time", "open", "high", "low", "close"]
+        if has_vol:
+            cols.append("volume")
+        res = work[cols].rename(columns={"_time": "time"})
+        res["time"] = res["time"].astype(int)
+        records = res.to_dict(orient="records")
+        return {"rows": _clean(records), "tf": tf}
+
+
+def trade_detail(
+    trades_df: pd.DataFrame,
+    legs_df: pd.DataFrame | None,
+    ohlcv: pd.DataFrame | None,
+    trade_id: int,
+    ohlcv_market: str | None = None,
+) -> dict:
+    """Format single trade detail with optional legs and session bars as §4.6 response."""
+    match = trades_df[trades_df["trade_id"] == trade_id]
+    if match.empty:
+        raise KeyError(f"trade {trade_id} not found")
+
+    trade_row = match.iloc[0].to_dict()
+    for col in ("entry_ts", "exit_ts"):
+        trade_row[col] = _to_secs(trade_row.get(col))
+
+    legs_rows: list[dict] = []
+    if legs_df is not None and not legs_df.empty and "trade_id" in legs_df.columns:
+        leg_matches = legs_df[legs_df["trade_id"] == trade_id]
+        if not leg_matches.empty:
+            work_legs = leg_matches.copy()
+            for col in ("entry_ts", "exit_ts"):
+                if col in work_legs.columns:
+                    work_legs[col] = work_legs[col].apply(_to_secs)
+            legs_rows = work_legs.to_dict(orient="records")
+
+    bars: list[dict] = []
+    trade_market = trade_row.get("market")
+    market_matches = True
+    if ohlcv_market is not None and trade_market is not None and str(trade_market).strip() != "":
+        market_matches = (str(trade_market).strip().upper() == str(ohlcv_market).strip().upper())
+
+    session_date = str(trade_row.get("session_date", "")).strip()
+    if market_matches and ohlcv is not None and not ohlcv.empty and session_date:
+        work_ohlcv = ohlcv
+        if not isinstance(work_ohlcv.index, pd.DatetimeIndex):
+            if "timestamp" in work_ohlcv.columns:
+                work_ohlcv = work_ohlcv.set_index(pd.to_datetime(work_ohlcv["timestamp"], utc=True))
+        if work_ohlcv.index.tz is None:
+            tz_index = work_ohlcv.index.tz_localize("UTC").tz_convert("Asia/Kolkata")
+        else:
+            tz_index = work_ohlcv.index.tz_convert("Asia/Kolkata")
+
+        try:
+            target_day = pd.Timestamp(session_date, tz="Asia/Kolkata").normalize()
+            mask = tz_index.normalize() == target_day
+        except Exception:
+            mask = np.zeros(len(tz_index), dtype=bool)
+
+        session_bars = work_ohlcv[mask]
+        if not session_bars.empty:
+            session_bars = session_bars.copy()
+            session_bars.index = tz_index[mask]
+            intraday = session_bars.between_time("09:15", "15:30")
+            bars_to_use = intraday if not intraday.empty else session_bars
+            has_vol = "volume" in bars_to_use.columns
+            for ts, row in bars_to_use.iterrows():
+                b = {
+                    "time": int(ts.tz_convert("UTC").timestamp()),
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                }
+                if has_vol:
+                    b["volume"] = float(row["volume"])
+                bars.append(b)
+
+    return _clean(
+        {
+            "trade": trade_row,
+            "legs": legs_rows,
+            "bars": bars,
+        }
+    )
+
+
+# Backward compatibility helpers
 def run_summary(manifest: dict) -> dict:
+    if manifest.get("schema_version") == 2:
+        return run_summary_v2(manifest)
     m = manifest.get("metrics", {})
     p = manifest.get("params", {})
+    market = p.get("symbol") or p.get("index") or "-"
+    dte_val = p.get("dte")
+    timeframe = p.get("interval") or (f"{dte_val}DTE" if dte_val is not None else "-")
     return {
         "id": manifest["run_id"],
-        "strategy": manifest["strategy"],
-        "market": p.get("symbol") or "-",
-        "timeframe": p.get("interval") or "-",
+        "strategy": manifest.get("strategy") or manifest.get("name", "Unknown"),
+        "market": market,
+        "timeframe": timeframe,
         "return": m.get("total_return", 0.0),
         "sharpe": m.get("sharpe", 0.0),
         "drawdown": m.get("max_drawdown", 0.0),
@@ -40,53 +364,3 @@ def metric_cards(metrics: dict) -> list[dict]:
         {"key": key, "label": label, "value": metrics.get(key, 0.0), "fmt": fmt}
         for key, label, fmt in order
     ]
-
-
-def series(ohlcv_df, equity_s, drawdown_s) -> dict:
-    candles = [
-        {
-            "time": _to_secs(index),
-            "open": float(row.open),
-            "high": float(row.high),
-            "low": float(row.low),
-            "close": float(row.close),
-        }
-        for index, row in ohlcv_df.iterrows()
-    ]
-    volume = [
-        {
-            "time": _to_secs(index),
-            "value": float(row.volume),
-            "color": "rgba(20,154,90,0.18)"
-            if row.close >= row.open
-            else "rgba(200,63,58,0.16)",
-        }
-        for index, row in ohlcv_df.iterrows()
-    ]
-    equity = [{"time": _to_secs(index), "value": float(value)} for index, value in equity_s.items()]
-    drawdown = [
-        {"time": _to_secs(index), "value": float(value)} for index, value in drawdown_s.items()
-    ]
-    return {"candles": candles, "volume": volume, "equity": equity, "drawdown": drawdown}
-
-
-def trades(trades_df) -> list[dict]:
-    out = []
-    for index, row in trades_df.iterrows():
-        pnl = float(row.get("net_pnl", 0.0))
-        out.append(
-            {
-                "id": int(index) + 1,
-                "entryTime": _to_secs(row["entry_ts"]),
-                "exitTime": _to_secs(row["exit_ts"]),
-                "entryPrice": float(row["entry_price"]),
-                "exitPrice": float(row["exit_price"]),
-                "qty": float(row["qty"]),
-                "pnl": pnl,
-                "r": round(float(row.get("r_multiple", 0.0)), 2),
-                "side": "Long",
-                "tag": row.get("tag") or "",
-                "pnlClass": "positive" if pnl >= 0 else "negative",
-            }
-        )
-    return out
