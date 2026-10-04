@@ -20,6 +20,11 @@ Fills are applied **one at a time**, in order. After each fill the portfolio
 check and `size_pct` sizing of a later fill in the same bar see the effect of
 earlier fills.
 
+Before `on_bar`, fill callbacks see only previously completed candles through
+`ctx.data`; the full vector view supplied to `on_start` is restricted before
+runtime callbacks. Signal-close callbacks run after `on_bar` and can see that
+bar's completed candle.
+
 ## Fill timing by `fill_on`
 
 | `fill_on` | Market order created in `on_bar` at bar `t` fills at |
@@ -30,6 +35,10 @@ earlier fills.
 
 `"close"` is a deprecated alias of `"next_close"` and emits a
 `DeprecationWarning`.
+
+`ctx.order(active_from=t)` can defer any order type until bar index `t`.
+The engine uses the later of this explicit index and the earliest bar permitted
+by the fill mode. Deferred signal-close markets still execute at the close.
 
 Limit and stop orders created in `on_bar` at bar `t` become active on bar
 `t+1` in every mode. Orders created as a reaction to a fill (a bracket's stop
@@ -99,7 +108,13 @@ stop fills and the end-of-data close.
 For buys, when `allow_leverage=False` (default), a fill is rejected with an
 `OrderRejectedEvent` (`insufficient_cash`) if `price * qty + commission` (price after
 slippage) exceeds available cash at fill time. A rejected order is dropped, not retried. This
-check applies to every buy fill, including a buy that covers a short.
+check also applies to ordinary buy orders that cover shorts.
+
+Reduce-only exits (`ctx.close`, bracket exits and the end-of-data close) are
+exempt from this cash check: covering a losing short reduces exposure even
+when the loss exceeds cash. Such a liquidation can leave negative cash; CAGR
+is undefined once final equity is non-positive. Repeated `ctx.close` calls
+cannot reverse a position.
 
 Sells are **not** checked: there is no margin model for short positions yet.
 You can open a short of any size, so size shorts yourself and do not read short

@@ -113,6 +113,9 @@ class SimBroker:
         for order in market_orders:
             if order.order_id in self._cancelled_ids:
                 continue
+            if order.active_from > bar_index or self._fill_on == "signal_close":
+                still_pending.append(order)
+                continue
             price = self._fill_model.fill_price(order, bar, bar_index=bar_index)
             if price is None:
                 still_pending.append(order)
@@ -149,10 +152,15 @@ class SimBroker:
         self._cancelled_ids.clear()
         fill_events: list[FillEvent] = []
         still_pending: list[Order] = []
-        for order in list(self._pending):
+        pending = self._pending
+        self._pending = []
+        for order in pending:
             if order.order_id in self._cancelled_ids:
                 continue
             if order.order_type == OrderType.MARKET:
+                if order.active_from > bar_index:
+                    still_pending.append(order)
+                    continue
                 fe = self._make_fill(order, bar, bar.close, bar_index, portfolio=portfolio, events=events)
                 if fe is not None:
                     fill_events.append(fe)
@@ -160,7 +168,7 @@ class SimBroker:
                         on_fill(fe)
             else:
                 self._book.add(order)
-        self._pending = [o for o in still_pending if o.order_id not in self._cancelled_ids]
+        self._pending.extend(o for o in still_pending if o.order_id not in self._cancelled_ids)
         return fill_events
 
 
@@ -211,6 +219,13 @@ class SimBroker:
                 qty = 0.0
             resolved_at_fill = True
 
+        if order.size_pct is not None and portfolio is not None:
+            comm_rate = getattr(self._commission, "_rate", 0.0)
+            cost_per_unit = px * (1.0 + comm_rate)
+            qty = (portfolio.cash * order.size_pct) / cost_per_unit if cost_per_unit > 0 else 0.0
+            resolved_at_fill = True
+
+        # Cap the final resolved size, including percentage-sized exits.
         if order.reduce_only:
             pos_qty = portfolio.position.qty if portfolio is not None else 0.0
             qty = min(qty, abs(pos_qty))
@@ -219,12 +234,6 @@ class SimBroker:
                 if order.oco_group is not None:
                     self.cancel_oco(order.oco_group)
                 return None
-
-        if order.size_pct is not None and portfolio is not None:
-            comm_rate = getattr(self._commission, "_rate", 0.0)
-            cost_per_unit = px * (1.0 + comm_rate)
-            qty = (portfolio.cash * order.size_pct) / cost_per_unit if cost_per_unit > 0 else 0.0
-            resolved_at_fill = True
 
         if resolved_at_fill and self._qty_step is not None and self._qty_step > 0:
             qty = math.floor(qty / self._qty_step + 1e-9) * self._qty_step
@@ -245,7 +254,7 @@ class SimBroker:
             return None
 
         fee = self._commission.fee(order.side, px, qty)
-        if not self._allow_leverage and order.side == Side.BUY and portfolio is not None:
+        if not self._allow_leverage and not order.reduce_only and order.side == Side.BUY and portfolio is not None:
             required_cash = px * qty + fee
             if portfolio.cash - required_cash < -1e-7:
                 if events is not None:

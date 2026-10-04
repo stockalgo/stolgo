@@ -226,12 +226,12 @@ class Context:
         return intent
 
     def close(self, *, tag: str | None = None) -> OrderIntent | None:
+        """Queue a reduce-only market exit; repeated closes cannot reverse."""
         if self.position.flat:
             return None
         qty = abs(self.position.qty)
-        if self.position.qty > 0:
-            return self.sell(qty=qty, tag=tag)
-        return self.buy(qty=qty, tag=tag)
+        side = Side.SELL if self.position.qty > 0 else Side.BUY
+        return self.order(side=side, qty=qty, tag=tag, reduce_only=True)
 
     def on_fill(self, fe: Any) -> None:
         for b in list(self._active_brackets):

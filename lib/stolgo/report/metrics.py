@@ -30,7 +30,11 @@ def compute_metrics(
 
     n_bars = len(equity)
     n_years = n_bars / TRADING_DAYS_PER_YEAR if n_bars else 0.0
-    cagr = ((end / start) ** (1.0 / n_years) - 1.0) if start > 0 and n_years > 0 else 0.0
+    cagr = (
+        (end / start) ** (1.0 / n_years) - 1.0
+        if start > 0 and end > 0 and n_years > 0
+        else float("nan")
+    )
 
     rets = equity.pct_change().dropna()
     vol = float(rets.std() * math.sqrt(TRADING_DAYS_PER_YEAR)) if len(rets) > 1 else 0.0

@@ -68,7 +68,11 @@ def _process_intents(
             oco_group=accepted.oco_group,
             risk_per_unit=accepted.risk_per_unit,
             reduce_only=accepted.reduce_only,
-            active_from=active_from,
+            active_from=max(
+                accepted.active_from,
+                i if config.fill_on == "signal_close" and accepted.order_type == OrderType.MARKET
+                else active_from,
+            ),
             size_risk_pct=accepted.size_risk_pct,
             risk_stop=accepted.risk_stop,
             client_order_id=accepted.client_order_id,
@@ -175,6 +179,9 @@ class Engine:
         running_peak: float | None = None
         for i, bar in SimClock(bars):
             ctx.i = i
+            # on_start has the full vector view. Runtime fills happen before
+            # on_bar, so callbacks may only inspect previously completed bars.
+            data_view._limit = i - 1
             broker.match(bar, bar_index=i, portfolio=portfolio, events=all_events, on_fill=_apply_fill)
             _clean_unresolved_brackets(ctx, broker)
 
@@ -273,6 +280,7 @@ class Engine:
                 close_qty,
                 OrderType.MARKET,
                 tag="END_OF_DATA",
+                reduce_only=True,
                 active_from=len(bars),
             )
             fe = broker._make_fill(
