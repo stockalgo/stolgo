@@ -184,3 +184,17 @@ def test_result_records_full_replay_config():
 def test_non_positive_hard_loss_still_rejected():
     with pytest.raises(ValueError):
         ReplayConfig('test',hard_loss=0.0)
+
+
+def test_static_does_not_require_spot_after_entry():
+    s = session()
+    s.spot[2:] = np.nan
+    result = replay_session(s, config())
+    assert result["status"] == "COMPLETE"
+    assert result["reason"] == "TIME_EXIT"
+
+
+def test_touch_strategy_still_requires_spot_after_entry():
+    s = session()
+    s.spot[2] = np.nan
+    assert replay_session(s, config(scenario="EXIT_TOUCH"))["reason"] == "MISSING_SPOT"

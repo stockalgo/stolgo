@@ -1,5 +1,6 @@
 import json
 import math
+import warnings
 from pathlib import Path
 
 import pandas as pd
@@ -39,3 +40,11 @@ def test_robustness_benchmark():
 def test_robustness_empty_and_single():
     assert robustness([])["p_net_positive"] is None
     assert robustness([100.0])["p_net_positive"] is None
+
+
+def test_all_winners_have_unknown_profit_factor_without_warning():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        result = robustness([100.0, 200.0])
+    assert result["pf_p05"] is None
+    assert result["pf_p95"] is None

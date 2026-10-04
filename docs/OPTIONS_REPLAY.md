@@ -53,9 +53,9 @@ for strategies that depend on intrabar order ordering.
 
 ## Known limitations
 
-- **STATIC sessions exit on a missing spot minute.** Spot is only needed at
-  entry for the `STATIC` scenario, but the replay still closes the position
-  (`MISSING_SPOT`) if any single spot minute is missing while it is held.
+- `STATIC` requires spot only for entry strike selection. Scenarios with
+  spot-based adjustments still exit (`MISSING_SPOT`) on missing held-session
+  spot observations.
 - **One quiet minute can force an exit.** A held option with no usable trade
   price for a minute cannot be marked, so the replay queues an exit
   (`MISSING_HELD_QUOTE`). Entries and replacement legs also require

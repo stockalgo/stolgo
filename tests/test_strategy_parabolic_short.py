@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+from dataclasses import replace
 
 from stolgo.strategy.builtins.parabolic_short import (
     ParabolicShortConfig,
@@ -170,3 +171,29 @@ def test_config_validates_lookback_days_range() -> None:
         ParabolicShortConfig(lookback_days=1)
     with pytest.raises(ValueError):
         ParabolicShortConfig(lookback_days=20)
+
+
+def test_next_open_entry_can_stop_on_its_entry_day(config) -> None:
+    cfg = replace(config, entry_mode="next_open")
+    df = _build_df([_RED_DAY, (28.0, 34.0, 27.0, 29.0, 4000)])
+    setup = detect_setups(df, cfg)[0]
+    trade = simulate_trade(df, setup, cfg)
+    assert trade.exit_reason == "stop"
+    assert trade.exit_date == setup.entry_date
+    assert trade.exit_price == 33.5
+
+
+def test_target_gap_wins_over_later_stop(config) -> None:
+    df = _build_df([_RED_DAY, (5.0, 35.0, 4.0, 28.0, 4000)])
+    setup = detect_setups(df, config)[0]
+    trade = simulate_trade(df, setup, config)
+    assert trade.exit_reason == "target"
+    assert trade.exit_price == 5.0
+
+
+def test_target_gap_gets_open_price_improvement(config) -> None:
+    df = _build_df([_RED_DAY, (5.0, 8.0, 4.0, 7.0, 4000)])
+    setup = detect_setups(df, config)[0]
+    trade = simulate_trade(df, setup, config)
+    assert trade.exit_reason == "target"
+    assert trade.exit_price == 5.0

@@ -25,6 +25,7 @@ def robustness(net_pnl, *, resamples: int = 4000, seed: int = 7) -> dict:
     wins = np.where(s > 0, s, 0).sum(1)
     losses = -np.where(s < 0, s, 0).sum(1)
     pf = np.where(losses > 0, wins / np.where(losses > 0, losses, 1), np.nan)
+    finite_pf = pf[np.isfinite(pf)]
     srt = np.sort(p)[::-1]
     streak = longest = 0
     for v in p:
@@ -35,8 +36,8 @@ def robustness(net_pnl, *, resamples: int = 4000, seed: int = 7) -> dict:
         "seed": seed,
         "resamples": resamples,
         "p_net_positive": float((net > 0).mean()),
-        "pf_p05": float(np.nanpercentile(pf, 5)),
-        "pf_p95": float(np.nanpercentile(pf, 95)),
+        "pf_p05": float(np.percentile(finite_pf, 5)) if len(finite_pf) else None,
+        "pf_p95": float(np.percentile(finite_pf, 95)) if len(finite_pf) else None,
         "net_p05": float(np.percentile(net, 5)),
         "net_p95": float(np.percentile(net, 95)),
         "net_without_top5": float(p.sum() - srt[:5].sum()) if k > 5 else None,

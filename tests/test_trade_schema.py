@@ -162,3 +162,35 @@ def test_trade_schema_drops_duplicate_tag():
     assert "source_tag" in trades_v2.columns
     assert trades_v2.iloc[0]["source_tag"] == "my_tag"
     assert "tag" not in trades_v2.columns
+
+
+@pytest.mark.parametrize("source", [None, "my_strategy", "-C24150 -P23950"])
+def test_unknown_exit_is_not_inferred_from_shared_clock_time(source):
+    trades, _ = _normalized_exit(source)
+    assert trades["exit_reason"].tolist() == ["UNKNOWN", "UNKNOWN"]
+
+
+@pytest.mark.parametrize("source,expected", [
+    ("LEG_THRESHOLD_CLOSE_ALL", ("STOP", "")),
+    ("FIRST_TOUCH_EXIT", ("TOUCH_EXIT", "")),
+    ("DEFENSE_CASH", ("ADJUSTMENT", "")),
+    ("DEFENSE_A", ("ADJUSTMENT", "")),
+    ("MISSING_CANDIDATE", ("DATA_EXIT", "MISSING_CANDIDATE")),
+    ("SIGNAL", ("SIGNAL", "")),
+    ("long_stop", ("STOP", "")),
+    ("short_target", ("TARGET", "")),
+])
+def test_engine_and_replay_exit_reasons_survive_normalization(source, expected):
+    trades, _ = _normalized_exit(source)
+    assert trades["exit_reason"].tolist() == [expected[0], expected[0]]
+    assert trades["data_flag"].tolist() == [expected[1], expected[1]]
+
+
+def _normalized_exit(source):
+    df = pd.DataFrame({
+        "entry_ts": pd.to_datetime(["2024-01-01 04:00Z", "2024-01-02 04:00Z"]),
+        "exit_ts": pd.to_datetime(["2024-01-01 09:15Z", "2024-01-02 09:15Z"]),
+        "qty": [1.0, 1.0], "gross_pnl": [1.0, 1.0], "net_pnl": [1.0, 1.0],
+        "exit_reason": [source, source],
+    })
+    return normalize_trades(df, SourceMapping("none", "short", "SYN", None, "SHORT"))

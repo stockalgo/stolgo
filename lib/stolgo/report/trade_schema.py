@@ -54,43 +54,41 @@ class SourceMapping:
 
 def _map_exit_reason_and_flag(
     source_val: Any,
-    exit_times_same: bool,
 ) -> tuple[str, str]:
     if source_val is None or pd.isna(source_val):
-        return ("TIME_EXIT" if exit_times_same else "UNKNOWN", "")
+        return ("UNKNOWN", "")
 
     s = str(source_val).strip()
     s_upper = s.upper()
     s_lower = s.lower()
 
+    if s_upper in {"SIGNAL", "DATA_EXIT", "ADJUSTMENT", "TOUCH_EXIT"}:
+        return (s_upper, "")
+
     if s_upper == "END_OF_DATA":
         return ("END_OF_DATA", "")
     if s_upper == "OPEN":
         return ("OPEN", "")
-    if s_upper == "MISSING_SPOT":
-        return ("DATA_EXIT", "MISSING_SPOT")
-    if s_upper == "MISSING_HELD_QUOTE":
-        return ("DATA_EXIT", "MISSING_HELD_QUOTE")
-    if s_upper == "MISSING_DATA":
-        return ("DATA_EXIT", "MISSING_DATA")
-    if s_upper == "PORTFOLIO_TARGET" or s_lower.startswith("target"):
+    if s_upper.startswith("MISSING_"):
+        return ("DATA_EXIT", s_upper)
+    if s_upper == "PORTFOLIO_TARGET" or s_lower.startswith("target") or s_lower.endswith("_target"):
         return ("TARGET", "")
     if (
         s_upper == "DAILY_STOP"
+        or s_upper == "LEG_THRESHOLD_CLOSE_ALL"
         or s_lower.startswith("hard_loss")
         or s_lower.startswith("stop")
+        or s_lower.endswith("_stop")
     ):
         return ("STOP", "")
     if s_upper == "TIME_EXIT" or s_lower.startswith("max_hold") or s_lower.startswith("eod"):
         return ("TIME_EXIT", "")
-    if s_upper == "EXIT_TOUCH" or s_lower.startswith("touch"):
+    if s_upper in {"EXIT_TOUCH", "FIRST_TOUCH_EXIT"} or s_lower.startswith("touch"):
         return ("TOUCH_EXIT", "")
-    if s_upper == "CONVERSION" or s_lower.startswith("adjust"):
+    if s_upper == "CONVERSION" or s_upper.startswith("DEFENSE_") or s_lower.startswith("adjust"):
         return ("ADJUSTMENT", "")
 
-    # Legacy tags that are a run/strategy name or leg strings
-    if exit_times_same:
-        return ("TIME_EXIT", "")
+    # Shared exit clock times do not prove the strategy's exit reason.
     return ("UNKNOWN", "")
 
 
@@ -223,19 +221,12 @@ def normalize_trades(
         res["source_tag"] = ""
 
     # Exit reason and data flag
-    # Check if every exit is at the same clock time +/- 1 min
-    exit_times = res["exit_ts"].dropna()
-    exit_times_same = False
-    if len(exit_times) > 0:
-        minutes_of_day = exit_times.dt.hour * 60 + exit_times.dt.minute
-        exit_times_same = (minutes_of_day.max() - minutes_of_day.min()) <= 1
-
     if "exit_reason" in res.columns:
         source_val = res["exit_reason"].where(res["exit_reason"].notna(), res["source_tag"])
     else:
         source_val = res["source_tag"]
 
-    mapped = source_val.map(lambda v: _map_exit_reason_and_flag(v, exit_times_same))
+    mapped = source_val.map(_map_exit_reason_and_flag)
     res["exit_reason"] = mapped.str[0]
     res["data_flag"] = mapped.str[1]
 

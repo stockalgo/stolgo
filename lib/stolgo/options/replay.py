@@ -303,14 +303,16 @@ def replay_session(s: OptionSession, cfg: ReplayConfig, *, keep_path: bool = Fal
                 break
             pending = dict(due=i+cfg.latency_bars, signal=i, new=cols, stage="entry", reason="ENTRY")
             continue
+        # STATIC has no spot-based adjustment or touch rule after entry.
+        # Its price/time/risk exits above still run when spot is unavailable.
+        if cfg.scenario == "STATIC":
+            continue
         if not open_legs or not np.isfinite(s.spot[i]):
             if open_legs and state != "EXIT_PENDING":
                 queue_exit(i, "MISSING_SPOT")
             continue
         spot = float(s.spot[i])
         if state == "INITIAL" and (spot >= initial_ce or spot <= initial_pe):
-            if cfg.scenario == "STATIC":
-                continue
             if cfg.scenario == "EXIT_TOUCH" or cfg.max_adjustments == 0 or minute+1 >= cfg.no_new_risk_minute:
                 queue_exit(i, "FIRST_TOUCH_EXIT")
                 continue

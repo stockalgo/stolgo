@@ -26,8 +26,8 @@ per-setup trade simulation, closer to a vectorized trade-log backtest). Use
 (see ``examples/parabolic_short_backtest.py``).
 
 No look-ahead: at bar ``t`` only ``df.iloc[:t+1]`` is ever read when deciding
-whether ``t`` qualifies; trade simulation only reads bars strictly after the
-entry bar.
+whether ``t`` qualifies. Exits are evaluated after the entry: from the next
+bar for close entries, including the entry bar for next-open entries.
 """
 
 from __future__ import annotations
@@ -326,7 +326,7 @@ def simulate_trade(
     # For an entry executed at the close of the entry bar, stop/target can
     # only be evaluated from the *next* bar onward (no same-bar re-use of a
     # bar's own high/low that already priced the entry fill).
-    start_pos = entry_pos + 1
+    start_pos = entry_pos if config.entry_mode == "next_open" else entry_pos + 1
     last_pos = min(entry_pos + config.max_holding_days, n - 1)
 
     exit_date = idx[min(entry_pos, n - 1)]
@@ -343,6 +343,12 @@ def simulate_trade(
 
         hit_stop = day_high >= setup.stop_price
         hit_target = day_low <= setup.target_price
+        # The open precedes any intrabar touches, including an adverse move
+        # later in a bar that first gaps through the target.
+        day_open = float(opens[pos])
+        if day_open <= setup.target_price:
+            exit_date, exit_price, exit_reason = idx[pos], day_open, "target"
+            break
         if hit_stop and hit_target:
             # Conservative convention: assume the adverse (stop) level was
             # touched first when both are within the same day's range.
@@ -356,7 +362,7 @@ def simulate_trade(
             exit_reason = "stop"
             break
         if hit_target:
-            exit_date, exit_price, exit_reason = idx[pos], setup.target_price, "target"
+            exit_date, exit_price, exit_reason = idx[pos], min(day_open, setup.target_price), "target"
             break
     else:
         if last_pos >= start_pos:
