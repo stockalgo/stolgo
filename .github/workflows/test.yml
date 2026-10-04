@@ -17,8 +17,8 @@ jobs:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -31,6 +31,8 @@ jobs:
         # Network-dependent tests carry the `integration` marker and are
         # deselected by addopts in pyproject.toml.
         run: pytest -q
+      - name: Lint
+        run: ruff check lib --select F
 
   frontend:
     name: Frontend
@@ -39,8 +41,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -54,3 +56,5 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Audit dependencies
+        run: npm audit --audit-level=moderate

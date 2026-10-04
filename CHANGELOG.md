@@ -13,6 +13,21 @@ the engine now follows are written down in
 
 ### Fixed
 
+- Explicit `active_from` indices defer all order types, including market
+  orders in `signal_close` mode. Runtime fill callbacks no longer inherit
+  future candles from `on_start`.
+- Percentage-sized reduce-only exits and repeated `ctx.close` calls cannot
+  reverse a position. Reduce-only short covers can liquidate losses that
+  exceed available cash; CAGR is undefined for non-positive final equity.
+- Parabolic next-open entries evaluate exits on their entry day, and target
+  gaps receive the open price before any later intrabar stop touch.
+- STATIC options replay uses spot only for entry strike selection.
+- Trade export preserves engine and replay exit reasons. Shared exit clock
+  times no longer turn unknown reasons into inferred time exits.
+- Library collections refresh edited manifests and remove deleted exports.
+  Frontend file serving rejects paths and symlinks outside the build directory.
+- Switching runs invalidates older API requests and clears the previous run's
+  data while the selected run loads.
 - A market exit and a bracket stop that fill in the same bar no longer open an
   unintended reverse position.
 - Fills are applied one at a time within a bar. The buy-side cash check and
@@ -31,6 +46,8 @@ the engine now follows are written down in
 
 ### Changed
 
+- Frontend tests use patched Vitest 4.1.11. CI checks Python 3.10--3.12,
+  frontend tests and builds, lint, and the dependency audit with pinned actions.
 - Orders still pending or resting at the end of the data are cancelled, and
   brackets whose entry never filled are dropped before `Strategy.on_end` runs,
   so `on_end` no longer sees a bracket that never got a bar to fill on.
