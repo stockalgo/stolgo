@@ -44,17 +44,11 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
     runs_dir.mkdir(parents=True, exist_ok=True)
     index_path = runs_index.default_index_path(runs_dir)
     runs_index.reconcile(runs_dir, index_path=index_path)
-    last_runs_dir_mtime_ns = runs_dir.stat().st_mtime_ns
 
     def _ensure_reconciled() -> None:
-        nonlocal last_runs_dir_mtime_ns
-        try:
-            cur_mtime_ns = runs_dir.stat().st_mtime_ns
-            if cur_mtime_ns != last_runs_dir_mtime_ns:
-                runs_index.reconcile(runs_dir, index_path=index_path)
-                last_runs_dir_mtime_ns = runs_dir.stat().st_mtime_ns
-        except OSError:
-            pass
+        # Editing a manifest does not change its parent directory's mtime.
+        # Reconcile stats each manifest, parsing only those whose mtime changed.
+        runs_index.reconcile(runs_dir, index_path=index_path)
 
     app = FastAPI(title="stolgo UI", version="2")
 
@@ -336,6 +330,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
 
     @app.get("/api/sweeps")
     def list_sweeps() -> dict[str, Any]:
+        _ensure_reconciled()
         items = []
         warnings = 0
         for manifest in runs_index.list_runs(index_path=index_path, kind="sweep"):
@@ -373,7 +368,7 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
             "rows": rows,
         }
 
-    dist = Path(frontend_dist) if frontend_dist is not None else _default_frontend_dist()
+    dist = (Path(frontend_dist) if frontend_dist is not None else _default_frontend_dist()).resolve()
     if dist.exists():
         assets_dir = dist / "assets"
         if assets_dir.is_dir():
@@ -383,11 +378,13 @@ def create_app(runs_dir: Path | str = Path("runs"), frontend_dist: Path | str | 
         def spa_fallback(full_path: str):
             if full_path.startswith("api/") or full_path == "api":
                 raise HTTPException(status_code=404, detail="Not found")
-            file_path = dist / full_path
+            file_path = (dist / full_path).resolve()
+            if not file_path.is_relative_to(dist):
+                raise HTTPException(status_code=404, detail="Not found")
             if file_path.is_file():
                 return FileResponse(file_path)
             index_html = dist / "index.html"
-            if index_html.is_file():
+            if index_html.resolve().is_relative_to(dist) and index_html.is_file():
                 return FileResponse(index_html)
             raise HTTPException(status_code=404, detail="Frontend index.html not found")
 

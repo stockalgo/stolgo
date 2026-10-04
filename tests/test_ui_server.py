@@ -261,6 +261,35 @@ def test_spa_fallback_serves_index_html(tmp_path: Path) -> None:
     assert api_res.status_code == 404
 
 
+def test_spa_fallback_rejects_paths_outside_dist(tmp_path: Path) -> None:
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("Stolgo")
+    outside = tmp_path / "private.txt"
+    outside.write_text("private content")
+    (dist / "linked.txt").symlink_to(outside)
+    client = TestClient(create_app(tmp_path / "runs", frontend_dist=dist))
+    for path in ["/..%2fprivate.txt", "/linked.txt"]:
+        response = client.get(path)
+        assert response.status_code == 404
+        assert "private content" not in response.text
+
+
+def test_library_refreshes_edited_and_deleted_runs(tmp_path: Path) -> None:
+    import shutil
+
+    runs_dir = tmp_path / "runs"
+    export_all(_result(), runs_dir / "run-1", strategy_name="InitialName")
+    client = TestClient(create_app(runs_dir))
+    manifest_path = runs_dir / "run-1" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["name"] = "UpdatedName"
+    manifest_path.write_text(json.dumps(manifest))
+    assert client.get("/api/runs").json()["items"][0]["name"] == "UpdatedName"
+    shutil.rmtree(runs_dir / "run-1")
+    assert client.get("/api/runs").json()["items"] == []
+
+
 def test_dynamic_reconcile_on_runs_dir_change(tmp_path: Path) -> None:
     runs_dir = tmp_path / "runs"
     export_all(_result(), runs_dir / "run-1", strategy_name="TrendBreakout")
@@ -305,5 +334,4 @@ def test_dynamic_reconcile_on_manifest_mtime_change(tmp_path: Path) -> None:
 
     detail2 = client.get("/api/runs/run-1").json()
     assert detail2["name"] == "UpdatedName"
-
 

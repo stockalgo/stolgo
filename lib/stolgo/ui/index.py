@@ -143,10 +143,12 @@ def reconcile(runs_dir: Path | str = Path("runs"), index_path: Path | str | None
         finally:
             con.close()
 
-    for manifest_path in runs_dir.glob("*/manifest.json"):
+    manifest_paths = [
+        path for path in runs_dir.glob("*/manifest.json")
+        if not path.parent.name.endswith(".tmp") and not path.parent.name.startswith("_")
+    ]
+    for manifest_path in manifest_paths:
         parent_name = manifest_path.parent.name
-        if parent_name.endswith(".tmp") or parent_name.startswith("_"):
-            continue
         try:
             cur_mtime = manifest_path.stat().st_mtime
             if existing_mtimes.get(parent_name) == cur_mtime:
@@ -156,6 +158,18 @@ def reconcile(runs_dir: Path | str = Path("runs"), index_path: Path | str | None
         except (OSError, json.JSONDecodeError, KeyError, ValueError) as exc:
             logger.warning("Failed to reconcile run %s: %s", parent_name, exc)
             continue
+
+    # The index is a cache: removed exports must disappear from collections too.
+    live_paths = {str(path.parent.resolve()) for path in manifest_paths}
+    with _DB_LOCK:
+        con = duckdb.connect(str(index_path))
+        try:
+            rows = con.execute("SELECT run_id, path FROM runs_index").fetchall()
+            removed = [(run_id,) for run_id, path in rows if str(Path(path).resolve()) not in live_paths]
+            if removed:
+                con.executemany("DELETE FROM runs_index WHERE run_id = ?", removed)
+        finally:
+            con.close()
 
 
 def list_runs(
