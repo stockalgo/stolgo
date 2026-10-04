@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .npm-cache/
+.vite/
 *.png
 design-qa.md

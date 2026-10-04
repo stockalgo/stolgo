@@ -1,6 +1,6 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { TradeInspector } from "../components/inspector/TradeInspector.jsx";
 
@@ -49,13 +49,15 @@ vi.mock("../api/endpoints.js", () => ({
   ),
 }));
 
-function renderWithRouter(ui) {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+async function renderWithRouter(ui) {
+  let view;
+  await act(async () => { view = render(<BrowserRouter>{ui}</BrowserRouter>); });
+  return view;
 }
 
 describe("TradeInspector", () => {
-  it("renders header with current trade id and Open in Trades link", () => {
-    renderWithRouter(
+  it("renders header with current trade id and Open in Trades link", async () => {
+    await renderWithRouter(
       <TradeInspector
         runId="test-run"
         trades={sampleTrades}
@@ -69,8 +71,8 @@ describe("TradeInspector", () => {
     expect(link.getAttribute("href")).toBe("/runs/test-run/trades?trade=157");
   });
 
-  it("renders 6 buttons for the last 6 trades", () => {
-    renderWithRouter(
+  it("renders 6 buttons for the last 6 trades", async () => {
+    await renderWithRouter(
       <TradeInspector
         runId="test-run"
         trades={sampleTrades}
@@ -87,9 +89,9 @@ describe("TradeInspector", () => {
     expect(screen.getByText("08 Sep")).toBeInTheDocument();
   });
 
-  it("calls onSelectTrade when a trade button is clicked", () => {
+  it("calls onSelectTrade when a trade button is clicked", async () => {
     const handleSelect = vi.fn();
-    renderWithRouter(
+    await renderWithRouter(
       <TradeInspector
         runId="test-run"
         trades={sampleTrades}
@@ -102,9 +104,9 @@ describe("TradeInspector", () => {
     expect(handleSelect).toHaveBeenCalledWith(156);
   });
 
-  it("steps previous trade on '[' and next trade on ']'", () => {
+  it("steps previous trade on '[' and next trade on ']'", async () => {
     const handleSelect = vi.fn();
-    renderWithRouter(
+    await renderWithRouter(
       <TradeInspector
         runId="test-run"
         trades={sampleTrades}
@@ -122,9 +124,9 @@ describe("TradeInspector", () => {
     expect(handleSelect).toHaveBeenCalledWith(156);
   });
 
-  it("does not navigate via '[' or ']' when input is focused", () => {
+  it("does not navigate via '[' or ']' when input is focused", async () => {
     const handleSelect = vi.fn();
-    renderWithRouter(
+    await renderWithRouter(
       <div>
         <input data-testid="search-input" />
         <TradeInspector

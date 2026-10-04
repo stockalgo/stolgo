@@ -1,8 +1,13 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { act, render, screen, fireEvent } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
 import { ChartPanel } from "../components/chart/ChartPanel.jsx";
+
+vi.mock("../api/endpoints.js", () => ({
+  getCandles: vi.fn().mockResolvedValue({ rows: [] }),
+  getDaily: vi.fn().mockResolvedValue({ rows: [] }),
+}));
 
 const sampleRunOhlcv = {
   id: "nifty-benchmark",
@@ -16,13 +21,15 @@ const sampleRunNoOhlcv = {
   has: { ohlcv: false },
 };
 
-function renderWithRouter(ui) {
-  return render(<BrowserRouter>{ui}</BrowserRouter>);
+async function renderWithRouter(ui) {
+  let view;
+  await act(async () => { view = render(<BrowserRouter>{ui}</BrowserRouter>); });
+  return view;
 }
 
 describe("ChartPanel", () => {
-  it("renders with Price view by default when has.ohlcv is true", () => {
-    renderWithRouter(<ChartPanel run={sampleRunOhlcv} />);
+  it("renders with Price view by default when has.ohlcv is true", async () => {
+    await renderWithRouter(<ChartPanel run={sampleRunOhlcv} />);
 
     const priceBtn = screen.getByText("Price · candles");
     const equityBtn = screen.getByText("Equity · drawdown");
@@ -33,8 +40,8 @@ describe("ChartPanel", () => {
     expect(priceBtn).not.toBeDisabled();
   });
 
-  it("defaults to Equity view and disables Price view when has.ohlcv is false", () => {
-    renderWithRouter(<ChartPanel run={sampleRunNoOhlcv} />);
+  it("defaults to Equity view and disables Price view when has.ohlcv is false", async () => {
+    await renderWithRouter(<ChartPanel run={sampleRunNoOhlcv} />);
 
     const priceBtn = screen.getByText("Price · candles");
     const equityBtn = screen.getByText("Equity · drawdown");
@@ -43,11 +50,11 @@ describe("ChartPanel", () => {
     expect(equityBtn).toHaveAttribute("aria-selected", "true");
   });
 
-  it("switches to Equity view when Equity segment button is clicked", () => {
-    renderWithRouter(<ChartPanel run={sampleRunOhlcv} />);
+  it("switches to Equity view when Equity segment button is clicked", async () => {
+    await renderWithRouter(<ChartPanel run={sampleRunOhlcv} />);
 
     const equityBtn = screen.getByText("Equity · drawdown");
-    fireEvent.click(equityBtn);
+    await act(async () => { fireEvent.click(equityBtn); });
 
     expect(screen.getByText("Top 5 trades")).toBeInTheDocument();
     expect(screen.getByText("1Y")).toBeInTheDocument();

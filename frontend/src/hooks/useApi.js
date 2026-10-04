@@ -28,8 +28,12 @@ export function useApi(key, fetcher, deps = []) {
 
   const load = useCallback(
     (force = false) => {
+      // Invalidate older requests even when this load takes the cache path.
+      const currentReqId = ++reqIdRef.current;
       const fn = fetcherRef.current;
       if (typeof fn !== "function") {
+        setData(undefined);
+        setError(null);
         setLoading(false);
         return;
       }
@@ -45,11 +49,11 @@ export function useApi(key, fetcher, deps = []) {
         apiCache.delete(key);
       }
 
-      const currentReqId = ++reqIdRef.current;
+      setData(undefined);
       setLoading(true);
       setError(null);
 
-      Promise.resolve(fn())
+      Promise.resolve().then(() => fn())
         .then((res) => {
           if (currentReqId === reqIdRef.current) {
             if (key) {
@@ -72,6 +76,7 @@ export function useApi(key, fetcher, deps = []) {
 
   useEffect(() => {
     load();
+    return () => { ++reqIdRef.current; };
   }, [load]);
 
   const reload = useCallback(() => {
